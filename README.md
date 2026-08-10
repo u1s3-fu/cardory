@@ -150,19 +150,19 @@ Cardory 将安全放在首位，所有用户数据在写入磁盘前均经过加
 
 | 依赖 | 版本 | 用途 |
 |------|------|------|
-| `path_provider` | `^2.1.5` | 获取应用文档目录 |
-| `cryptography` | `^2.9.0` | AES-256-GCM 加密与 PBKDF2 密钥派生 |
-| `http` | `^1.6.0` | HTTP 客户端（同步服务） |
-| `flutter_secure_storage` | `^10.3.1` | 平台原生安全存储 |
-| `file_picker` | `^10.3.0` | 文件选择（备份导入/导出） |
-| `path` | `^1.9.1` | 路径操作 |
+| `path_provider` | `2.1.5` | 获取应用文档目录 |
+| `cryptography` | `2.9.0` | AES-256-GCM 加密与 PBKDF2 密钥派生 |
+| `http` | `1.6.0` | HTTP 客户端（同步服务） |
+| `flutter_secure_storage` | `10.3.1` | 平台原生安全存储 |
+| `file_picker` | `10.3.0` | 文件选择（备份导入/导出） |
+| `path` | `1.9.1` | 路径操作 |
 
 ### 开发依赖
 
 | 依赖 | 版本 | 用途 |
 |------|------|------|
-| `flutter_lints` | `^5.0.0` | 代码规范检查 |
-| `flutter_launcher_icons` | `^0.14.4` | 自动生成多平台应用图标 |
+| `flutter_lints` | `5.0.0` | 代码规范检查 |
+| `flutter_launcher_icons` | `0.14.4` | 自动生成多平台应用图标 |
 
 ---
 
