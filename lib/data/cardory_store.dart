@@ -1,7 +1,11 @@
-import 'dart:async';
-/// 本地持久化存储实现。
+/// 数据持久化层：仓库接口与文件系统实现。
 ///
-/// 基于文件系统的 [CardoryRepository] 实现，负责保存和读取加密容器、应用设置等数据。
+/// 定义 [CardoryRepository] 抽象接口（14 个方法：setup / unlock / save /
+/// export / import / lock 等）、[VaultSessionRepository] 会话接口、
+/// [CardoryLoadResult] 加载结果、[CardoryAccessState] 访问状态枚举，
+/// 以及基于 `path_provider` 的文件系统实现 [CardoryStore]。
+
+import 'dart:async';
 
 import 'dart:convert';
 import 'dart:io';
