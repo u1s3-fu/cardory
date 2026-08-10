@@ -1,3 +1,8 @@
+/// 同步凭证的安全存储与抽象接口。
+///
+/// 基于 [FlutterSecureStorage] 实现 [SyncCredentialStore]（WebDAV 密码、
+/// 自建服务 API Token）和 [VaultCredentialStore]（保险箱主密码）的安全存取。
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class WebDavCredentials {
