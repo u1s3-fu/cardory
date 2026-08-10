@@ -40,7 +40,7 @@ Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 F
 ## 开发环境
 
 - Flutter stable
-- Dart SDK `^3.9.2`
+- Dart SDK `3.9.2`
 
 ```bash
 flutter pub get

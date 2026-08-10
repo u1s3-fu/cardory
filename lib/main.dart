@@ -6,6 +6,7 @@ import 'application/vault_auto_lock_controller.dart';
 import 'data/cardory_store.dart';
 import 'domain/cardory_container.dart';
 import 'domain/cardory_models.dart';
+import 'presentation/cardory_logo.dart';
 import 'presentation/cardory_theme.dart';
 import 'presentation/model_colors.dart';
 import 'sync/sync_coordinator.dart';
@@ -504,7 +505,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Icon(Icons.lock_rounded, size: 48),
+                          const CardoryLogo(size: 56),
                           const SizedBox(height: 16),
                           Text(
                             setup ? '保护你的 Cardory 数据' : '解锁 Cardory',
@@ -1793,7 +1794,6 @@ class AppTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
     return Container(
       height: compact ? 56 : 60,
       padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24),
@@ -1814,34 +1814,8 @@ class AppTopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primary, CardoryColors.pink],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: primary.withValues(alpha: 0.26),
-                  blurRadius: 12,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: const Text(
-              '板',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
+          const CardoryLogo(size: 32),
+
           const SizedBox(width: 12),
           if (!compact) ...[
             Text(

@@ -47,6 +47,22 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+
+      # 从 GitHub Secrets 还原正式签名 keystore 与 key.properties，
+      # 保证 CI 与本地构建使用同一把签名。
+      # 未配置 Secret 时自动跳过，回退 debug 签名，不影响开发构建。
+      - name: Set up Android release signing
+        if: matrix.platform == 'android' && secrets.ANDROID_KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 --decode > android/app/cardory-release.jks
+          printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=cardory-release.jks\n" \
+            "$KEYSTORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
+
       - run: flutter build ${{ matrix.build }} --release ${{ matrix.flags }}
 
       # Android 直接上传 APK
