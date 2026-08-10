@@ -1796,7 +1796,11 @@ class AppTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: compact ? 56 : 60,
-      padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24),
+      // 左侧 padding 与侧边栏菜单图标左边缘对齐（侧边栏 padding 10 + 图标居中偏移 10）
+      padding: EdgeInsets.only(
+        left: compact ? 16 : 20,
+        right: compact ? 16 : 24,
+      ),
       decoration: BoxDecoration(
         color: CardoryColors.white.withValues(alpha: 0.72),
         border: Border(
