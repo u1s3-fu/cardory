@@ -1,3 +1,9 @@
+# Cardory 项目元数据与依赖声明。
+# - 应用名: cardory（板记 Cardory）
+# - 描述: 以项目看板和待办为核心的跨平台进度管理应用
+# - 发布: pub.dev 已禁止（publish_to: none）
+# - 资源: 品牌图标位于 assets/branding/
+
 name: cardory
 description: "板记 Cardory 是一个以项目看板和待办为核心的跨平台进度管理应用。"
 # The following line prevents the package from being accidentally published to
