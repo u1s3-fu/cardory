@@ -1,3 +1,7 @@
+/// 卡片模型类型到颜色的映射定义。
+///
+/// 为不同类型的卡片（文字笔记、图片、链接等）提供预设的颜色标识，生成渐变背景色方案。
+
 import 'package:flutter/material.dart';
 
 import '../domain/cardory_models.dart';
