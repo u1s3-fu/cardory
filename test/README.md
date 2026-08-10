@@ -1,16 +1,15 @@
 # 测试
 
-本目录存放 Cardory 的单元测试、Widget 测试和同步集成测试。
+本目录存放 Cardory 的 Flutter 测试文件。
 
-测试结构：
+当前测试内容：
 
-- `*_test.dart`：对应 `lib/` 下各模块的单元/集成测试。
-- `widget_test.dart`：Flutter Widget 测试示例。
+- `widget_test.dart`：3 个 Widget 测试 — 主页渲染（"板记 Cardory" 文字存在）、
+  数据加载失败时显示错误 UI 与重试按钮、快速添加子待办的多行输入正确性。
+- `*_test.dart`：对应 `lib/` 各模块的单元/Widget 测试（扩展目录）。
 
 运行方式：
 
 ```bash
 flutter test
 ```
-
-测试覆盖范围包括：领域模型序列化、加密容器编解码、本地存储、目录/WebDAV/自建服务同步以及自动锁定控制器。
