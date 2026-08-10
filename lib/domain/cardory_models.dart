@@ -1,7 +1,8 @@
-/// 领域模型定义。
+/// 业务领域模型定义。
 ///
-/// 包含卡片知识库的核心数据结构：[CardoryItem]（卡组/卡片/笔记）、[AppSettings]
-///（应用配置），以及加解密、版本管理相关的辅助模型。
+/// 顶层容器 [CardoryData] 聚合项目列表 [ProjectData]、待办 [TodoData]、
+/// 资产 [AssetData] 和同步配置。同时包含 [AppSettings] 配置模型、
+/// [SyncProviderType] 枚举以及 [newId] / [formatDate] 等工具函数。
 
 enum SyncProviderType { none, directory, webdav, selfHosted }
 
