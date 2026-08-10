@@ -1,8 +1,8 @@
 /// Cardory 应用入口。
 ///
-/// 基于 Flutter 的加密卡片知识库应用，支持本地存储和多种云端同步方式
-///（目录同步、WebDAV、自建服务）。启动时注入 [CardoryStore] 和
-/// [SecureSyncCredentialStore] 作为默认实现。
+/// 以项目看板和待办为核心的跨平台进度管理工具。数据通过 AES-256-GCM
+/// 加密容器持久化，支持目录同步 / WebDAV / 自建服务三种云端同步。
+/// 启动时注入 [CardoryStore] 和 [SecureSyncCredentialStore] 作为实现。
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
