@@ -1,3 +1,6 @@
+# Cardory 项目的 Git 忽略规则。
+# 忽略编译产物、IDE/编辑器配置、平台自动生成的临时文件以及本地敏感配置。
+
 # Miscellaneous
 *.class
 *.log
