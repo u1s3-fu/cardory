@@ -1,0 +1,32 @@
+# Cardory 持续集成工作流。
+# 每次 push 到 main / 或 PR 时自动运行静态分析与测试。
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Static analysis (flutter analyze)
+        run: flutter analyze --fatal-infos
+
+      - name: Run tests
+        run: flutter test
