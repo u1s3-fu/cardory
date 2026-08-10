@@ -1,5 +1,7 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
+# Cardory 项目 Dart 静态分析规则。
+#
+# 本文件配置 analyzer，用于静态检查 Dart 代码中的错误、警告和 lint 规则。
+# 默认基于 flutter_lints 推荐规则集，可在下方自定义启用或禁用特定规则。
 #
 # The issues identified by the analyzer are surfaced in the UI of Dart-enabled
 # IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
