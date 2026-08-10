@@ -1,0 +1,61 @@
+name: Quality & Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # 代码质量检查（每次 push / PR 都运行）
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze --fatal-infos
+      - run: flutter test
+
+  # 三平台自动构建（Android APK / Windows / macOS），并上传产物
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            os: ubuntu-latest
+            build: apk
+            flags: ''
+            name: android-apk
+            path: build/app/outputs/flutter-apk/app-release.apk
+          - platform: windows
+            os: windows-latest
+            build: windows
+            flags: ''
+            name: windows-build
+            path: build/windows/x64/runner/Release
+          - platform: macos
+            os: macos-latest
+            build: macos
+            flags: ''
+            name: macos-build
+            path: build/macos/Build/Products/Release
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build ${{ matrix.build }} --release ${{ matrix.flags }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
