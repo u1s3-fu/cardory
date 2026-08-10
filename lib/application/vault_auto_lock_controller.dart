@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-/// Monitors app visibility and notifies its owner when an unlocked vault should
-/// no longer remain available in memory.
+/// 监听应用前后台切换，在已解锁的保险箱不应继续驻留内存时通知持有者自动锁定。
 class VaultAutoLockController with WidgetsBindingObserver {
   VaultAutoLockController({required this.onLock});
 
