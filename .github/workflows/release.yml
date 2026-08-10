@@ -21,24 +21,21 @@ jobs:
           - platform: android
             os: ubuntu-latest
             build: apk
-            flags: ''
-            name: android-apk
+            arch: arm64
+            flags: '--target-platform android-arm64'
             path: build/app/outputs/flutter-apk/app-release.apk
-            artifact: app-release.apk
           - platform: windows
             os: windows-latest
             build: windows
+            arch: x64
             flags: ''
-            name: windows-build
             path: build/windows/x64/runner/Release
-            artifact: cardory-windows-x64.zip
           - platform: macos
             os: macos-latest
             build: macos
-            flags: ''
-            name: macos-build
+            arch: arm64
+            flags: '--target-platform darwin-arm64'
             path: build/macos/Build/Products/Release/Cardory.app
-            artifact: cardory-macos.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +44,19 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+
+      # 在各平台 job 内独立计算版本号，用于最终产物重命名。
+      # 逻辑与 release job 保持一致。
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "version=${{ github.event.inputs.tag_name }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "version=${{ github.ref_name }}"
+          else
+            echo "version=v${{ github.run_number }}"
+          fi >> "$GITHUB_OUTPUT"
 
       # 从 GitHub Secrets 还原正式签名 keystore 与 key.properties，
       # 保证 CI 与本地构建使用同一把签名。
@@ -69,28 +79,33 @@ jobs:
 
       - run: flutter build ${{ matrix.build }} --release ${{ matrix.flags }}
 
-      # Android 直接上传 APK
+      # Android：将 APK 重命名为 应用名-平台-架构-版本号 规范格式
+      - name: Rename Android APK
+        if: matrix.platform == 'android'
+        run: mv "${{ matrix.path }}" "cardory-android-arm64-${{ steps.version.outputs.version }}.apk"
       - name: Upload Android APK
         if: matrix.platform == 'android'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.path }}
+          name: cardory-android-arm64-${{ steps.version.outputs.version }}.apk
+          path: cardory-android-arm64-${{ steps.version.outputs.version }}.apk
           if-no-files-found: error
 
-      # Windows / macOS 先压缩成 zip 再上传
-      - name: Package Windows build
+      # Windows / macOS 重命名并压缩成 应用名-平台-架构-版本号.zip 后上传
+      - name: Package & Rename Windows build
         if: matrix.platform == 'windows'
-        run: Compress-Archive -Path "${{ matrix.path }}/*" -DestinationPath "${{ matrix.artifact }}"
-      - name: Package macOS build
+        run: Compress-Archive -Path "${{ matrix.path }}/*" -DestinationPath "cardory-windows-x64-${{ steps.version.outputs.version }}.zip"
+      - name: Rename & Upload macOS build
         if: matrix.platform == 'macos'
-        run: ditto -c -k --keepParent "${{ matrix.path }}" "${{ matrix.artifact }}"
+        run: |
+          mv "${{ matrix.path }}" "cardory-macos-arm64-${{ steps.version.outputs.version }}.app"
+          ditto -c -k --keepParent "cardory-macos-arm64-${{ steps.version.outputs.version }}.app" "cardory-macos-arm64-${{ steps.version.outputs.version }}.zip"
       - name: Upload packaged archive
         if: matrix.platform != 'android'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
+          name: cardory-${{ matrix.platform }}-${{ matrix.arch }}-${{ steps.version.outputs.version }}.zip
+          path: cardory-${{ matrix.platform }}-${{ matrix.arch }}-${{ steps.version.outputs.version }}.zip
           if-no-files-found: error
 
   # 汇总所有产物并创建 GitHub Release
