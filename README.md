@@ -59,7 +59,6 @@ flutter build windows --release
 flutter build appbundle --release
 ```
 
-> Android 正式发布前必须配置独立 application ID 和 release keystore，不能使用调试签名。
 
 ## 目录结构
 
