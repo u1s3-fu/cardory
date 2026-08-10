@@ -1,6 +1,8 @@
-/// 卡片模型类型到颜色的映射定义。
+/// 项目阶段与优先级的颜色映射，以及主题色提取扩展。
 ///
-/// 为不同类型的卡片（文字笔记、图片、链接等）提供预设的颜色标识，生成渐变背景色方案。
+/// [ProjectStage.color] 为 planned/doing/review/done 四个阶段提供视觉标识，
+/// [ProjectPriority.color] 为 P0-P3 四级优先级着色，
+/// [AppSettings.themeColor] 从整型值恢复 [Color] 供主题系统使用。
 
 import 'package:flutter/material.dart';
 
