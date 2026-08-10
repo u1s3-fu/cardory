@@ -10,6 +10,9 @@
 .svn/
 migrate_working_dir/
 
+# Flutter project metadata (auto-generated)
+.metadata
+
 # IntelliJ related
 *.iml
 *.ipr
