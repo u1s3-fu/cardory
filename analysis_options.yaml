@@ -3,9 +3,8 @@
 # 本文件配置 analyzer，用于静态检查 Dart 代码中的错误、警告和 lint 规则。
 # 默认基于 flutter_lints 推荐规则集，可在下方自定义启用或禁用特定规则。
 #
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
+# 分析器发现的问题会显示在支持 Dart 的 IDE 中（如 VS Code / Android Studio）。
+# 也可通过命令行运行 `flutter analyze` 手动触发静态检查。
 
 # The following line activates a set of recommended lints for Flutter apps,
 # packages, and plugins designed to encourage good coding practices.
