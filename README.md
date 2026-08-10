@@ -142,7 +142,7 @@ Cardory 将安全放在首位，所有用户数据在写入磁盘前均经过加
 | 组件 | 版本 |
 |------|------|
 | **Flutter SDK** | stable（最新稳定版） |
-| **Dart SDK** | `^3.9.2` |
+| **Dart SDK** | `3.9.2` |
 | **Kotlin** | JVM 11（Android） |
 | **Swift** | 5.x（iOS/macOS） |
 
