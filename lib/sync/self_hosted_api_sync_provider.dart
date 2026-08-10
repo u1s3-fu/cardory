@@ -6,9 +6,10 @@ import 'sync_credentials.dart';
 import 'sync_models.dart';
 import 'sync_provider.dart';
 
-/// Synchronizes the encrypted container through a self-hosted HTTP endpoint.
-/// The configured endpoint is the full container resource URL and supports
-/// `GET`, `HEAD`, `PUT`, and `DELETE` with bearer-token authentication.
+/// 基于自建 HTTP 服务的同步提供者。
+///
+/// 通过配置的容器资源 URL 与自建服务通信，支持 `GET` / `HEAD` / `PUT` / `DELETE`
+/// 操作，鉴权方式为 Bearer Token。
 class SelfHostedApiSyncProvider implements SyncProvider {
   SelfHostedApiSyncProvider({
     required Uri endpoint,
