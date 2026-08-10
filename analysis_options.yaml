@@ -6,8 +6,6 @@
 # 分析器发现的问题会显示在支持 Dart 的 IDE 中（如 VS Code / Android Studio）。
 # 也可通过命令行运行 `flutter analyze` 手动触发静态检查。
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
 linter:
