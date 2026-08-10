@@ -1,3 +1,8 @@
+/// 领域模型定义。
+///
+/// 包含卡片知识库的核心数据结构：[CardoryItem]（卡组/卡片/笔记）、[AppSettings]
+///（应用配置），以及加解密、版本管理相关的辅助模型。
+
 enum SyncProviderType { none, directory, webdav, selfHosted }
 
 class AppSettings {

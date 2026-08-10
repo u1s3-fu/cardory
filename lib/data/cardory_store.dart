@@ -1,4 +1,8 @@
 import 'dart:async';
+/// 本地持久化存储实现。
+///
+/// 基于文件系统的 [CardoryRepository] 实现，负责保存和读取加密容器、应用设置等数据。
+
 import 'dart:convert';
 import 'dart:io';
 

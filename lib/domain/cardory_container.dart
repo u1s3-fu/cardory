@@ -1,3 +1,8 @@
+/// 加密卡片容器的核心业务逻辑。
+///
+/// 管理卡片数据的加解密、导入导出和版本控制。通过 [CardoryRepository] 抽象
+/// 持久化层，不直接依赖具体的存储实现。
+
 enum CardoryKeySlotType { password, recovery }
 
 class CardoryKeySlotInfo {

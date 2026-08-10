@@ -1,3 +1,8 @@
+/// 加密容器的序列化与反序列化编解码器。
+///
+/// 负责将 [CardoryContainer] 编码为加密的字节流写入磁盘，以及从磁盘读取密文
+/// 并解码恢复为容器对象。
+
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
