@@ -1,8 +1,8 @@
-/// Cardory 应用入口。
-///
-/// 以项目看板和待办为核心的跨平台进度管理工具。数据通过 AES-256-GCM
-/// 加密容器持久化，支持目录同步 / WebDAV / 自建服务三种云端同步。
-/// 启动时注入 [CardoryStore] 和 [SecureSyncCredentialStore] 作为实现。
+// Cardory 应用入口。
+//
+// 以项目看板和待办为核心的跨平台进度管理工具。数据通过 AES-256-GCM
+// 加密容器持久化，支持目录同步 / WebDAV / 自建服务三种云端同步。
+// 启动时注入 [CardoryStore] 和 [SecureSyncCredentialStore] 作为实现。
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -15,9 +15,15 @@ import 'domain/cardory_models.dart';
 import 'presentation/cardory_logo.dart';
 import 'presentation/cardory_theme.dart';
 import 'presentation/model_colors.dart';
+import 'presentation/app_section.dart';
+import 'presentation/widgets/badges.dart';
+import 'presentation/widgets/section_nav.dart';
+import 'presentation/widgets/section_title.dart';
+import 'presentation/widgets/sidebar.dart';
 import 'sync/sync_coordinator.dart';
 import 'sync/sync_credentials.dart';
 import 'sync/sync_models.dart';
+import 'sync/sync_provider_registry.dart';
 
 void main() {
   runApp(
@@ -34,13 +40,19 @@ class CardoryApp extends StatefulWidget {
     required this.repository,
     SyncCredentialStore? credentialStore,
     VaultCredentialStore? vaultCredentialStore,
+    SyncProviderFactory? providerFactory,
   }) : credentialStore = credentialStore ?? SecureSyncCredentialStore(),
        vaultCredentialStore =
-           vaultCredentialStore ?? SecureVaultCredentialStore();
+           vaultCredentialStore ?? SecureVaultCredentialStore(),
+       _providerFactory = providerFactory ??
+           defaultSyncProviderFactory(
+             credentialStore ?? SecureSyncCredentialStore(),
+           );
 
   final CardoryRepository repository;
   final SyncCredentialStore credentialStore;
   final VaultCredentialStore vaultCredentialStore;
+  final SyncProviderFactory _providerFactory;
 
   @override
   State<CardoryApp> createState() => _CardoryAppState();
@@ -63,8 +75,13 @@ class _CardoryAppState extends State<CardoryApp> {
       ),
       home: CardoryVaultGate(
         repository: widget.repository,
+        vaultSession:
+            widget.repository is VaultSessionRepository
+                ? (widget.repository as VaultSessionRepository)
+                : null,
         credentialStore: widget.credentialStore,
         vaultCredentialStore: widget.vaultCredentialStore,
+        providerFactory: widget._providerFactory,
         autoLockEnabled: _settings.autoLockEnabled,
         onSettingsChanged: _applySettings,
       ),
@@ -76,15 +93,19 @@ class CardoryVaultGate extends StatefulWidget {
   const CardoryVaultGate({
     super.key,
     required this.repository,
+    this.vaultSession,
     required this.credentialStore,
     required this.vaultCredentialStore,
+    required this.providerFactory,
     required this.autoLockEnabled,
     required this.onSettingsChanged,
   });
 
   final CardoryRepository repository;
+  final VaultSessionRepository? vaultSession;
   final SyncCredentialStore credentialStore;
   final VaultCredentialStore vaultCredentialStore;
+  final SyncProviderFactory providerFactory;
   final bool autoLockEnabled;
   final ValueChanged<AppSettings> onSettingsChanged;
 
@@ -120,10 +141,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
   }
 
   Future<void> _lockVault() async {
-    final repository = widget.repository;
-    if (repository is VaultSessionRepository) {
-      await (repository as VaultSessionRepository).lock();
-    }
+    await widget.vaultSession?.lock();
     await widget.vaultCredentialStore.deletePassword();
     if (!mounted) return;
     setState(() {
@@ -402,6 +420,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
         repository: widget.repository,
         credentialStore: widget.credentialStore,
         vaultCredentialStore: widget.vaultCredentialStore,
+        providerFactory: widget.providerFactory,
         onSettingsChanged: widget.onSettingsChanged,
         initialResult: _result,
       );
@@ -639,14 +658,13 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
   }
 }
 
-enum AppSection { home, todos, projects, settings }
-
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     required this.repository,
     required this.credentialStore,
     required this.vaultCredentialStore,
+    required this.providerFactory,
     required this.onSettingsChanged,
     this.initialResult,
   });
@@ -654,6 +672,7 @@ class HomePage extends StatefulWidget {
   final CardoryRepository repository;
   final SyncCredentialStore credentialStore;
   final VaultCredentialStore vaultCredentialStore;
+  final SyncProviderFactory providerFactory;
   final ValueChanged<AppSettings> onSettingsChanged;
   final CardoryLoadResult? initialResult;
 
@@ -664,7 +683,6 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   CardoryData _data = const CardoryData.empty();
   AppSettings _settings = const AppSettings();
-  String _dataPath = '';
   String? _error;
   bool _loading = true;
   bool _sidebarExpanded = true;
@@ -678,6 +696,7 @@ class _HomePageState extends State<HomePage> {
     _syncCoordinator = SyncCoordinator(
       repository: widget.repository,
       credentialStore: widget.credentialStore,
+      providerFactory: widget.providerFactory,
     )..addListener(_onSyncStatusChanged);
     final initial = widget.initialResult;
     if (initial == null) {
@@ -685,7 +704,6 @@ class _HomePageState extends State<HomePage> {
     } else {
       _data = initial.data;
       _settings = initial.settings;
-      _dataPath = initial.path;
       _loading = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onSettingsChanged(initial.settings);
@@ -723,7 +741,6 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _data = result.data;
         _settings = result.settings;
-        _dataPath = result.path;
         _loading = false;
       });
       widget.onSettingsChanged(result.settings);
@@ -763,7 +780,6 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (_) => SettingsDialog(
         settings: _settings,
-        currentDataPath: _dataPath,
         credentialStore: widget.credentialStore,
         category: category,
       ),
@@ -866,7 +882,6 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _data = result.data;
         _settings = result.settings;
-        _dataPath = result.path;
       });
       widget.onSettingsChanged(result.settings);
       ScaffoldMessenger.of(
@@ -880,6 +895,7 @@ class _HomePageState extends State<HomePage> {
       }
     }
   }
+
 
   Future<void> _addProject() async {
     final project = await showDialog<ProjectData>(
@@ -1229,7 +1245,6 @@ class _HomePageState extends State<HomePage> {
         );
       case AppSection.settings:
         return SettingsPanel(
-          dataPath: _dataPath,
           settings: _settings,
           syncStatus: _syncStatus,
           onSync: _sync,
@@ -1861,240 +1876,6 @@ class AppTopBar extends StatelessWidget {
       ),
     );
   }
-}
-
-class SectionNavigation extends StatelessWidget {
-  const SectionNavigation({
-    super.key,
-    required this.selected,
-    required this.compact,
-    required this.onSelected,
-  });
-
-  final AppSection selected;
-  final bool compact;
-  final ValueChanged<AppSection> onSelected;
-
-  static const _items = [
-    (AppSection.home, Icons.space_dashboard_outlined, '看板'),
-    (AppSection.todos, Icons.checklist_rounded, '待办'),
-    (AppSection.projects, Icons.folder_outlined, '项目'),
-    (AppSection.settings, Icons.settings_outlined, '设置'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    if (compact) {
-      return NavigationBar(
-        height: 64,
-        selectedIndex: _items.indexWhere((item) => item.$1 == selected),
-        onDestinationSelected: (index) {
-          final section = _items[index].$1;
-          if (section != selected) onSelected(section);
-        },
-        destinations: [
-          for (final item in _items)
-            NavigationDestination(icon: Icon(item.$2), label: item.$3),
-        ],
-      );
-    }
-    return Container(
-      height: 48,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        color: CardoryColors.white.withValues(alpha: 0.72),
-        border: Border(
-          bottom: BorderSide(
-            color: CardoryColors.primary.withValues(alpha: 0.06),
-          ),
-        ),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final item in _items)
-              Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: TextButton.icon(
-                  onPressed: selected == item.$1
-                      ? null
-                      : () => onSelected(item.$1),
-                  icon: Icon(item.$2, size: 17),
-                  label: Text(item.$3),
-                  style: TextButton.styleFrom(
-                    foregroundColor: selected == item.$1
-                        ? Theme.of(context).colorScheme.primary
-                        : CardoryColors.gray500,
-                    backgroundColor: selected == item.$1
-                        ? CardoryColors.primarySoft
-                        : Colors.transparent,
-                    textStyle: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: selected == item.$1
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class Sidebar extends StatelessWidget {
-  const Sidebar({
-    super.key,
-    required this.selected,
-    required this.expanded,
-    required this.onSelected,
-    this.onToggleExpanded,
-  });
-
-  final AppSection selected;
-  final bool expanded;
-  final ValueChanged<AppSection> onSelected;
-  final VoidCallback? onToggleExpanded;
-
-  static const _items = [
-    (AppSection.home, Icons.space_dashboard_outlined, '看板'),
-    (AppSection.todos, Icons.check_circle_outline_rounded, '待办'),
-    (AppSection.projects, Icons.folder_outlined, '项目'),
-    (AppSection.settings, Icons.settings_outlined, '设置'),
-  ];
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: expanded ? 208 : 64,
-    height: double.infinity,
-    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-    decoration: BoxDecoration(
-      color: CardoryColors.white.withValues(alpha: 0.72),
-      border: Border(
-        right: BorderSide(color: CardoryColors.primary.withValues(alpha: 0.06)),
-      ),
-    ),
-    child: Column(
-      children: [
-        Row(
-          children: [
-            IconButton(
-              style: IconButton.styleFrom(
-                minimumSize: const Size(40, 44),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              constraints: const BoxConstraints.tightFor(width: 40, height: 44),
-              padding: EdgeInsets.zero,
-              onPressed: onToggleExpanded,
-              icon: Icon(
-                expanded ? Icons.menu_open_rounded : Icons.menu_rounded,
-                size: 20,
-              ),
-              color: CardoryColors.gray500,
-            ),
-            if (expanded)
-              Expanded(
-                child: Text(
-                  'Cardory',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                    foreground: Paint()
-                      ..shader = LinearGradient(
-                        colors: [
-                          Theme.of(context).colorScheme.primary,
-                          CardoryColors.pink,
-                        ],
-                      ).createShader(const Rect.fromLTWH(0, 0, 120, 20)),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        for (final item in _items) ...[
-          _SidebarItem(
-            icon: item.$2,
-            label: item.$3,
-            selected: selected == item.$1,
-            expanded: expanded,
-            onTap: selected == item.$1 ? null : () => onSelected(item.$1),
-          ),
-          const SizedBox(height: 2),
-        ],
-      ],
-    ),
-  );
-}
-
-class _SidebarItem extends StatelessWidget {
-  const _SidebarItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.expanded,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final bool expanded;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: expanded ? '' : label,
-    child: InkWell(
-      borderRadius: BorderRadius.circular(12),
-      hoverColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      splashColor: Colors.transparent,
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? CardoryColors.primarySoft : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: selected
-                  ? Theme.of(context).colorScheme.primary
-                  : CardoryColors.gray400,
-            ),
-            if (expanded) ...[
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    color: selected
-                        ? CardoryColors.gray900
-                        : CardoryColors.gray600,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    ),
-  );
 }
 
 class HeroHeader extends StatelessWidget {
@@ -4807,13 +4588,12 @@ class _BackupRecoveryDialogState extends State<BackupRecoveryDialog> {
   );
 }
 
-enum SettingsCategoryType { workspace, security, localData, sync }
+enum SettingsCategoryType { workspace, security, sync }
 
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({
     super.key,
     required this.settings,
-    required this.currentDataPath,
     required this.credentialStore,
     this.category,
     this.embedded = false,
@@ -4821,7 +4601,6 @@ class SettingsDialog extends StatefulWidget {
   }) : assert(!embedded || onSave != null);
 
   final AppSettings settings;
-  final String currentDataPath;
   final SyncCredentialStore credentialStore;
   final SettingsCategoryType? category;
   final bool embedded;
@@ -4841,11 +4620,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
   late final List<String> _serverTypes = [...widget.settings.serverTypes];
   final TextEditingController _newServerType = TextEditingController();
   late SyncProviderType _syncProvider = widget.settings.syncProvider;
-  late final TextEditingController _dataPath = TextEditingController(
-    text: widget.settings.dataPath.isEmpty
-        ? widget.currentDataPath
-        : widget.settings.dataPath,
-  );
   late final TextEditingController _syncDirectory = TextEditingController(
     text: widget.settings.syncDirectoryPath,
   );
@@ -4968,7 +4742,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
 
   @override
   void dispose() {
-    _dataPath.dispose();
     _newServerType.dispose();
     _syncDirectory.dispose();
     _webDavUrl.dispose();
@@ -5209,19 +4982,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
           onChanged: (value) => setState(() => _autoLockEnabled = value),
         ),
       ],
-      if (_shows(SettingsCategoryType.localData)) ...[
-        const SizedBox(height: 22),
-        const Text('本地数据', style: TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _dataPath,
-          decoration: const InputDecoration(
-            labelText: '本地数据文件存储路径',
-            hintText:
-                r'C:\Users\你的用户名\Documents\Cardory\cardory-current-data.cardory',
-          ),
-        ),
-      ],
       if (_shows(SettingsCategoryType.sync)) ...[
         const SizedBox(height: 22),
         const Text('同步', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -5324,7 +5084,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
       recordSubTodoCreatedAt: _recordSubTodoCreatedAt,
       autoLockEnabled: _autoLockEnabled,
       serverTypes: _serverTypes,
-      dataPath: _dataPath.text.trim(),
       syncProvider: _syncProvider,
       syncDirectoryPath: _syncDirectory.text.trim(),
       webDavUrl: _webDavUrl.text.trim(),
@@ -5526,7 +5285,6 @@ String _themeColorHex(int value) =>
 class SettingsPanel extends StatelessWidget {
   const SettingsPanel({
     super.key,
-    required this.dataPath,
     required this.settings,
     required this.syncStatus,
     required this.onSync,
@@ -5535,7 +5293,6 @@ class SettingsPanel extends StatelessWidget {
     required this.onRestoreBackup,
   });
 
-  final String dataPath;
   final AppSettings settings;
   final SyncStatus syncStatus;
   final VoidCallback onSync;
@@ -5550,7 +5307,7 @@ class SettingsPanel extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle(title: '设置', subtitle: '分别管理工作台、安全、本地数据与同步'),
+        const SectionTitle(title: '设置', subtitle: '分别管理工作台、安全与同步'),
         const SizedBox(height: 16),
         _SettingsCategory(
           icon: Icons.tune_rounded,
@@ -5567,13 +5324,6 @@ class SettingsPanel extends StatelessWidget {
               ? '切到后台时自动锁定已开启'
               : '切到后台时自动锁定已关闭',
           onPressed: () => onOpenSettings(SettingsCategoryType.security),
-        ),
-        const SizedBox(height: 10),
-        _SettingsCategory(
-          icon: Icons.folder_outlined,
-          title: '本地数据',
-          description: '数据文件：$dataPath',
-          onPressed: () => onOpenSettings(SettingsCategoryType.localData),
         ),
         const SizedBox(height: 10),
         _SettingsCategory(
@@ -5698,127 +5448,6 @@ class _SettingsCategory extends StatelessWidget {
           ],
         ),
       ),
-    ),
-  );
-}
-
-class SectionTitle extends StatelessWidget {
-  const SectionTitle({super.key, required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        title,
-        style: TextStyle(
-          color: CardoryColors.gray900,
-          fontSize: 16,
-          letterSpacing: -0.2,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      const SizedBox(height: 3),
-      Text(
-        subtitle,
-        style: TextStyle(color: CardoryColors.gray500, fontSize: 12.5),
-      ),
-    ],
-  );
-}
-
-class PriorityBadge extends StatelessWidget {
-  const PriorityBadge({super.key, required this.priority});
-
-  final ProjectPriority priority;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-    decoration: BoxDecoration(
-      color: priority.color.withValues(alpha: 0.10),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(
-      priority.label,
-      style: TextStyle(
-        color: priority.color,
-        fontSize: 11,
-        height: 1.3,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-  );
-}
-
-class StageBadge extends StatelessWidget {
-  const StageBadge({super.key, required this.stage});
-
-  final ProjectStage stage;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-    decoration: BoxDecoration(
-      color: stage.color.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(
-      stage.label,
-      style: TextStyle(
-        color: stage.color,
-        fontSize: 11,
-        height: 1.3,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-  );
-}
-
-class CountPill extends StatelessWidget {
-  const CountPill({super.key, required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-    decoration: BoxDecoration(
-      color: CardoryColors.gray100,
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(
-      '$count',
-      style: TextStyle(
-        color: CardoryColors.gray600,
-        fontSize: 11.5,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-  );
-}
-
-class EmptyCard extends StatelessWidget {
-  const EmptyCard({super.key, required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
-    decoration: BoxDecoration(
-      color: CardoryColors.gray50,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: CardoryColors.gray200),
-    ),
-    child: Text(
-      text,
-      textAlign: TextAlign.center,
-      style: TextStyle(color: CardoryColors.gray400, fontSize: 12.5),
     ),
   );
 }
