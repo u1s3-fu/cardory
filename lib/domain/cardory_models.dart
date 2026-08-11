@@ -1,8 +1,8 @@
-/// 业务领域模型定义。
-///
-/// 顶层容器 [CardoryData] 聚合项目列表 [ProjectData]、待办 [TodoData]、
-/// 资产 [AssetData] 和同步配置。同时包含 [AppSettings] 配置模型、
-/// [SyncProviderType] 枚举以及 [newId] / [formatDate] 等工具函数。
+// 业务领域模型定义。
+//
+// 顶层容器 [CardoryData] 聚合项目列表 [ProjectData]、待办 [TodoData]、
+// 资产 [AssetData] 和同步配置。同时包含 [AppSettings] 配置模型、
+// [SyncProviderType] 枚举以及 [newId] / [formatDate] 等工具函数。
 
 enum SyncProviderType { none, directory, webdav, selfHosted }
 
@@ -14,7 +14,6 @@ class AppSettings {
     this.recordSubTodoCreatedAt = false,
     this.autoLockEnabled = true,
     this.serverTypes = const [],
-    this.dataPath = '',
     this.syncProvider = SyncProviderType.none,
     this.syncDirectoryPath = '',
     this.webDavUrl = '',
@@ -31,7 +30,6 @@ class AppSettings {
   final bool recordSubTodoCreatedAt;
   final bool autoLockEnabled;
   final List<String> serverTypes;
-  final String dataPath;
   final SyncProviderType syncProvider;
   final String syncDirectoryPath;
   final String webDavUrl;
@@ -56,7 +54,6 @@ class AppSettings {
         .map((type) => type.trim())
         .where((type) => type.isNotEmpty)
         .toList(),
-    dataPath: json['dataPath'] as String? ?? '',
     syncProvider:
         SyncProviderType.values
             .where((value) => value.name == json['syncProvider'])
@@ -77,7 +74,6 @@ class AppSettings {
     'recordSubTodoCreatedAt': recordSubTodoCreatedAt,
     'autoLockEnabled': autoLockEnabled,
     'serverTypes': serverTypes,
-    'dataPath': dataPath,
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -94,7 +90,6 @@ class AppSettings {
     bool? recordSubTodoCreatedAt,
     bool? autoLockEnabled,
     List<String>? serverTypes,
-    String? dataPath,
     SyncProviderType? syncProvider,
     String? syncDirectoryPath,
     String? webDavUrl,
@@ -113,7 +108,6 @@ class AppSettings {
         recordSubTodoCreatedAt ?? this.recordSubTodoCreatedAt,
     autoLockEnabled: autoLockEnabled ?? this.autoLockEnabled,
     serverTypes: serverTypes ?? this.serverTypes,
-    dataPath: dataPath ?? this.dataPath,
     syncProvider: syncProvider ?? this.syncProvider,
     syncDirectoryPath: syncDirectoryPath ?? this.syncDirectoryPath,
     webDavUrl: webDavUrl ?? this.webDavUrl,
@@ -132,7 +126,6 @@ class AppSettings {
       other.recordSubTodoCreatedAt == recordSubTodoCreatedAt &&
       other.autoLockEnabled == autoLockEnabled &&
       _stringListsEqual(other.serverTypes, serverTypes) &&
-      other.dataPath == dataPath &&
       other.syncProvider == syncProvider &&
       other.syncDirectoryPath == syncDirectoryPath &&
       other.webDavUrl == webDavUrl &&
@@ -149,7 +142,6 @@ class AppSettings {
     recordSubTodoCreatedAt,
     autoLockEnabled,
     Object.hashAll(serverTypes),
-    dataPath,
     syncProvider,
     syncDirectoryPath,
     webDavUrl,
