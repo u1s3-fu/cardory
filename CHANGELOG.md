@@ -2,6 +2,24 @@
 
 Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式。
 
+## [0.0.4] - 2026-08-11
+
+### Changed
+
+- 降低模块耦合性：`CardoryStore` 不再依赖 `AppSettings` 解析文件路径
+- 同步协调器改为注入 `SyncProviderFactory`，Provider 工厂提取到独立注册表
+- 提取 `AppSection` 枚举和 UI 组件（sidebar、section nav、badges）到独立文件，精简 `main.dart`
+- 升级 Android 工具链：AGP 9.2.0、Kotlin 2.3.20、Gradle 9.7、Java 21
+- CI Release 工作流改用自定义 release body 输出多平台产物链接
+
+### Removed
+
+- 移动端移除 `dataPath` 持久化字段，不再使用本地数据路径
+
+### Fixed
+
+- 统一注释风格（`///` → `//`），消除 IDE 误触发文档生成
+
 ## [0.0.3] - 2026-08-11
 
 ### Fixed
@@ -46,6 +64,7 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
   - 三种同步后端（目录 / WebDAV / 自建服务）
   - 多平台支持（Windows / Android / iOS / macOS）
 
+[0.0.4]: https://github.com/u1s3-fu/cardory/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/u1s3-fu/cardory/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/u1s3-fu/cardory/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/u1s3-fu/cardory/releases/tag/v0.0.1
