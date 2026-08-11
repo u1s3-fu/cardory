@@ -1,23 +1,19 @@
-/// 多平台同步协调器。
-///
-/// 统一管理目录同步、WebDAV 和自建服务三种同步后端。负责同步流程编排
-///（检查连接→拉取→推送→冲突检测），通过 SHA-256 哈希和修订版本号判断
-/// 本地与远端的差异。
+// 多平台同步协调器。
+//
+// 统一管理目录同步、WebDAV 和自建服务三种同步后端。负责同步流程编排
+//（检查连接→拉取→推送→冲突检测），通过 SHA-256 哈希和修订版本号判断
+// 本地与远端的差异。
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/cardory_store.dart';
 import '../domain/cardory_models.dart';
-import 'directory_sync_provider.dart';
-import 'self_hosted_api_sync_provider.dart';
 import 'sync_credentials.dart';
 import 'sync_models.dart';
 import 'sync_provider.dart';
-import 'webdav_sync_provider.dart';
 
 typedef SyncProviderFactory =
     Future<SyncProvider> Function(AppSettings settings);
@@ -26,14 +22,14 @@ class SyncCoordinator extends ChangeNotifier {
   SyncCoordinator({
     required this.repository,
     required this.credentialStore,
-    SyncProviderFactory? providerFactory,
-  }) : _providerFactory = providerFactory;
+    required this.providerFactory,
+  });
 
   static const documentKey = 'cardory-current-data.cardory';
 
   final CardoryRepository repository;
   final SyncCredentialStore credentialStore;
-  final SyncProviderFactory? _providerFactory;
+  final SyncProviderFactory providerFactory;
   SyncStatus _status = const SyncStatus();
 
   SyncStatus get status => _status;
@@ -46,8 +42,7 @@ class SyncCoordinator extends ChangeNotifier {
     final providerId = settings.syncProvider.name;
     try {
       _setStatus(SyncStatus(phase: SyncPhase.checking, providerId: providerId));
-      final provider =
-          await (_providerFactory?.call(settings) ?? _createProvider(settings));
+      final provider = await providerFactory(settings);
       await provider.checkConnection();
       final local = await repository.exportContainer();
       final localHash = await _hash(local);
@@ -146,43 +141,6 @@ class SyncCoordinator extends ChangeNotifier {
       ),
     );
     return updated;
-  }
-
-  Future<SyncProvider> _createProvider(AppSettings settings) async {
-    switch (settings.syncProvider) {
-      case SyncProviderType.none:
-        throw const SyncUnavailableException('尚未配置同步');
-      case SyncProviderType.directory:
-        if (settings.syncDirectoryPath.trim().isEmpty) {
-          throw const SyncProviderException('请选择同步目录');
-        }
-        return DirectorySyncProvider(
-          directory: Directory(settings.syncDirectoryPath.trim()),
-        );
-      case SyncProviderType.webdav:
-        final uri = Uri.tryParse(settings.webDavUrl.trim());
-        if (uri == null || !uri.hasScheme) {
-          throw const SyncProviderException('WebDAV 地址无效');
-        }
-        final credentials = await credentialStore.readWebDav();
-        if (credentials == null) {
-          throw const SyncProviderException('WebDAV 密码尚未保存');
-        }
-        return WebDavSyncProvider(
-          baseUrl: uri,
-          username: settings.webDavUsername,
-          password: credentials.password,
-        );
-      case SyncProviderType.selfHosted:
-        final uri = Uri.tryParse(settings.selfHostedUrl.trim());
-        if (uri == null || !uri.hasScheme) {
-          throw const SyncProviderException('自建服务地址无效');
-        }
-        return SelfHostedApiSyncProvider(
-          endpoint: uri,
-          credentialStore: credentialStore,
-        );
-    }
   }
 
   Future<String> _hash(List<int> bytes) async {

@@ -1,7 +1,7 @@
-/// 基于 WebDAV 协议的同步提供者。
-///
-/// 通过 HTTP Basic Auth 连接到 WebDAV 服务器，使用 ETag 和 If-Match 实现
-/// 冲突检测，支持标准 WebDAV 操作（OPTIONS / GET / PUT / DELETE）。
+// 基于 WebDAV 协议的同步提供者。
+//
+// 通过 HTTP Basic Auth 连接到 WebDAV 服务器，使用 ETag 和 If-Match 实现
+// 冲突检测，支持标准 WebDAV 操作（OPTIONS / GET / PUT / DELETE）。
 
 import 'dart:convert';
 import 'dart:io';

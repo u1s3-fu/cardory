@@ -1,7 +1,7 @@
-/// 同步功能的数据模型定义。
-///
-/// 包含同步状态 [SyncStatus]、远端的 [SyncDocument] 与 [SyncWriteResult]、
-/// 以及同步冲突异常 [SyncConflictException] 等同步流程核心结构。
+// 同步功能的数据模型定义。
+//
+// 包含同步状态 [SyncStatus]、远端的 [SyncDocument] 与 [SyncWriteResult]、
+// 以及同步冲突异常 [SyncConflictException] 等同步流程核心结构。
 
 import 'dart:typed_data';
 
