@@ -1,6 +1,8 @@
 import 'package:cardory/main.dart';
 import 'package:cardory/data/cardory_store.dart';
 import 'package:cardory/domain/cardory_models.dart';
+import 'package:cardory/presentation/widgets/sidebar.dart';
+import 'package:cardory/sync/sync_coordinator.dart';
 import 'package:cardory/sync/sync_credentials.dart';
 import 'package:cardory/sync/sync_models.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +10,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  // ignore: no_leading_underscores_for_local_identifiers, prefer_function_declarations_over_variables
+  SyncProviderFactory _noopFactory = (AppSettings _) async {
+    throw const SyncUnavailableException('测试未配置同步');
+  };
+
   testWidgets('Cardory home renders loaded data', (WidgetTester tester) async {
     await tester.pumpWidget(CardoryApp(repository: _MemoryRepository()));
     await tester.pumpAndSettle();
@@ -203,7 +210,6 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SettingsPanel(
-            dataPath: '/vault/cardory-data.cardory',
             settings: const AppSettings(
               syncProvider: SyncProviderType.directory,
               syncDirectoryPath: '/sync',
@@ -223,7 +229,6 @@ void main() {
 
     expect(find.text('工作台偏好'), findsOneWidget);
     expect(find.text('安全'), findsOneWidget);
-    expect(find.text('本地数据'), findsOneWidget);
     expect(find.text('同步'), findsOneWidget);
     expect(find.text('配置同步'), findsNothing);
     expect(find.text('同步方式：同步目录'), findsOneWidget);
@@ -298,7 +303,6 @@ void main() {
       MaterialApp(
         home: SettingsDialog(
           settings: const AppSettings(),
-          currentDataPath: '/vault/cardory-data.cardory',
           credentialStore: _CredentialStore(null),
           category: SettingsCategoryType.security,
         ),
@@ -424,6 +428,7 @@ void main() {
           repository: repository,
           credentialStore: _CredentialStore(null),
           vaultCredentialStore: _MemoryVaultCredentialStore(),
+          providerFactory: _noopFactory,
           autoLockEnabled: true,
           onSettingsChanged: (_) {},
         ),
@@ -459,6 +464,7 @@ void main() {
           repository: _SetupRepository('recovery-key'),
           credentialStore: _CredentialStore(null),
           vaultCredentialStore: _MemoryVaultCredentialStore(),
+          providerFactory: _noopFactory,
           autoLockEnabled: true,
           onSettingsChanged: (_) {},
         ),
@@ -487,6 +493,7 @@ void main() {
           repository: repository,
           credentialStore: _CredentialStore(null),
           vaultCredentialStore: vault,
+          providerFactory: _noopFactory,
           autoLockEnabled: true,
           onSettingsChanged: (_) {},
         ),
@@ -536,7 +543,6 @@ void main() {
                     syncRevision: 'v1',
                     syncLocalHash: 'hash',
                   ),
-                  currentDataPath: '/vault/cardory-data.cardory',
                   credentialStore: _CredentialStore('secret'),
                 ),
               );
@@ -596,7 +602,6 @@ void main() {
             syncProvider: SyncProviderType.selfHosted,
             selfHostedUrl: 'https://sync.example.com',
           ),
-          currentDataPath: '/vault/cardory-data.cardory',
           credentialStore: _CredentialStore(null),
         ),
       ),

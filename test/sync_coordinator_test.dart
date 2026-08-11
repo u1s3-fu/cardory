@@ -235,6 +235,7 @@ class _Repository implements CardoryRepository {
     String recoveryKey,
     String newPassword,
   ) => load();
+
 }
 
 class _Provider implements SyncProvider {
