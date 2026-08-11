@@ -146,6 +146,8 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: Release ${{ steps.tag.outputs.tag }}
-          generate_release_notes: true
+          generate_release_notes: false
+          body: |
+            Android (arm64) · Windows (x64) · macOS (arm64)
           files: artifacts/*
           fail_on_unmatched_files: true
