@@ -1,9 +1,9 @@
-/// 数据持久化层：仓库接口与文件系统实现。
-///
-/// 定义 [CardoryRepository] 抽象接口（14 个方法：setup / unlock / save /
-/// export / import / lock 等）、[VaultSessionRepository] 会话接口、
-/// [CardoryLoadResult] 加载结果、[CardoryAccessState] 访问状态枚举，
-/// 以及基于 `path_provider` 的文件系统实现 [CardoryStore]。
+// 数据持久化层：仓库接口与文件系统实现。
+//
+// 定义 [CardoryRepository] 抽象接口（14 个方法：setup / unlock / save /
+// export / import / lock 等）、[VaultSessionRepository] 会话接口、
+// [CardoryLoadResult] 加载结果、[CardoryAccessState] 访问状态枚举，
+// 以及基于 `path_provider` 的文件系统实现 [CardoryStore]。
 
 import 'dart:async';
 
@@ -80,7 +80,6 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
   final DirectoryProvider _directoryProvider;
   final CardoryContainerCodec _codec;
   File? _file;
-  AppSettings? _fileSettings;
   List<int>? _container;
   String? _password;
   String? _recoveryKey;
@@ -89,7 +88,7 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
   @override
   Future<CardoryAccessState> accessState() async {
     if (_container != null) return CardoryAccessState.unlocked;
-    final file = await _dataFile(await _loadSettings());
+    final file = await _dataFile();
     return await file.exists()
         ? CardoryAccessState.locked
         : CardoryAccessState.setupRequired;
@@ -107,7 +106,7 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
   Future<CardoryLoadResult> setup(String password) async {
     try {
       final settings = await _loadSettings();
-      final file = await _dataFile(settings);
+      final file = await _dataFile();
       if (await file.exists()) {
         throw const CardoryStorageException('加密数据文件已存在，请直接解锁。');
       }
@@ -152,7 +151,7 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
   ) => _enqueueWrite(() async {
     try {
       final settings = await _loadSettings();
-      final file = await _dataFile(settings);
+      final file = await _dataFile();
       if (!await file.exists()) {
         throw const CardoryStorageException('加密数据文件不存在，请从备份恢复。');
       }
@@ -188,7 +187,7 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
         newPassword: newPassword,
       );
       final data = await _codec.openDataWithPassword(recovered, newPassword);
-      final file = await _dataFile(settings);
+      final file = await _dataFile();
       await _atomicWriteBytes(file, recovered);
       _container = recovered;
       _password = newPassword;
@@ -207,7 +206,7 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
   }) async {
     try {
       final settings = await _loadSettings();
-      final file = await _dataFile(settings);
+      final file = await _dataFile();
       if (!await file.exists()) {
         throw const CardoryStorageException('加密数据文件不存在。');
       }
@@ -254,7 +253,7 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
   Future<void> save(CardoryData data, AppSettings settings) =>
       _enqueueWrite(() async {
         try {
-          final file = await _dataFile(settings);
+          final file = await _dataFile();
           final container = _container;
           if (container == null) {
             throw const CardoryStorageException('数据保险库尚未解锁。');
@@ -285,7 +284,6 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
             AppSettings.fromJson(jsonDecode(content) as Map<String, dynamic>),
       );
       _file = null;
-      _fileSettings = null;
     } catch (error) {
       throw CardoryStorageException('设置保存失败，原设置已保留。', error);
     }
@@ -308,7 +306,7 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
           final data = _password != null
               ? await _codec.openDataWithPassword(bytes, _password!)
               : await _codec.openDataWithRecoveryKey(bytes, _recoveryKey!);
-          await _atomicWriteBytes(await _dataFile(settings), bytes);
+          await _atomicWriteBytes(await _dataFile(), bytes);
           _container = List<int>.from(bytes);
           return data;
         } catch (error) {
@@ -330,7 +328,7 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
             newPassword: newPassword,
           );
           await _atomicWriteCredentialRotation(
-            await _dataFile(await _loadSettings()),
+            await _dataFile(),
             bytes,
           );
           _container = bytes;
@@ -473,23 +471,17 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
     );
   }
 
-  Future<File> _dataFile(AppSettings settings) async {
-    if (_file != null && _fileSettings == settings) return _file!;
-    final path = settings.dataPath.trim();
-    if (path.isNotEmpty) {
-      _file = File(path);
-    } else {
-      final directory = await _directoryProvider();
-      final appDirectory = Directory(
-        '${directory.path}${Platform.pathSeparator}Cardory',
-      );
-      await appDirectory.create(recursive: true);
-      _file = File(
-        '${appDirectory.path}${Platform.pathSeparator}cardory-current-data.cardory',
-      );
-    }
+  Future<File> _dataFile() async {
+    if (_file != null) return _file!;
+    final directory = await _directoryProvider();
+    final appDirectory = Directory(
+      '${directory.path}${Platform.pathSeparator}Cardory',
+    );
+    await appDirectory.create(recursive: true);
+    _file = File(
+      '${appDirectory.path}${Platform.pathSeparator}cardory-current-data.cardory',
+    );
     await _file!.parent.create(recursive: true);
-    _fileSettings = settings;
     return _file!;
   }
 }
