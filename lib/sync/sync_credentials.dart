@@ -1,4 +1,4 @@
-// Secure-storage adapters for synchronization and vault credentials.
+// 同步与保险库凭据的安全存储适配器。
 
 import 'dart:convert';
 
@@ -35,8 +35,8 @@ class SecureSyncCredentialStore implements SyncCredentialStore {
           return SyncCredentials.fromJson(Map<String, dynamic>.from(decoded));
         }
       } on FormatException {
-        // Treat malformed secure storage as an empty aggregate. The next
-        // successful settings save replaces it with valid JSON.
+        // 将格式异常的安全存储视为空聚合对象。
+        // 下一次设置保存成功时会以合法 JSON 覆盖。
       }
       return const SyncCredentials();
     }

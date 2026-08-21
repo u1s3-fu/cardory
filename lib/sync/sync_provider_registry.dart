@@ -24,8 +24,8 @@ SyncProviderFactory defaultSyncProviderFactory(
       createSyncProvider(settings, await credentialStore.read());
 }
 
-/// Builds a provider from in-memory settings and credentials without persisting
-/// either value. Used by the settings connection test and the normal factory.
+/// 根据内存中的设置与凭据构造同步提供者，不持久化任何值。
+/// 用于设置页的连接测试与常规工厂。
 SyncProvider createSyncProvider(
   AppSettings settings,
   SyncCredentials credentials,
@@ -88,8 +88,8 @@ SyncProvider createSyncProvider(
   }
 }
 
-/// Verifies that a provider can authenticate and access its remote endpoint.
-/// It intentionally avoids reading or writing Cardory documents.
+/// 验证同步提供者能否认证并访问其远端端点。
+/// 该验证刻意避免读取或写入 Cardory 文档。
 Future<void> testSyncConnection(
   AppSettings settings,
   SyncCredentials credentials,

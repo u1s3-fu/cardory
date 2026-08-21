@@ -10,7 +10,7 @@ class WebDavConnectionException implements Exception {
   String toString() => cause == null ? message : '$message: $cause';
 }
 
-/// Verifies that an endpoint is a reachable WebDAV collection.
+/// 验证端点是否为可访问的 WebDAV 集合。
 Future<void> verifyWebDavConnection({
   required http.Client client,
   required Uri baseUrl,

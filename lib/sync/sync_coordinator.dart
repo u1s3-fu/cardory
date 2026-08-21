@@ -427,8 +427,7 @@ class SyncCoordinator implements WorkspaceSyncService {
       try {
         await provider?.dispose();
       } catch (_) {
-        // A completed sync must not become a failure because a client close
-        // races with the platform transport shutdown.
+        // 已完成的同步不应因客户端关闭与平台传输层关停的竞态而变为失败。
       }
     }
   }
@@ -610,8 +609,8 @@ class SyncCoordinator implements WorkspaceSyncService {
       final key = 'attachments/v1/${attachment.storageKey}';
       final localExists = await store.contains(attachment);
       final remoteExists = await attachmentProvider.fileExists(key);
-      // Storage keys are immutable and versioned. Existing objects are never
-      // overwritten before the metadata container commits successfully.
+      // 存储键不可变且带版本号。在元数据容器提交成功之前，
+      // 绝不覆盖已有对象。
       if (localExists && !remoteExists) {
         await attachmentProvider.uploadFile(
           key,
@@ -643,8 +642,8 @@ class SyncCoordinator implements WorkspaceSyncService {
     final remaining = <String>[];
     for (final storageKey in pendingDeletes) {
       if (activeKeys.contains(storageKey)) {
-        // The imported or current metadata still owns this attachment. Its
-        // earlier deletion intent is obsolete and must not linger forever.
+        // 导入的或当前的元数据仍持有该附件，
+        // 其先前记录的删除意图已失效，不应一直留存。
         continue;
       }
       try {

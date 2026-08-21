@@ -149,8 +149,8 @@ class DirectorySyncProvider implements SyncProvider, AttachmentSyncProvider {
     try {
       await temporary.rename(target.path);
     } on FileSystemException {
-      // Windows cannot rename over an existing file. The temporary remains
-      // durable and the fallback is only used on that platform limitation.
+      // Windows 无法覆盖重命名已有文件。临时文件保持持久化，
+      // 该回退方案仅用于绕开此平台限制。
       if (!await target.exists()) rethrow;
       final backup = File('${target.path}.replace-backup');
       if (await backup.exists()) await backup.delete();

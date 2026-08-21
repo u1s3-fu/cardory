@@ -1,6 +1,6 @@
-// AWS Signature V4 S3-compatible synchronization provider.
-// Works with AWS S3 and path-style S3-compatible services such as MinIO, R2,
-// and Backblaze B2 by accepting a custom endpoint.
+// AWS Signature V4 签名、兼容 S3 的同步提供者。
+// 通过自定义端点，可对接 AWS S3 以及 MinIO、R2、Backblaze B2 等
+// 路径风格（path-style）的 S3 兼容服务。
 import 'dart:convert';
 import 'dart:io';
 
