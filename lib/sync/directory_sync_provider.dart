@@ -10,7 +10,7 @@ import 'package:path/path.dart' as path;
 import 'sync_models.dart';
 import 'sync_provider.dart';
 
-class DirectorySyncProvider implements SyncProvider {
+class DirectorySyncProvider implements SyncProvider, AttachmentSyncProvider {
   DirectorySyncProvider({required this.directory});
 
   final Directory directory;
@@ -41,6 +41,7 @@ class DirectorySyncProvider implements SyncProvider {
   @override
   Future<SyncDocument?> read(String key) async {
     final file = _fileFor(key);
+    await _recoverTemporary(file);
     if (!await file.exists()) return null;
     try {
       final bytes = await file.readAsBytes();
@@ -76,8 +77,7 @@ class DirectorySyncProvider implements SyncProvider {
       }
       final temporary = File('${file.path}.syncing');
       await temporary.writeAsBytes(bytes, flush: true);
-      if (await file.exists()) await file.delete();
-      await temporary.rename(file.path);
+      await _replaceFromTemporary(file, temporary);
       final stat = await file.stat();
       return SyncWriteResult(
         revision: _revision(stat),
@@ -105,6 +105,35 @@ class DirectorySyncProvider implements SyncProvider {
     }
   }
 
+  @override
+  Future<bool> fileExists(String key) async {
+    final file = _fileFor(key);
+    await _recoverTemporary(file);
+    return file.exists();
+  }
+
+  @override
+  Future<void> downloadFile(String key, String targetPath) async {
+    final target = File(targetPath);
+    final source = _fileFor(key);
+    if (!await source.exists()) {
+      throw const SyncProviderException('远端附件不存在');
+    }
+    await target.parent.create(recursive: true);
+    await source.openRead().pipe(target.openWrite());
+  }
+
+  @override
+  Future<void> uploadFile(String key, String sourcePath) async {
+    final source = File(sourcePath);
+    final target = _fileFor(key);
+    await target.parent.create(recursive: true);
+    final temporary = File('${target.path}.syncing');
+    if (await temporary.exists()) await temporary.delete();
+    await source.openRead().pipe(temporary.openWrite());
+    await _replaceFromTemporary(target, temporary);
+  }
+
   File _fileFor(String key) {
     final normalized = path.normalize(key);
     if (key.isEmpty ||
@@ -116,6 +145,37 @@ class DirectorySyncProvider implements SyncProvider {
     return File(path.join(directory.path, normalized));
   }
 
+  Future<void> _replaceFromTemporary(File target, File temporary) async {
+    try {
+      await temporary.rename(target.path);
+    } on FileSystemException {
+      // Windows cannot rename over an existing file. The temporary remains
+      // durable and the fallback is only used on that platform limitation.
+      if (!await target.exists()) rethrow;
+      final backup = File('${target.path}.replace-backup');
+      if (await backup.exists()) await backup.delete();
+      await target.rename(backup.path);
+      try {
+        await temporary.rename(target.path);
+        if (await backup.exists()) await backup.delete();
+      } catch (_) {
+        if (!await target.exists() && await backup.exists()) {
+          await backup.rename(target.path);
+        }
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> _recoverTemporary(File target) async {
+    if (await target.exists()) return;
+    final temporary = File('${target.path}.syncing');
+    if (await temporary.exists()) await _replaceFromTemporary(target, temporary);
+  }
+
   String _revision(FileStat stat) =>
       '${stat.modified.toUtc().microsecondsSinceEpoch}:${stat.size}';
+
+  @override
+  Future<void> dispose() async {}
 }

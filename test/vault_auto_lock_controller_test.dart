@@ -1,4 +1,4 @@
-import 'package:cardory/application/vault_auto_lock_controller.dart';
+import 'package:cardory/presentation/vault_auto_lock_controller.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

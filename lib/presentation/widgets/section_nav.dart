@@ -46,7 +46,7 @@ class SectionNavigation extends StatelessWidget {
         color: CardoryColors.white.withValues(alpha: 0.72),
         border: Border(
           bottom: BorderSide(
-            color: CardoryColors.primary.withValues(alpha: 0.06),
+            color: CardoryColors.gray200,
           ),
         ),
       ),

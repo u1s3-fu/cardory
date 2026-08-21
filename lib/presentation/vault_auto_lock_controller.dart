@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-/// 监听应用前后台切换，在已解锁的保险箱不应继续驻留内存时通知持有者自动锁定。
+/// Flutter lifecycle adapter that locks an active vault in the background.
 class VaultAutoLockController with WidgetsBindingObserver {
   VaultAutoLockController({required this.onLock});
 

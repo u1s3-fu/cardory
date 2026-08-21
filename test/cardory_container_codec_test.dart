@@ -17,7 +17,7 @@ void main() {
     );
   });
 
-  test('creates an AES-256-GCM container with both key slots', () async {
+  test('creates an AES-256-GCM container with a password key slot', () async {
     final creation = await codec.create(
       plaintext: utf8.encode('Cardory 加密数据'),
       password: 'correct horse battery staple',
@@ -31,17 +31,15 @@ void main() {
     expect(info.payloadLength, utf8.encode('Cardory 加密数据').length);
     expect(info.keySlots.map((slot) => slot.type), [
       CardoryKeySlotType.password,
-      CardoryKeySlotType.recovery,
     ]);
-    expect(creation.recoveryKey.split('-'), hasLength(6));
     expect(
       utf8.decode(creation.bytes, allowMalformed: true),
       isNot(contains('Cardory 加密数据')),
     );
   });
 
-  test('opens the same payload through password and recovery slots', () async {
-    final plaintext = utf8.encode('通过两种凭据恢复');
+  test('opens the payload through the password slot', () async {
+    final plaintext = utf8.encode('通过密码恢复');
     final creation = await codec.create(
       plaintext: plaintext,
       password: 'strong password',
@@ -49,13 +47,6 @@ void main() {
 
     expect(
       await codec.openWithPassword(creation.bytes, 'strong password'),
-      plaintext,
-    );
-    expect(
-      await codec.openWithRecoveryKey(
-        creation.bytes,
-        creation.recoveryKey.replaceAll('-', ' '),
-      ),
       plaintext,
     );
   });
@@ -71,37 +62,18 @@ void main() {
       creation.bytes,
       'typed helper password',
     );
-    final withRecovery = await codec.openDataWithRecoveryKey(
-      creation.bytes,
-      creation.recoveryKey,
-    );
 
     expect(withPassword.toJson(), data.toJson());
-    expect(withRecovery.toJson(), data.toJson());
   });
 
-  test('rejects an incorrect password and recovery key', () async {
+  test('rejects an incorrect password', () async {
     final creation = await codec.create(
       plaintext: [1, 2, 3],
       password: 'correct password',
     );
-    final other = await codec.create(
-      plaintext: [4, 5, 6],
-      password: 'other password',
-    );
 
     await expectLater(
       codec.openWithPassword(creation.bytes, 'incorrect password'),
-      throwsA(
-        isA<CardoryContainerException>().having(
-          (error) => error.error,
-          'error',
-          CardoryContainerError.invalidCredential,
-        ),
-      ),
-    );
-    await expectLater(
-      codec.openWithRecoveryKey(creation.bytes, other.recoveryKey),
       throwsA(
         isA<CardoryContainerException>().having(
           (error) => error.error,
@@ -130,12 +102,12 @@ void main() {
       throwsA(isA<CardoryContainerException>()),
     );
     await expectLater(
-      codec.openWithRecoveryKey(headerTampered, creation.recoveryKey),
+      codec.openWithPassword(headerTampered, 'tamper password'),
       throwsA(isA<CardoryContainerException>()),
     );
   });
 
-  test('changes password without invalidating the recovery key', () async {
+  test('changes password and re-encrypts with the new password', () async {
     final plaintext = utf8.encode('密码轮换正文');
     final creation = await codec.create(
       plaintext: plaintext,
@@ -152,45 +124,14 @@ void main() {
       await codec.openWithPassword(changed, 'replacement password'),
       plaintext,
     );
-    expect(
-      await codec.openWithRecoveryKey(changed, creation.recoveryKey),
-      plaintext,
-    );
     await expectLater(
       codec.openWithPassword(changed, 'current password'),
       throwsA(isA<CardoryContainerException>()),
     );
   });
 
-  test('changes password with the recovery key', () async {
-    final plaintext = utf8.encode('恢复码重设密码正文');
-    final creation = await codec.create(
-      plaintext: plaintext,
-      password: 'forgotten password',
-    );
-
-    final changed = await codec.changePasswordWithRecoveryKey(
-      creation.bytes,
-      recoveryKey: creation.recoveryKey,
-      newPassword: 'replacement password',
-    );
-
-    expect(
-      await codec.openWithPassword(changed, 'replacement password'),
-      plaintext,
-    );
-    expect(
-      await codec.openWithRecoveryKey(changed, creation.recoveryKey),
-      plaintext,
-    );
-    await expectLater(
-      codec.openWithPassword(changed, 'forgotten password'),
-      throwsA(isA<CardoryContainerException>()),
-    );
-  });
-
   test(
-    'rejects malformed containers, versions, passwords and recovery keys',
+    'rejects malformed containers, versions and passwords',
     () async {
       expect(
         () => codec.create(plaintext: const [], password: ''),
@@ -223,16 +164,6 @@ void main() {
             (error) => error.error,
             'error',
             CardoryContainerError.unsupportedVersion,
-          ),
-        ),
-      );
-      await expectLater(
-        codec.openWithRecoveryKey(creation.bytes, 'not-a-recovery-key'),
-        throwsA(
-          isA<CardoryContainerException>().having(
-            (error) => error.error,
-            'error',
-            CardoryContainerError.invalidRecoveryKey,
           ),
         ),
       );

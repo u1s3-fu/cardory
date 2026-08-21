@@ -30,7 +30,6 @@ void main() {
 
       expect(initial.data.projects, isEmpty);
       expect(initial.data.todos, isEmpty);
-      expect(initial.recoveryKey, isNotNull);
       expect(reloaded.data.projects, isEmpty);
       expect(reloaded.data.todos, isEmpty);
       expect(File(initial.path).existsSync(), isTrue);
@@ -45,18 +44,16 @@ void main() {
     },
   );
 
-  test('unlocks and keeps saving through the recovery key', () async {
+  test('unlocks and keeps saving through the password', () async {
     final initial = await store.setup('test password');
-    final recoveryStore = _store(directory);
-    final unlocked = await recoveryStore.unlockWithRecoveryKey(
-      initial.recoveryKey!,
-    );
+    final unlockedStore = _store(directory);
+    final unlocked = await unlockedStore.unlockWithPassword('test password');
     final updated = CardoryData(
       projects: [_testProject('更新后的项目')],
       todos: const [],
     );
 
-    await recoveryStore.save(updated, unlocked.settings);
+    await unlockedStore.save(updated, unlocked.settings);
 
     final backup = File('${initial.path}.bak');
     expect(await backup.exists(), isTrue);
@@ -109,25 +106,15 @@ void main() {
     expect(loaded.data.projects.single.title, '第二次保存');
   });
 
-  test('rejects an incorrect password and exports a recovery file', () async {
-    final initial = await store.setup('test password');
+  test('rejects an incorrect password', () async {
+    await store.setup('test password');
     await expectLater(
       _store(directory).unlockWithPassword('incorrect password'),
       throwsA(isA<CardoryStorageException>()),
     );
-
-    final exportPath = '${directory.path}${Platform.pathSeparator}recovery';
-    final exported = await store.exportRecoveryFile(
-      exportPath,
-      initial.recoveryKey!,
-    );
-
-    expect(exported, endsWith('.txt'));
-    expect(await File(exported).readAsString(), contains(initial.recoveryKey!));
-    expect(File('$exported.tmp').existsSync(), isFalse);
   });
 
-  test('changes password atomically and preserves recovery access', () async {
+  test('changes password atomically', () async {
     final initial = await store.setup('old password');
 
     await store.changePassword('old password', 'new password');
@@ -143,42 +130,9 @@ void main() {
       ).unlockWithPassword('new password')).data.toJson(),
       initial.data.toJson(),
     );
-    expect(
-      (await _store(
-        directory,
-      ).unlockWithRecoveryKey(initial.recoveryKey!)).data.toJson(),
-      initial.data.toJson(),
-    );
   });
 
-  test('resets a forgotten password with the recovery key', () async {
-    final initial = await store.setup('forgotten password');
-
-    final recovered = await store.resetPasswordWithRecoveryKey(
-      initial.recoveryKey!,
-      'replacement password',
-    );
-
-    expect(recovered.data.toJson(), initial.data.toJson());
-    await expectLater(
-      _store(directory).unlockWithPassword('forgotten password'),
-      throwsA(isA<CardoryStorageException>()),
-    );
-    expect(
-      (await _store(
-        directory,
-      ).unlockWithPassword('replacement password')).data.toJson(),
-      initial.data.toJson(),
-    );
-    expect(
-      (await _store(
-        directory,
-      ).unlockWithRecoveryKey(initial.recoveryKey!)).data.toJson(),
-      initial.data.toJson(),
-    );
-  });
-
-  test('restores a backup with its recovery key and a new password', () async {
+  test('restores a backup with the source password', () async {
     final sourceDirectory = await Directory.systemTemp.createTemp(
       'cardory-restore-source-',
     );
@@ -198,33 +152,26 @@ void main() {
 
     final restored = await store.restoreFromBackup(
       backup,
-      sourceInitial.recoveryKey!,
-      'restored password',
+      'source password',
     );
 
     expect(restored.data.projects.single.title, '备份项目');
     expect(
       (await _store(
         directory,
-      ).unlockWithPassword('restored password')).data.projects.single.title,
-      '备份项目',
-    );
-    expect(
-      (await _store(directory).unlockWithRecoveryKey(
-        sourceInitial.recoveryKey!,
-      )).data.projects.single.title,
+      ).unlockWithPassword('source password')).data.projects.single.title,
       '备份项目',
     );
   });
 
   test(
-    'keeps local data when backup recovery credentials are invalid',
+    'keeps local data when the backup password is invalid',
     () async {
       final initial = await store.setup('local password');
       final original = await File(initial.path).readAsBytes();
 
       await expectLater(
-        store.restoreFromBackup(original, 'not-a-recovery-key', 'new password'),
+        store.restoreFromBackup(original, 'incorrect password'),
         throwsA(isA<CardoryStorageException>()),
       );
 

@@ -44,4 +44,29 @@ void main() {
       throwsA(isA<ArgumentError>()),
     );
   });
+
+  test('streams attachment files without loading them as a document', () async {
+    final source = File(
+      '${directory.parent.path}${Platform.pathSeparator}attachment-source.bin',
+    );
+    final target = File(
+      '${directory.parent.path}${Platform.pathSeparator}attachment-target.bin',
+    );
+    addTearDown(() async {
+      if (await source.exists()) await source.delete();
+      if (await target.exists()) await target.delete();
+    });
+    final bytes = List<int>.generate(
+      1024 * 1024 + 17,
+      (index) => index % 239,
+      growable: false,
+    );
+    await source.writeAsBytes(bytes);
+
+    await provider.uploadFile('attachments/v1/file.blob', source.path);
+    expect(await provider.fileExists('attachments/v1/file.blob'), isTrue);
+    await provider.downloadFile('attachments/v1/file.blob', target.path);
+
+    expect(await target.readAsBytes(), bytes);
+  });
 }

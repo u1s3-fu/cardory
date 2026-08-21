@@ -76,9 +76,16 @@ class CountPill extends StatelessWidget {
 }
 
 class EmptyCard extends StatelessWidget {
-  const EmptyCard({super.key, required this.text});
+  const EmptyCard({
+    super.key,
+    required this.text,
+    this.actionLabel,
+    this.onAction,
+  });
 
   final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -89,10 +96,23 @@ class EmptyCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       border: Border.all(color: CardoryColors.gray200),
     ),
-    child: Text(
-      text,
-      textAlign: TextAlign.center,
-      style: TextStyle(color: CardoryColors.gray400, fontSize: 12.5),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: CardoryColors.gray400, fontSize: 12.5),
+        ),
+        if (onAction != null && actionLabel != null) ...[
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: onAction,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: Text(actionLabel!),
+          ),
+        ],
+      ],
     ),
   );
 }

@@ -1,13 +1,22 @@
 import 'package:cardory/main.dart';
+import 'package:cardory/application/attachment_repository.dart';
+import 'package:cardory/application/cardory_repository.dart';
+import 'package:cardory/data/attachment_store.dart';
 import 'package:cardory/data/cardory_store.dart';
 import 'package:cardory/domain/cardory_models.dart';
+import 'package:cardory/presentation/pages/home_page.dart';
 import 'package:cardory/presentation/widgets/sidebar.dart';
 import 'package:cardory/sync/sync_coordinator.dart';
 import 'package:cardory/sync/sync_credentials.dart';
 import 'package:cardory/sync/sync_models.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+Future<void> pumpUiFrames(WidgetTester tester) async {
+  for (var index = 0; index < 20; index++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
 
 void main() {
   // ignore: no_leading_underscores_for_local_identifiers, prefer_function_declarations_over_variables
@@ -15,9 +24,38 @@ void main() {
     throw const SyncUnavailableException('测试未配置同步');
   };
 
+  AttachmentRepositoryFactory attachmentRepositoryFactory =
+      (_) => _MemoryAttachmentRepository();
+
+  WorkspaceControllerFactory controllerFactory(
+    CardoryRepository repository, {
+    SyncProviderFactory? syncProviderFactory,
+  }) =>
+      WorkspaceControllerFactory(
+        workspaceRepository: repository,
+        vaultRepository: repository,
+        syncRepository: repository,
+        credentialStore: _CredentialStore(null),
+        syncServiceFactory: () => SyncCoordinator(
+          repository: repository,
+          providerFactory: syncProviderFactory ?? _noopFactory,
+          attachmentRepositoryFactory: attachmentRepositoryFactory,
+        ),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
+      );
+
   testWidgets('Cardory home renders loaded data', (WidgetTester tester) async {
-    await tester.pumpWidget(CardoryApp(repository: _MemoryRepository()));
-    await tester.pumpAndSettle();
+    final repository = _MemoryRepository();
+    await tester.pumpWidget(
+      CardoryApp(
+        vaultRepository: repository,
+        workspaceRepository: repository,
+        syncRepository: repository,
+        vaultCredentialStore: _MemoryVaultCredentialStore(),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
+      ),
+    );
+    await pumpUiFrames(tester);
 
     expect(find.text('板记 Cardory'), findsOneWidget);
     expect(find.text('把项目推进，落到今天'), findsOneWidget);
@@ -27,8 +65,17 @@ void main() {
   testWidgets('Cardory shows a recoverable load error', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(CardoryApp(repository: _FailingRepository()));
-    await tester.pumpAndSettle();
+    final repository = _FailingRepository();
+    await tester.pumpWidget(
+      CardoryApp(
+        vaultRepository: repository,
+        workspaceRepository: repository,
+        syncRepository: repository,
+        vaultCredentialStore: _MemoryVaultCredentialStore(),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
+      ),
+    );
+    await pumpUiFrames(tester);
 
     expect(find.text('无法加载本地数据'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
@@ -56,7 +103,7 @@ void main() {
     );
 
     await tester.tap(find.text('打开'));
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
 
     final contentField = find.byKey(const Key('quick-add-subtodo-content'));
     final textField = tester.widget<TextField>(contentField);
@@ -71,7 +118,7 @@ void main() {
 
     await tester.enterText(contentField, '第一行\n第二行');
     await tester.tap(find.text('添加'));
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
 
     expect(result?.content, '第一行\n第二行');
     expect(result?.createdAt, isNotNull);
@@ -131,8 +178,17 @@ void main() {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = viewport.$2;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(CardoryApp(repository: _MemoryRepository()));
-      await tester.pumpAndSettle();
+      final repository = _MemoryRepository();
+      await tester.pumpWidget(
+        CardoryApp(
+          vaultRepository: repository,
+          workspaceRepository: repository,
+          syncRepository: repository,
+          vaultCredentialStore: _MemoryVaultCredentialStore(),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        ),
+      );
+      await pumpUiFrames(tester);
 
       if (viewport.$1 == '手机') {
         expect(find.byKey(const Key('bottom-navigation')), findsOneWidget);
@@ -161,6 +217,7 @@ void main() {
             body: SingleChildScrollView(
               child: KanbanBoard(
                 data: CardoryData.seed(),
+                onAddProject: () {},
                 onOpenProject: (_) async {},
                 onEditProject: (_) async {},
                 onDeleteProject: (_) async {},
@@ -169,7 +226,7 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await pumpUiFrames(tester);
 
       final boardWidth = tester
           .getSize(find.byKey(const Key('kanban-responsive-board')))
@@ -188,11 +245,22 @@ void main() {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(320, 568);
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(CardoryApp(repository: _MemoryRepository()));
-    await tester.pumpAndSettle();
+    final repository = _MemoryRepository();
+    await tester.pumpWidget(
+      CardoryApp(
+        vaultRepository: repository,
+        workspaceRepository: repository,
+        syncRepository: repository,
+        vaultCredentialStore: _MemoryVaultCredentialStore(),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
+      ),
+    );
+    await pumpUiFrames(tester);
 
-    await tester.tap(find.text('新建项目'));
-    await tester.pumpAndSettle();
+    final createProjectButton = find.text('新建项目').hitTestable();
+    await tester.ensureVisible(createProjectButton);
+    await tester.tap(createProjectButton);
+    await pumpUiFrames(tester);
 
     expect(find.byType(ProjectDialog), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsWidgets);
@@ -214,6 +282,7 @@ void main() {
               syncProvider: SyncProviderType.directory,
               syncDirectoryPath: '/sync',
             ),
+            dataPath: '/test/data/path',
             syncStatus: const SyncStatus(
               phase: SyncPhase.failure,
               message: '网络不可用',
@@ -246,6 +315,42 @@ void main() {
     expect(restoreCount, 1);
   });
 
+  testWidgets('shows a sync failure in a snack bar', (tester) async {
+    final repository = _MemoryRepository()
+      ..settings = const AppSettings(syncProvider: SyncProviderType.webdav);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomePage(
+          controllerFactory: controllerFactory(
+            repository,
+            syncProviderFactory: (_) async =>
+                throw const SyncProviderException('WebDAV 请求超时'),
+          ),
+          vaultRepository: repository,
+          credentialStore: _CredentialStore(null),
+          vaultCredentialStore: _MemoryVaultCredentialStore(),
+          attachmentRepositoryFactory: AttachmentStore.forDataFile,
+          onSettingsChanged: (_) {},
+        ),
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    await tester.tap(find.text('设置').first);
+    await pumpUiFrames(tester);
+    await tester.tap(find.text('立即同步'));
+    await pumpUiFrames(tester);
+
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(SnackBar),
+        matching: find.text('WebDAV 请求超时'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('asset dialog switches fields by asset type', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -256,13 +361,117 @@ void main() {
     expect(find.text('版本'), findsOneWidget);
     expect(find.text('路径'), findsOneWidget);
     expect(find.text('服务器序列号'), findsNothing);
+    expect(find.text('上传文件'), findsNothing);
 
     await tester.tap(find.text('硬件资产'));
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
 
     expect(find.text('服务器序列号'), findsOneWidget);
     expect(find.text('服务器类型'), findsOneWidget);
     expect(find.text('版本'), findsNothing);
+  });
+
+  testWidgets('project detail shows attachment type and creation date', (
+    tester,
+  ) async {
+    final project = ProjectData(
+      id: 'project-with-file',
+      title: '带附件项目',
+      description: '',
+      priority: ProjectPriority.p1,
+      stage: ProjectStage.doing,
+      progressEntries: const [],
+      attachments: [
+        AttachmentData(
+          id: 'attachment-document',
+          fileName: 'specification.pdf',
+          storageKey: 'attachment-document.cardory-attachment',
+          encryptionKey: 'key',
+          size: 1024,
+          sha256: 'hash',
+          createdAt: DateTime(2026, 8, 20, 9, 30),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProjectDetailPage(
+          project: project,
+          todos: const [],
+          assets: const [],
+          onUpdateProject: (_) async {},
+          onAddAsset: () async => null,
+          onEditAsset: (_) async => null,
+          onDeleteAsset: (_) async {},
+          onToggleTodo: (todo) async => todo,
+          onToggleSubTodo: (todo, _) async => todo,
+          onOpenTodo: (_) async => null,
+          onAddTodo: (_) async => null,
+          onDeleteTodo: (_) async => false,
+        ),
+      ),
+    );
+      await pumpUiFrames(tester);
+
+    expect(find.text('项目附件'), findsOneWidget);
+    expect(find.text('文档'), findsOneWidget);
+    expect(find.text('2026-08-20'), findsOneWidget);
+  });
+
+  testWidgets('failed project attachment deletion remains visible', (
+    tester,
+  ) async {
+    final repository = _MemoryRepository()
+      ..data = CardoryData(
+        projects: [
+          ProjectData(
+            id: 'project-failed-attachment',
+            title: '附件保存失败项目',
+            description: '',
+            priority: ProjectPriority.p1,
+            stage: ProjectStage.doing,
+            progressEntries: const [],
+            attachments: [
+              AttachmentData(
+                id: 'attachment-stays-visible',
+                fileName: 'must-stay.txt',
+                storageKey: 'attachment-stays-visible.cardory-attachment',
+                encryptionKey: 'key',
+                size: 10,
+                sha256: 'hash',
+                createdAt: DateTime(2026, 8, 20),
+              ),
+            ],
+          ),
+        ],
+        todos: const [],
+      );
+    await tester.pumpWidget(
+      CardoryApp(
+        vaultRepository: repository,
+        workspaceRepository: repository,
+        syncRepository: repository,
+        vaultCredentialStore: _MemoryVaultCredentialStore(),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
+      ),
+    );
+      await pumpUiFrames(tester);
+
+    final projectCard = find.text('附件保存失败项目');
+    await tester.ensureVisible(projectCard);
+    await tester.tap(projectCard);
+      await pumpUiFrames(tester);
+    expect(find.text('must-stay.txt'), findsOneWidget);
+
+    repository.failNextSave = true;
+    await tester.tap(find.byTooltip('更多附件操作'));
+      await pumpUiFrames(tester);
+    await tester.tap(find.text('删除附件'));
+      await pumpUiFrames(tester);
+
+    expect(find.text('must-stay.txt'), findsOneWidget);
+    expect(find.text('附件更新失败，请稍后重试。'), findsOneWidget);
   });
 
   testWidgets('asset detail dialog is read-only and opens editing explicitly', (
@@ -288,7 +497,7 @@ void main() {
       context: tester.element(find.byType(SizedBox)),
       builder: (_) => const AssetDetailDialog(asset: asset),
     );
-    await tester.pumpAndSettle();
+      await pumpUiFrames(tester);
 
     expect(find.text('Cardory API'), findsOneWidget);
     expect(find.text('版本'), findsOneWidget);
@@ -315,6 +524,40 @@ void main() {
     expect(find.text('本地数据'), findsNothing);
     expect(find.text('同步'), findsNothing);
   });
+
+  testWidgets('sync settings expose connection testing for WebDAV and S3', (
+    tester,
+  ) async {
+    SyncProviderType? testedProvider;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsDialog(
+          settings: const AppSettings(
+            syncProvider: SyncProviderType.webdav,
+            webDavUrl: 'https://dav.example.com/cardory/',
+          ),
+          credentialStore: _CredentialStore(null),
+          category: SettingsCategoryType.sync,
+          connectionTester: (settings, _) async {
+            testedProvider = settings.syncProvider;
+          },
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('test-webdav-connection')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('test-webdav-connection')));
+      await pumpUiFrames(tester);
+
+    expect(testedProvider, SyncProviderType.webdav);
+    expect(find.text('连接成功，可以保存设置。'), findsOneWidget);
+
+    await tester.tap(find.byType(DropdownButtonFormField<SyncProviderType>));
+      await pumpUiFrames(tester);
+    await tester.tap(find.text('S3 兼容存储').last);
+      await pumpUiFrames(tester);
+    expect(find.byKey(const Key('test-s3-connection')), findsOneWidget);
+  });
   testWidgets('password dialog validates and returns credentials', (
     WidgetTester tester,
   ) async {
@@ -336,7 +579,7 @@ void main() {
     );
 
     await tester.tap(find.text('打开修改密码'));
-    await tester.pumpAndSettle();
+      await pumpUiFrames(tester);
     await tester.enterText(
       find.widgetWithText(TextField, '当前密码'),
       'current password',
@@ -364,164 +607,38 @@ void main() {
       'replacement password',
     );
     await tester.tap(find.widgetWithText(FilledButton, '修改密码'));
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
     expect(result?.currentPassword, 'current password');
     expect(result?.newPassword, 'replacement password');
   });
 
-  testWidgets('recovery dialog shows the new key and invalidation warning', (
+  testWidgets('setup screen exposes the manual backup restore form', (
     WidgetTester tester,
   ) async {
-    const recoveryKey = 'abcdefgh-ijklmnop-qrstuvwx-yz012345-6789ABCD-EFGHIJKL';
-    final clipboardCalls = <MethodCall>[];
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') clipboardCalls.add(call);
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
-    await tester.pumpWidget(
-      MaterialApp(home: RecoveryKeyDialog(recoveryKey: recoveryKey)),
-    );
-
-    expect(find.text('保存新恢复码'), findsOneWidget);
-    expect(find.text(recoveryKey), findsOneWidget);
-    expect(find.text('旧恢复码已失效。新恢复码可用于重设密码或恢复备份。'), findsOneWidget);
-    expect(find.text('导出恢复文件'), findsNothing);
-    await tester.tap(find.text('复制恢复码'));
-    await tester.pump();
-    expect(find.text('恢复码已复制，请粘贴到安全位置手动保存。'), findsOneWidget);
-    expect(clipboardCalls, hasLength(1));
-    expect(clipboardCalls.single.method, 'Clipboard.setData');
-    expect(clipboardCalls.single.arguments, {'text': recoveryKey});
-  });
-
-  testWidgets('initial recovery key is copied without opening file export', (
-    WidgetTester tester,
-  ) async {
-    const recoveryKey = 'initial-recovery-key-for-manual-storage';
-    final repository = _SetupRepository(recoveryKey);
-    final clipboardCalls = <MethodCall>[];
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') clipboardCalls.add(call);
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
+    final repository = _SetupRepository();
     await tester.pumpWidget(
       MaterialApp(
         home: CardoryVaultGate(
-          repository: repository,
+          vaultRepository: repository,
+          workspaceRepository: repository,
+          controllerFactory: controllerFactory(repository),
           credentialStore: _CredentialStore(null),
           vaultCredentialStore: _MemoryVaultCredentialStore(),
           providerFactory: _noopFactory,
+          attachmentRepositoryFactory: AttachmentStore.forDataFile,
           autoLockEnabled: true,
           onSettingsChanged: (_) {},
         ),
       ),
     );
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.widgetWithText(TextField, '密码'), 'password123');
-    await tester.enterText(
-      find.widgetWithText(TextField, '确认密码'),
-      'password123',
-    );
-    await tester.tap(find.text('创建加密保险库'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('保存你的恢复码'), findsOneWidget);
-    expect(find.text(recoveryKey), findsOneWidget);
-    expect(find.text('导出恢复文件'), findsNothing);
-    await tester.tap(find.text('复制恢复码'));
-    await tester.pump();
-
-    expect(repository.exportCallCount, 0);
-    expect(clipboardCalls, hasLength(1));
-    expect(clipboardCalls.single.arguments, {'text': recoveryKey});
-  });
-
-  testWidgets('setup screen exposes the manual backup recovery form', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CardoryVaultGate(
-          repository: _SetupRepository('recovery-key'),
-          credentialStore: _CredentialStore(null),
-          vaultCredentialStore: _MemoryVaultCredentialStore(),
-          providerFactory: _noopFactory,
-          autoLockEnabled: true,
-          onSettingsChanged: (_) {},
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
 
     await tester.tap(find.byKey(const Key('open-backup-restore')));
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
 
     expect(find.text('从备份恢复'), findsOneWidget);
     expect(find.byKey(const Key('pick-cardory-backup')), findsOneWidget);
-    expect(find.byKey(const Key('restore-recovery-key')), findsOneWidget);
-    expect(find.byKey(const Key('restore-new-password')), findsOneWidget);
-    expect(find.byKey(const Key('restore-confirm-password')), findsOneWidget);
-  });
-
-  testWidgets('recovery key resets the password before unlocking', (
-    WidgetTester tester,
-  ) async {
-    final repository = _LockedRepository();
-    final vault = _MemoryVaultCredentialStore();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CardoryVaultGate(
-          repository: repository,
-          credentialStore: _CredentialStore(null),
-          vaultCredentialStore: vault,
-          providerFactory: _noopFactory,
-          autoLockEnabled: true,
-          onSettingsChanged: (_) {},
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('恢复码'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.widgetWithText(TextField, '恢复码'),
-      'saved-recovery-key',
-    );
-    await tester.enterText(
-      find.byKey(const Key('recovery-new-password')),
-      'replacement password',
-    );
-    await tester.enterText(
-      find.byKey(const Key('recovery-confirm-password')),
-      'replacement password',
-    );
-    await tester.tap(find.text('重设密码并解锁'));
-    await tester.pumpAndSettle();
-
-    expect(repository.recoveryKey, 'saved-recovery-key');
-    expect(repository.newPassword, 'replacement password');
-    expect(vault.password, 'replacement password');
-    expect(find.text('板记 Cardory'), findsOneWidget);
+    expect(find.byKey(const Key('restore-password')), findsOneWidget);
   });
 
   testWidgets('settings dialog keeps stored password out of text controller', (
@@ -554,7 +671,7 @@ void main() {
     );
 
     await tester.tap(find.text('打开设置'));
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
     final passwordField = tester.widget<TextField>(
       find.widgetWithText(TextField, '密码（已保存）'),
     );
@@ -575,16 +692,16 @@ void main() {
     final priorityField = find.byKey(const Key('home-reminder-priority-field'));
     await tester.ensureVisible(priorityField);
     await tester.tap(priorityField);
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
     await tester.tap(find.text('中优先级及以上').last);
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
     await tester.tap(find.byKey(const Key('record-subtodo-created-at')));
     await tester.pump();
 
     final urlField = find.widgetWithText(TextField, 'WebDAV 地址');
     await tester.enterText(urlField, 'https://dav.example.com/new/');
     await tester.tap(find.text('保存'));
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
 
     expect(result, isNotNull);
     expect(result!.settings.syncRevision, isNull);
@@ -594,7 +711,7 @@ void main() {
     expect(result!.credentials.password, isEmpty);
   });
 
-  testWidgets('self-hosted settings remain editable', (tester) async {
+  testWidgets('self-hosted settings remain hidden', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: SettingsDialog(
@@ -606,10 +723,10 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
 
-    expect(find.text('自托管 API'), findsOneWidget);
-    expect(find.text('自托管 API 地址'), findsOneWidget);
+    expect(find.text('自托管 API'), findsNothing);
+    expect(find.text('自托管 API 地址'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -717,6 +834,7 @@ void main() {
               ),
               TodoPanel(
                 todos: [todo],
+                onAddTodo: () {},
                 onToggle: (_) async {},
                 onToggleSubTodo: (_, _) async {},
                 onOpenTodo: (_) async {},
@@ -786,7 +904,7 @@ void main() {
     );
 
     await tester.tap(find.text('编辑已有进度'));
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
     expect(find.text('编辑进度'), findsOneWidget);
     expect(find.byType(Slider), findsNothing);
     final noteField = find.widgetWithText(TextField, '进度说明');
@@ -795,7 +913,7 @@ void main() {
 
     await tester.enterText(noteField, '更新说明');
     await tester.tap(find.widgetWithText(FilledButton, '保存'));
-    await tester.pumpAndSettle();
+    await pumpUiFrames(tester);
 
     expect(result?.id, entry.id);
     expect(result?.createdAt, createdAt);
@@ -807,6 +925,7 @@ void main() {
 class _MemoryRepository implements CardoryRepository {
   CardoryData data = CardoryData.seed();
   AppSettings settings = const AppSettings();
+  bool failNextSave = false;
 
   @override
   Future<CardoryAccessState> accessState() async => CardoryAccessState.unlocked;
@@ -824,28 +943,19 @@ class _MemoryRepository implements CardoryRepository {
   Future<CardoryLoadResult> unlockWithPassword(String password) async => load();
 
   @override
-  Future<CardoryLoadResult> unlockWithRecoveryKey(String recoveryKey) async =>
-      load();
-
-  @override
-  Future<CardoryLoadResult> resetPasswordWithRecoveryKey(
-    String recoveryKey,
-    String newPassword,
-  ) async => load();
-
-  @override
   Future<CardoryLoadResult> restoreFromBackup(
     List<int> bytes,
-    String recoveryKey,
-    String newPassword,
+    String password,
   ) async => load();
-
-  @override
-  Future<String> exportRecoveryFile(String path, String recoveryKey) async =>
-      path;
 
   @override
   Future<List<int>> exportContainer() async => [1, 2, 3];
+
+  @override
+  Future<String> saveSyncConflictSnapshot(
+    List<int> bytes, {
+    DateTime? timestamp,
+  }) async => 'memory.conflict.cardory';
 
   @override
   Future<CardoryData> importContainer(
@@ -862,6 +972,10 @@ class _MemoryRepository implements CardoryRepository {
 
   @override
   Future<void> save(CardoryData data, AppSettings settings) async {
+    if (failNextSave) {
+      failNextSave = false;
+      throw StateError('save failed');
+    }
     this.data = data;
   }
 
@@ -872,10 +986,7 @@ class _MemoryRepository implements CardoryRepository {
 }
 
 class _SetupRepository extends _MemoryRepository {
-  _SetupRepository(this.recoveryKey);
-
-  final String recoveryKey;
-  int exportCallCount = 0;
+  _SetupRepository();
 
   @override
   Future<CardoryAccessState> accessState() async =>
@@ -886,32 +997,7 @@ class _SetupRepository extends _MemoryRepository {
     data: data,
     settings: settings,
     path: 'memory/cardory-data.json',
-    recoveryKey: recoveryKey,
   );
-
-  @override
-  Future<String> exportRecoveryFile(String path, String recoveryKey) async {
-    exportCallCount++;
-    return path;
-  }
-}
-
-class _LockedRepository extends _MemoryRepository {
-  String? recoveryKey;
-  String? newPassword;
-
-  @override
-  Future<CardoryAccessState> accessState() async => CardoryAccessState.locked;
-
-  @override
-  Future<CardoryLoadResult> resetPasswordWithRecoveryKey(
-    String recoveryKey,
-    String newPassword,
-  ) async {
-    this.recoveryKey = recoveryKey;
-    this.newPassword = newPassword;
-    return load();
-  }
 }
 
 class _FailingRepository implements CardoryRepository {
@@ -929,28 +1015,20 @@ class _FailingRepository implements CardoryRepository {
   Future<CardoryLoadResult> unlockWithPassword(String password) => load();
 
   @override
-  Future<CardoryLoadResult> unlockWithRecoveryKey(String recoveryKey) => load();
-
-  @override
-  Future<CardoryLoadResult> resetPasswordWithRecoveryKey(
-    String recoveryKey,
-    String newPassword,
-  ) => load();
-
-  @override
   Future<CardoryLoadResult> restoreFromBackup(
     List<int> bytes,
-    String recoveryKey,
-    String newPassword,
+    String password,
   ) => load();
-
-  @override
-  Future<String> exportRecoveryFile(String path, String recoveryKey) async =>
-      path;
 
   @override
   Future<List<int>> exportContainer() =>
       Future.error(const CardoryStorageException('测试读取失败'));
+
+  @override
+  Future<String> saveSyncConflictSnapshot(
+    List<int> bytes, {
+    DateTime? timestamp,
+  }) => Future.error(const CardoryStorageException('测试读取失败'));
 
   @override
   Future<CardoryData> importContainer(List<int> bytes, AppSettings settings) =>
@@ -973,23 +1051,74 @@ class _CredentialStore implements SyncCredentialStore {
   final String? password;
 
   @override
-  Future<void> deleteSelfHostedToken() async {}
+  Future<SyncCredentials> read() async => SyncCredentials(
+    webDav: password == null ? null : WebDavCredentials(password: password!),
+  );
 
   @override
-  Future<void> deleteWebDav() async {}
+  Future<void> write(SyncCredentials credentials) async {}
+}
+
+class _MemoryAttachmentRepository implements AttachmentRepository {
+  final _attachments = <String, AttachmentData>{};
 
   @override
-  Future<String?> readSelfHostedToken() async => null;
+  Future<AttachmentData> importFile({
+    required String sourcePath,
+    required String id,
+    required String fileName,
+    String mimeType = '',
+    String note = '',
+    DateTime? createdAt,
+  }) async {
+    final attachment = AttachmentData(
+      id: id,
+      fileName: fileName,
+      storageKey: '$id.cardory-attachment',
+      encryptionKey: 'test-key',
+      mimeType: mimeType,
+      note: note,
+      createdAt: createdAt ?? DateTime.now(),
+    );
+    _attachments[attachment.storageKey] = attachment;
+    return attachment;
+  }
 
   @override
-  Future<WebDavCredentials?> readWebDav() async =>
-      password == null ? null : WebDavCredentials(password: password!);
+  Future<AttachmentData> migrateLegacy(AttachmentData attachment) async =>
+      attachment;
 
   @override
-  Future<void> writeSelfHostedToken(String token) async {}
+  Future<void> exportFile(AttachmentData attachment, String targetPath) async {}
 
   @override
-  Future<void> writeWebDav(WebDavCredentials credentials) async {}
+  Future<void> delete(AttachmentData attachment) async {
+    _attachments.remove(attachment.storageKey);
+  }
+
+  @override
+  Future<bool> contains(AttachmentData attachment) async =>
+      _attachments.containsKey(attachment.storageKey);
+
+  @override
+  String encryptedPath(AttachmentData attachment) => attachment.storageKey;
+
+  @override
+  Future<void> installEncrypted(
+    AttachmentData attachment,
+    String downloadedPath,
+  ) async {
+    _attachments[attachment.storageKey] = attachment;
+  }
+
+  @override
+  Future<String> createDownloadTarget(AttachmentData attachment) async =>
+      '${attachment.storageKey}.downloading';
+
+  @override
+  Future<void> prune(Set<String> activeStorageKeys) async {
+    _attachments.removeWhere((key, _) => !activeStorageKeys.contains(key));
+  }
 }
 
 class _MemoryVaultCredentialStore implements VaultCredentialStore {

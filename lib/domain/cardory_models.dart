@@ -3,180 +3,26 @@
 // 顶层容器 [CardoryData] 聚合项目列表 [ProjectData]、待办 [TodoData]、
 // 资产 [AssetData] 和同步配置。同时包含 [AppSettings] 配置模型、
 // [SyncProviderType] 枚举以及 [newId] / [formatDate] 等工具函数。
-
-enum SyncProviderType { none, directory, webdav, selfHosted }
-
-class AppSettings {
-  const AppSettings({
-    this.themeColorValue = 0xFF6B62DF,
-    this.backgroundColorValue = 0xFFF5F6FC,
-    this.homeReminderPriorityThreshold = ProjectPriority.p2,
-    this.recordSubTodoCreatedAt = false,
-    this.autoLockEnabled = true,
-    this.serverTypes = const [],
-    this.syncProvider = SyncProviderType.none,
-    this.syncDirectoryPath = '',
-    this.webDavUrl = '',
-    this.webDavUsername = '',
-    this.selfHostedUrl = '',
-    this.syncRevision,
-    this.syncLocalHash,
-    this.lastSyncedAt,
-  });
-
-  final int themeColorValue;
-  final int backgroundColorValue;
-  final ProjectPriority homeReminderPriorityThreshold;
-  final bool recordSubTodoCreatedAt;
-  final bool autoLockEnabled;
-  final List<String> serverTypes;
-  final SyncProviderType syncProvider;
-  final String syncDirectoryPath;
-  final String webDavUrl;
-  final String webDavUsername;
-  final String selfHostedUrl;
-  final String? syncRevision;
-  final String? syncLocalHash;
-  final DateTime? lastSyncedAt;
-  factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
-    themeColorValue: json['themeColorValue'] as int? ?? 0xFF6B62DF,
-    backgroundColorValue: json['backgroundColorValue'] as int? ?? 0xFFF5F6FC,
-    homeReminderPriorityThreshold: ProjectPriority.fromName(
-      json['homeReminderPriorityThreshold'] as String? ?? 'p2',
-    ),
-    recordSubTodoCreatedAt:
-        json['recordSubTodoCreatedAt'] as bool? ??
-        json['autoSetSubTodoReminderTime'] as bool? ??
-        false,
-    autoLockEnabled: json['autoLockEnabled'] as bool? ?? true,
-    serverTypes: ((json['serverTypes'] as List?) ?? [])
-        .whereType<String>()
-        .map((type) => type.trim())
-        .where((type) => type.isNotEmpty)
-        .toList(),
-    syncProvider:
-        SyncProviderType.values
-            .where((value) => value.name == json['syncProvider'])
-            .firstOrNull ??
-        SyncProviderType.none,
-    syncDirectoryPath: json['syncDirectoryPath'] as String? ?? '',
-    webDavUrl: json['webDavUrl'] as String? ?? '',
-    webDavUsername: json['webDavUsername'] as String? ?? '',
-    selfHostedUrl: json['selfHostedUrl'] as String? ?? '',
-    syncRevision: json['syncRevision'] as String?,
-    syncLocalHash: json['syncLocalHash'] as String?,
-    lastSyncedAt: DateTime.tryParse(json['lastSyncedAt'] as String? ?? ''),
-  );
-  Map<String, dynamic> toJson() => {
-    'themeColorValue': themeColorValue,
-    'backgroundColorValue': backgroundColorValue,
-    'homeReminderPriorityThreshold': homeReminderPriorityThreshold.name,
-    'recordSubTodoCreatedAt': recordSubTodoCreatedAt,
-    'autoLockEnabled': autoLockEnabled,
-    'serverTypes': serverTypes,
-    'syncProvider': syncProvider.name,
-    'syncDirectoryPath': syncDirectoryPath,
-    'webDavUrl': webDavUrl,
-    'webDavUsername': webDavUsername,
-    'selfHostedUrl': selfHostedUrl,
-    'syncRevision': syncRevision,
-    'syncLocalHash': syncLocalHash,
-    'lastSyncedAt': lastSyncedAt?.toIso8601String(),
-  };
-  AppSettings copyWith({
-    int? themeColorValue,
-    int? backgroundColorValue,
-    ProjectPriority? homeReminderPriorityThreshold,
-    bool? recordSubTodoCreatedAt,
-    bool? autoLockEnabled,
-    List<String>? serverTypes,
-    SyncProviderType? syncProvider,
-    String? syncDirectoryPath,
-    String? webDavUrl,
-    String? webDavUsername,
-    String? selfHostedUrl,
-    String? syncRevision,
-    String? syncLocalHash,
-    DateTime? lastSyncedAt,
-    bool clearSyncState = false,
-  }) => AppSettings(
-    themeColorValue: themeColorValue ?? this.themeColorValue,
-    backgroundColorValue: backgroundColorValue ?? this.backgroundColorValue,
-    homeReminderPriorityThreshold:
-        homeReminderPriorityThreshold ?? this.homeReminderPriorityThreshold,
-    recordSubTodoCreatedAt:
-        recordSubTodoCreatedAt ?? this.recordSubTodoCreatedAt,
-    autoLockEnabled: autoLockEnabled ?? this.autoLockEnabled,
-    serverTypes: serverTypes ?? this.serverTypes,
-    syncProvider: syncProvider ?? this.syncProvider,
-    syncDirectoryPath: syncDirectoryPath ?? this.syncDirectoryPath,
-    webDavUrl: webDavUrl ?? this.webDavUrl,
-    webDavUsername: webDavUsername ?? this.webDavUsername,
-    selfHostedUrl: selfHostedUrl ?? this.selfHostedUrl,
-    syncRevision: clearSyncState ? null : syncRevision ?? this.syncRevision,
-    syncLocalHash: clearSyncState ? null : syncLocalHash ?? this.syncLocalHash,
-    lastSyncedAt: clearSyncState ? null : lastSyncedAt ?? this.lastSyncedAt,
-  );
-  @override
-  bool operator ==(Object other) =>
-      other is AppSettings &&
-      other.themeColorValue == themeColorValue &&
-      other.backgroundColorValue == backgroundColorValue &&
-      other.homeReminderPriorityThreshold == homeReminderPriorityThreshold &&
-      other.recordSubTodoCreatedAt == recordSubTodoCreatedAt &&
-      other.autoLockEnabled == autoLockEnabled &&
-      _stringListsEqual(other.serverTypes, serverTypes) &&
-      other.syncProvider == syncProvider &&
-      other.syncDirectoryPath == syncDirectoryPath &&
-      other.webDavUrl == webDavUrl &&
-      other.webDavUsername == webDavUsername &&
-      other.selfHostedUrl == selfHostedUrl &&
-      other.syncRevision == syncRevision &&
-      other.syncLocalHash == syncLocalHash &&
-      other.lastSyncedAt == lastSyncedAt;
-  @override
-  int get hashCode => Object.hash(
-    themeColorValue,
-    backgroundColorValue,
-    homeReminderPriorityThreshold,
-    recordSubTodoCreatedAt,
-    autoLockEnabled,
-    Object.hashAll(serverTypes),
-    syncProvider,
-    syncDirectoryPath,
-    webDavUrl,
-    webDavUsername,
-    selfHostedUrl,
-    syncRevision,
-    syncLocalHash,
-    lastSyncedAt,
-  );
-}
-
-bool _stringListsEqual(List<String> first, List<String> second) {
-  if (identical(first, second) || first.length != second.length) {
-    return identical(first, second);
-  }
-  for (var index = 0; index < first.length; index++) {
-    if (first[index] != second[index]) return false;
-  }
-  return true;
-}
+import 'app_settings.dart';
+export 'app_settings.dart';
 
 class CardoryData {
   const CardoryData({
     required this.projects,
     required this.todos,
     this.assets = const [],
+    this.assetTags = const [],
   });
   const CardoryData.empty()
     : projects = const [],
       todos = const [],
-      assets = const [];
+      assets = const [],
+      assetTags = const [];
 
   final List<ProjectData> projects;
   final List<TodoData> todos;
   final List<AssetData> assets;
+  final List<AssetTag> assetTags;
 
   factory CardoryData.seed() => CardoryData(
     projects: [
@@ -251,34 +97,335 @@ class CardoryData {
     ],
   );
 
-  factory CardoryData.fromJson(Map<String, dynamic> json) => CardoryData(
-    projects: ((json['projects'] as List?) ?? [])
-        .map((item) => ProjectData.fromJson(item as Map<String, dynamic>))
-        .toList(),
-    todos: ((json['todos'] as List?) ?? [])
-        .map((item) => TodoData.fromJson(item as Map<String, dynamic>))
-        .toList(),
-    assets: ((json['assets'] as List?) ?? [])
-        .map((item) => AssetData.fromJson(item as Map<String, dynamic>))
-        .toList(),
-  );
+  factory CardoryData.fromJson(Map<String, dynamic> json) {
+    final projectJson = ((json['projects'] as List?) ?? [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+    final assetJson = ((json['assets'] as List?) ?? [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+    final legacyAttachments = <String, List<AttachmentData>>{};
+    for (final asset in assetJson) {
+      final projectId = asset['projectId'] as String? ?? '';
+      final attachments = (asset['attachments'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(AttachmentData.fromJson)
+          .toList();
+      if (attachments.isNotEmpty) {
+        legacyAttachments.putIfAbsent(projectId, () => []).addAll(attachments);
+      }
+    }
+
+    final projects = projectJson.map(ProjectData.fromJson).map((project) {
+      final legacy = legacyAttachments[project.id] ?? const <AttachmentData>[];
+      if (legacy.isEmpty) return project;
+      final ids = project.attachments.map((item) => item.id).toSet();
+      return project.copyWith(
+        attachments: [
+          ...project.attachments,
+          ...legacy.where((item) => ids.add(item.id)),
+        ],
+      );
+    }).toList();
+    final projectIds = projects.map((project) => project.id).toSet();
+    final orphanedAttachments = legacyAttachments.entries
+        .where((entry) => !projectIds.contains(entry.key))
+        .expand((entry) => entry.value)
+        .toList();
+    if (orphanedAttachments.isNotEmpty) {
+      const baseId = 'project-recovered-attachments';
+      var recoveryId = baseId;
+      var suffix = 2;
+      while (projectIds.contains(recoveryId)) {
+        recoveryId = '$baseId-$suffix';
+        suffix++;
+      }
+      projects.add(
+        ProjectData(
+          id: recoveryId,
+          title: '待整理附件',
+          description: '由旧版本中无法匹配所属项目的附件自动恢复，请检查后重新归档。',
+          priority: ProjectPriority.p2,
+          stage: ProjectStage.planned,
+          progressEntries: const [],
+          attachments: orphanedAttachments,
+        ),
+      );
+    }
+
+    return CardoryData(
+      projects: projects,
+      todos: ((json['todos'] as List?) ?? [])
+          .map((item) => TodoData.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      assets: assetJson.map(AssetData.fromJson).toList(),
+      assetTags: ((json['assetTags'] as List?) ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(AssetTag.fromJson)
+          .toList(),
+    );
+  }
   CardoryData copyWith({
     List<ProjectData>? projects,
     List<TodoData>? todos,
     List<AssetData>? assets,
+    List<AssetTag>? assetTags,
   }) => CardoryData(
     projects: projects ?? this.projects,
     todos: todos ?? this.todos,
     assets: assets ?? this.assets,
+    assetTags: assetTags ?? this.assetTags,
   );
   Map<String, dynamic> toJson() => {
     'projects': projects.map((item) => item.toJson()).toList(),
     'todos': todos.map((item) => item.toJson()).toList(),
     'assets': assets.map((item) => item.toJson()).toList(),
+    'assetTags': assetTags.map((item) => item.toJson()).toList(),
   };
 }
 
 enum AssetType { software, hardware }
+
+enum AttachmentKind {
+  image('图片'),
+  document('文档'),
+  archive('压缩包'),
+  other('其他');
+
+  const AttachmentKind(this.label);
+
+  final String label;
+
+  static AttachmentKind fromName(
+    String? name, {
+    required String fileName,
+    String mimeType = '',
+  }) {
+    for (final value in values) {
+      if (value.name == name) return value;
+    }
+    return infer(fileName, mimeType);
+  }
+
+  static AttachmentKind infer(String fileName, [String mimeType = '']) {
+    final normalizedMime = mimeType.toLowerCase();
+    if (normalizedMime.startsWith('image/')) return AttachmentKind.image;
+    if (normalizedMime.contains('zip') ||
+        normalizedMime.contains('compressed') ||
+        normalizedMime.contains('archive')) {
+      return AttachmentKind.archive;
+    }
+    final extension = fileName.contains('.')
+        ? fileName.split('.').last.toLowerCase()
+        : '';
+    if (AttachmentData._imageExtensions.contains(extension)) {
+      return AttachmentKind.image;
+    }
+    if (AttachmentData._archiveExtensions.contains(extension)) {
+      return AttachmentKind.archive;
+    }
+    if (AttachmentData._documentExtensions.contains(extension) ||
+        normalizedMime.startsWith('text/') ||
+        normalizedMime == 'application/pdf') {
+      return AttachmentKind.document;
+    }
+    return AttachmentKind.other;
+  }
+}
+
+class AttachmentCategory {
+  const AttachmentCategory({
+    required this.id,
+    required this.name,
+    this.createdAt,
+  });
+
+  final String id;
+  final String name;
+  final DateTime? createdAt;
+
+  factory AttachmentCategory.fromJson(Map<String, dynamic> json) =>
+      AttachmentCategory(
+        id: json['id'] as String? ?? newId(),
+        name: json['name'] as String? ?? '未命名分类',
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+      );
+
+  AttachmentCategory copyWith({String? name}) => AttachmentCategory(
+    id: id,
+    name: name ?? this.name,
+    createdAt: createdAt,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'createdAt': createdAt?.toIso8601String(),
+  };
+}
+
+class AttachmentData {
+  AttachmentData({
+    required this.id,
+    required this.fileName,
+    this.storageKey = '',
+    this.encryptionKey = '',
+    this.size = 0,
+    this.sha256 = '',
+    this.mimeType = '',
+    AttachmentKind? kind,
+    this.note = '',
+    required this.createdAt,
+    this.categoryIds = const [],
+    this.legacyFileBytes,
+  }) : kind = kind ?? AttachmentKind.infer(fileName, mimeType);
+
+  final String id;
+  final String fileName;
+  final String storageKey;
+  final String encryptionKey;
+  final int size;
+  final String sha256;
+  final String mimeType;
+  final AttachmentKind kind;
+  final String note;
+  final DateTime createdAt;
+  final List<String> categoryIds;
+  final String? legacyFileBytes;
+
+  bool get needsMigration => storageKey.isEmpty && legacyFileBytes != null;
+
+  String get fileExtension =>
+      fileName.contains('.') ? fileName.split('.').last.toLowerCase() : '';
+
+  static const _imageExtensions = {
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'bmp',
+    'webp',
+    'svg',
+    'ico',
+    'tiff',
+    'tif',
+  };
+  static const _archiveExtensions = {'zip', 'rar', '7z', 'tar', 'gz', 'bz2'};
+  static const _documentExtensions = {
+    'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'pdf',
+    // WPS 专有格式
+    'wps', 'et', 'dps',
+  };
+
+  factory AttachmentData.fromJson(Map<String, dynamic> json) => AttachmentData(
+    id: json['id'] as String? ?? newId(),
+    fileName: json['fileName'] as String? ?? 'unknown',
+    storageKey: json['storageKey'] as String? ?? '',
+    encryptionKey: json['encryptionKey'] as String? ?? '',
+    size: json['size'] as int? ?? 0,
+    sha256: json['sha256'] as String? ?? '',
+    mimeType: json['mimeType'] as String? ?? '',
+    kind: AttachmentKind.fromName(
+      json['kind'] as String?,
+      fileName: json['fileName'] as String? ?? 'unknown',
+      mimeType: json['mimeType'] as String? ?? '',
+    ),
+    note: json['note'] as String? ?? '',
+    createdAt: _readAttachmentCreatedAt(json),
+    categoryIds: ((json['categoryIds'] as List?) ?? [])
+        .whereType<String>()
+        .toList(),
+    legacyFileBytes: json['fileBytes'] as String?,
+  );
+
+  AttachmentData copyWith({
+    String? fileName,
+    String? storageKey,
+    String? encryptionKey,
+    int? size,
+    String? sha256,
+    String? mimeType,
+    AttachmentKind? kind,
+    String? note,
+    DateTime? createdAt,
+    List<String>? categoryIds,
+    bool clearCategoryIds = false,
+    String? legacyFileBytes,
+  }) => AttachmentData(
+    id: id,
+    fileName: fileName ?? this.fileName,
+    storageKey: storageKey ?? this.storageKey,
+    encryptionKey: encryptionKey ?? this.encryptionKey,
+    size: size ?? this.size,
+    sha256: sha256 ?? this.sha256,
+    mimeType: mimeType ?? this.mimeType,
+    kind: kind ?? this.kind,
+    note: note ?? this.note,
+    createdAt: createdAt ?? this.createdAt,
+    categoryIds: clearCategoryIds ? const [] : (categoryIds ?? this.categoryIds),
+    legacyFileBytes: legacyFileBytes ?? this.legacyFileBytes,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'fileName': fileName,
+    'storageKey': storageKey,
+    'encryptionKey': encryptionKey,
+    'size': size,
+    'sha256': sha256,
+    'mimeType': mimeType,
+    'kind': kind.name,
+    'note': note,
+    'createdAt': createdAt.toIso8601String(),
+    'categoryIds': categoryIds,
+    if (needsMigration) 'fileBytes': legacyFileBytes,
+  };
+}
+
+DateTime _readAttachmentCreatedAt(Map<String, dynamic> json) {
+  final stored = DateTime.tryParse(json['createdAt'] as String? ?? '');
+  if (stored != null) return stored;
+
+  final microseconds = int.tryParse(json['id'] as String? ?? '');
+  if (microseconds != null) {
+    try {
+      return DateTime.fromMicrosecondsSinceEpoch(microseconds);
+    } on ArgumentError {
+      // Fall through to a stable value for malformed legacy metadata.
+    }
+  }
+  return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+}
+
+class AssetTag {
+  const AssetTag({
+    required this.id,
+    required this.name,
+    this.createdAt,
+  });
+
+  final String id;
+  final String name;
+  final DateTime? createdAt;
+
+  factory AssetTag.fromJson(Map<String, dynamic> json) => AssetTag(
+    id: json['id'] as String? ?? newId(),
+    name: json['name'] as String? ?? '未命名标签',
+    createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+  );
+
+  AssetTag copyWith({String? name}) => AssetTag(
+    id: id,
+    name: name ?? this.name,
+    createdAt: createdAt,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'createdAt': createdAt?.toIso8601String(),
+  };
+}
 
 class AssetData {
   const AssetData({
@@ -295,6 +442,7 @@ class AssetData {
     this.username = '',
     this.password = '',
     this.note = '',
+    this.tagIds = const [],
     this.activities = const [],
   });
 
@@ -311,6 +459,7 @@ class AssetData {
   final String username;
   final String password;
   final String note;
+  final List<String> tagIds;
   final List<AssetActivity> activities;
 
   factory AssetData.fromJson(Map<String, dynamic> json) => AssetData(
@@ -330,6 +479,7 @@ class AssetData {
     username: json['username'] as String? ?? '',
     password: json['password'] as String? ?? '',
     note: json['note'] as String? ?? '',
+    tagIds: ((json['tagIds'] as List?) ?? []).whereType<String>().toList(),
     activities: (json['activities'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
         .map(AssetActivity.fromJson)
@@ -349,6 +499,8 @@ class AssetData {
     String? username,
     String? password,
     String? note,
+    List<String>? tagIds,
+    bool clearTagIds = false,
     List<AssetActivity>? activities,
   }) => AssetData(
     id: id,
@@ -364,6 +516,7 @@ class AssetData {
     username: username ?? this.username,
     password: password ?? this.password,
     note: note ?? this.note,
+    tagIds: clearTagIds ? const [] : (tagIds ?? this.tagIds),
     activities: activities ?? this.activities,
   );
 
@@ -381,6 +534,7 @@ class AssetData {
     'username': username,
     'password': password,
     'note': note,
+    'tagIds': tagIds,
     'activities': activities.map((a) => a.toJson()).toList(),
   };
 }
@@ -432,6 +586,8 @@ class ProjectData {
     required this.priority,
     required this.stage,
     required this.progressEntries,
+    this.attachments = const [],
+    this.categories = const [],
   });
 
   final String id;
@@ -442,6 +598,8 @@ class ProjectData {
   final ProjectPriority priority;
   final ProjectStage stage;
   final List<ProjectProgressEntry> progressEntries;
+  final List<AttachmentData> attachments;
+  final List<AttachmentCategory> categories;
   double get progress =>
       progressEntries.isEmpty ? 0 : progressEntries.last.progress;
 
@@ -461,6 +619,14 @@ class ProjectData {
       priority: ProjectPriority.fromName(json['priority'] as String? ?? 'p2'),
       stage: ProjectStage.fromName(json['stage'] as String? ?? 'planned'),
       progressEntries: entries,
+      attachments: (json['attachments'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(AttachmentData.fromJson)
+          .toList(),
+      categories: ((json['categories'] as List?) ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(AttachmentCategory.fromJson)
+          .toList(),
     );
   }
 
@@ -472,6 +638,8 @@ class ProjectData {
     ProjectPriority? priority,
     ProjectStage? stage,
     List<ProjectProgressEntry>? progressEntries,
+    List<AttachmentData>? attachments,
+    List<AttachmentCategory>? categories,
   }) => ProjectData(
     id: id,
     title: title ?? this.title,
@@ -481,6 +649,8 @@ class ProjectData {
     priority: priority ?? this.priority,
     stage: stage ?? this.stage,
     progressEntries: progressEntries ?? this.progressEntries,
+    attachments: attachments ?? this.attachments,
+    categories: categories ?? this.categories,
   );
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -491,6 +661,8 @@ class ProjectData {
     'priority': priority.name,
     'stage': stage.name,
     'progressEntries': progressEntries.map((item) => item.toJson()).toList(),
+    'attachments': attachments.map((item) => item.toJson()).toList(),
+    'categories': categories.map((item) => item.toJson()).toList(),
   };
 }
 
@@ -671,21 +843,6 @@ enum ProjectStage {
     (item) => item.name == name,
     orElse: () => ProjectStage.planned,
   );
-}
-
-enum ProjectPriority {
-  p0('高优先级'),
-  p1('中'),
-  p2('普通'),
-  p3('低');
-
-  const ProjectPriority(this.label);
-  final String label;
-  static ProjectPriority fromName(String name) =>
-      ProjectPriority.values.firstWhere(
-        (item) => item.name == name,
-        orElse: () => ProjectPriority.p2,
-      );
 }
 
 double readProgress(Object? value) =>

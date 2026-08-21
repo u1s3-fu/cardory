@@ -1,9 +1,11 @@
 // 数据持久化层：仓库接口与文件系统实现。
 //
-// 定义 [CardoryRepository] 抽象接口（14 个方法：setup / unlock / save /
-// export / import / lock 等）、[VaultSessionRepository] 会话接口、
+// 定义 [CardoryRepository] 抽象接口（setup / unlock / save / export /
+// import / lock 等方法）、[VaultSessionRepository] 会话接口、
 // [CardoryLoadResult] 加载结果、[CardoryAccessState] 访问状态枚举，
 // 以及基于 `path_provider` 的文件系统实现 [CardoryStore]。
+//
+// 仅采用密码保存与密码加盐加密存储方案，不包含恢复码机制。
 
 import 'dart:async';
 
@@ -12,64 +14,15 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import '../application/cardory_repository.dart';
 import 'cardory_container_codec.dart';
 import '../domain/cardory_models.dart';
 
+export '../application/cardory_repository.dart';
+
 typedef DirectoryProvider = Future<Directory> Function();
 
-class CardoryLoadResult {
-  const CardoryLoadResult({
-    required this.data,
-    required this.settings,
-    required this.path,
-    this.recoveredFromBackup = false,
-    this.recoveryKey,
-  });
-  final CardoryData data;
-  final AppSettings settings;
-  final String path;
-  final bool recoveredFromBackup;
-  final String? recoveryKey;
-}
-
-enum CardoryAccessState { setupRequired, locked, unlocked }
-
-abstract interface class CardoryRepository {
-  Future<CardoryAccessState> accessState();
-  Future<CardoryLoadResult> setup(String password);
-  Future<CardoryLoadResult> unlockWithPassword(String password);
-  Future<CardoryLoadResult> unlockWithRecoveryKey(String recoveryKey);
-  Future<CardoryLoadResult> resetPasswordWithRecoveryKey(
-    String recoveryKey,
-    String newPassword,
-  );
-  Future<CardoryLoadResult> restoreFromBackup(
-    List<int> bytes,
-    String recoveryKey,
-    String newPassword,
-  );
-  Future<CardoryLoadResult> load();
-  Future<void> save(CardoryData data, AppSettings settings);
-  Future<void> saveSettings(AppSettings settings);
-  Future<List<int>> exportContainer();
-  Future<CardoryData> importContainer(List<int> bytes, AppSettings settings);
-  Future<void> changePassword(String currentPassword, String newPassword);
-  Future<String> exportRecoveryFile(String path, String recoveryKey);
-}
-
-class CardoryStorageException implements Exception {
-  const CardoryStorageException(this.message, [this.cause]);
-  final String message;
-  final Object? cause;
-  @override
-  String toString() => message;
-}
-
-abstract interface class VaultSessionRepository {
-  Future<void> lock();
-}
-
-class CardoryStore implements CardoryRepository, VaultSessionRepository {
+class CardoryStore implements CardoryRepository, VaultSessionRepository, SyncContainerInspector {
   CardoryStore({
     DirectoryProvider? directoryProvider,
     CardoryContainerCodec? codec,
@@ -82,7 +35,6 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
   File? _file;
   List<int>? _container;
   String? _password;
-  String? _recoveryKey;
   Future<void> _writeQueue = Future<void>.value();
 
   @override
@@ -99,7 +51,6 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
     await _writeQueue;
     _container = null;
     _password = null;
-    _recoveryKey = null;
   }
 
   @override
@@ -118,12 +69,10 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
       await _atomicWriteBytes(file, creation.bytes, preserveBackup: false);
       _container = creation.bytes;
       _password = password;
-      _recoveryKey = null;
       return CardoryLoadResult(
         data: data,
         settings: settings,
         path: file.path,
-        recoveryKey: creation.recoveryKey,
       );
     } catch (error) {
       if (error is CardoryStorageException) rethrow;
@@ -138,60 +87,21 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
   );
 
   @override
-  Future<CardoryLoadResult> unlockWithRecoveryKey(String recoveryKey) =>
-      _unlock(
-        (bytes) => _codec.openDataWithRecoveryKey(bytes, recoveryKey),
-        recoveryKey: recoveryKey,
-      );
-
-  @override
-  Future<CardoryLoadResult> resetPasswordWithRecoveryKey(
-    String recoveryKey,
-    String newPassword,
-  ) => _enqueueWrite(() async {
-    try {
-      final settings = await _loadSettings();
-      final file = await _dataFile();
-      if (!await file.exists()) {
-        throw const CardoryStorageException('加密数据文件不存在，请从备份恢复。');
-      }
-      final bytes = await file.readAsBytes();
-      final recovered = await _codec.changePasswordWithRecoveryKey(
-        bytes,
-        recoveryKey: recoveryKey,
-        newPassword: newPassword,
-      );
-      final data = await _codec.openDataWithPassword(recovered, newPassword);
-      await _atomicWriteCredentialRotation(file, recovered);
-      _container = recovered;
-      _password = newPassword;
-      _recoveryKey = null;
-      return CardoryLoadResult(data: data, settings: settings, path: file.path);
-    } catch (error) {
-      if (error is CardoryStorageException) rethrow;
-      throw CardoryStorageException('使用恢复码重设密码失败，原数据文件已保留。', error);
-    }
-  });
-
-  @override
   Future<CardoryLoadResult> restoreFromBackup(
     List<int> bytes,
-    String recoveryKey,
-    String newPassword,
+    String password,
   ) => _enqueueWrite(() async {
     try {
       final settings = await _loadSettings();
-      final recovered = await _codec.changePasswordWithRecoveryKey(
-        bytes,
-        recoveryKey: recoveryKey,
-        newPassword: newPassword,
+      final data = await _codec.openDataWithPassword(bytes, password);
+      final recovered = await _codec.createFromData(
+        data: data,
+        password: password,
       );
-      final data = await _codec.openDataWithPassword(recovered, newPassword);
       final file = await _dataFile();
-      await _atomicWriteBytes(file, recovered);
-      _container = recovered;
-      _password = newPassword;
-      _recoveryKey = null;
+      await _atomicWriteBytes(file, recovered.bytes);
+      _container = recovered.bytes;
+      _password = password;
       return CardoryLoadResult(data: data, settings: settings, path: file.path);
     } catch (error) {
       if (error is CardoryStorageException) rethrow;
@@ -201,16 +111,23 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
 
   Future<CardoryLoadResult> _unlock(
     Future<CardoryData> Function(List<int>) decrypt, {
-    String? password,
-    String? recoveryKey,
+    required String password,
   }) async {
     try {
       final settings = await _loadSettings();
       final file = await _dataFile();
-      if (!await file.exists()) {
+      var dataFile = file;
+      if (!await dataFile.exists()) {
+        final backup = File('${file.path}.bak');
+        if (!await backup.exists()) {
+          throw const CardoryStorageException('加密数据文件不存在。');
+        }
+        dataFile = backup;
+      }
+      if (!await dataFile.exists()) {
         throw const CardoryStorageException('加密数据文件不存在。');
       }
-      final bytes = await file.readAsBytes();
+      final bytes = await dataFile.readAsBytes();
       try {
         _codec.inspect(bytes);
       } catch (_) {
@@ -221,7 +138,6 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
         await _atomicWriteBytes(file, backupBytes, preserveBackup: false);
         _container = backupBytes;
         _password = password;
-        _recoveryKey = recoveryKey;
         return CardoryLoadResult(
           data: data,
           settings: settings,
@@ -230,9 +146,11 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
         );
       }
       final data = await decrypt(bytes);
+      if (dataFile.path != file.path) {
+        await _atomicWriteBytes(file, bytes, preserveBackup: false);
+      }
       _container = bytes;
       _password = password;
-      _recoveryKey = recoveryKey;
       return CardoryLoadResult(data: data, settings: settings, path: file.path);
     } catch (error) {
       if (error is CardoryStorageException) rethrow;
@@ -245,8 +163,10 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
     if (_container == null) {
       throw const CardoryStorageException('数据保险库尚未解锁。');
     }
-    if (_password != null) return unlockWithPassword(_password!);
-    return unlockWithRecoveryKey(_recoveryKey!);
+    if (_password == null) {
+      throw const CardoryStorageException('数据保险库缺少密码，请重新解锁。');
+    }
+    return unlockWithPassword(_password!);
   }
 
   @override
@@ -258,13 +178,11 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
           if (container == null) {
             throw const CardoryStorageException('数据保险库尚未解锁。');
           }
-          final bytes = _password != null
-              ? await _codec.updateDataWithPassword(container, data, _password!)
-              : await _codec.updateDataWithRecoveryKey(
-                  container,
-                  data,
-                  _recoveryKey!,
-                );
+          final bytes = await _codec.updateDataWithPassword(
+            container,
+            data,
+            _password!,
+          );
           _codec.inspect(bytes);
           await _atomicWriteBytes(file, bytes);
           _container = bytes;
@@ -299,13 +217,39 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
   }
 
   @override
+  Future<String> saveSyncConflictSnapshot(
+    List<int> bytes, {
+    DateTime? timestamp,
+  }) => _enqueueWrite(() async {
+    try {
+      _codec.inspect(bytes);
+      final dataFile = await _dataFile();
+      final instant = (timestamp ?? DateTime.now()).toUtc();
+      final stamp = instant.toIso8601String().replaceAll(':', '-');
+      final snapshot = File('${dataFile.path}.conflict-$stamp.cardory');
+      await snapshot.writeAsBytes(bytes, flush: true);
+      return snapshot.path;
+    } catch (error) {
+      throw CardoryStorageException('无法保存同步冲突快照：$error', error);
+    }
+  });
+
+  @override
+  Future<CardoryData> inspectContainer(List<int> bytes) async {
+    try {
+      _codec.inspect(bytes);
+      return await _codec.openDataWithPassword(bytes, _password!);
+    } catch (error) {
+      throw CardoryStorageException('同步数据无法验证。', error);
+    }
+  }
+
+  @override
   Future<CardoryData> importContainer(List<int> bytes, AppSettings settings) =>
       _enqueueWrite(() async {
         try {
           _codec.inspect(bytes);
-          final data = _password != null
-              ? await _codec.openDataWithPassword(bytes, _password!)
-              : await _codec.openDataWithRecoveryKey(bytes, _recoveryKey!);
+          final data = await _codec.openDataWithPassword(bytes, _password!);
           await _atomicWriteBytes(await _dataFile(), bytes);
           _container = List<int>.from(bytes);
           return data;
@@ -327,41 +271,13 @@ class CardoryStore implements CardoryRepository, VaultSessionRepository {
             currentPassword: currentPassword,
             newPassword: newPassword,
           );
-          await _atomicWriteCredentialRotation(
-            await _dataFile(),
-            bytes,
-          );
+          await _atomicWriteCredentialRotation(await _dataFile(), bytes);
           _container = bytes;
           _password = newPassword;
-          _recoveryKey = null;
         } catch (error) {
           throw CardoryStorageException('密码修改失败，原数据文件已保留。', error);
         }
       });
-
-  @override
-  Future<String> exportRecoveryFile(String path, String recoveryKey) async {
-    final container = _container;
-    if (container == null) {
-      throw const CardoryStorageException('数据保险库尚未解锁。');
-    }
-    await _codec.openDataWithRecoveryKey(container, recoveryKey);
-    final target = File(
-      path.toLowerCase().endsWith('.txt') ? path : '$path.txt',
-    );
-    await _atomicWrite(
-      target,
-      'Cardory 恢复码\n\n$recoveryKey\n\n请离线妥善保管。任何获得此恢复码的人都可以解锁或恢复你的数据。\n',
-      preserveBackup: false,
-      validate: (content) {
-        if (!content.contains(recoveryKey)) {
-          throw const FormatException('恢复文件校验失败');
-        }
-        return null;
-      },
-    );
-    return target.path;
-  }
 
   Future<T> _enqueueWrite<T>(Future<T> Function() operation) {
     final completer = Completer<T>();

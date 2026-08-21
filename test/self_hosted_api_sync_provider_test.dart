@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cardory/sync/self_hosted_api_sync_provider.dart';
 import 'package:cardory/sync/sync_credentials.dart';
 import 'package:cardory/sync/sync_models.dart';
@@ -64,6 +66,33 @@ void main() {
       );
     },
   );
+
+  test('streams attachments through the endpoint sibling path', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'cardory-self-hosted-attachment-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final source = File('${directory.path}${Platform.pathSeparator}source.bin');
+    await source.writeAsBytes([1, 2, 3, 4]);
+    http.Request? request;
+    final provider = SelfHostedApiSyncProvider(
+      endpoint: Uri.parse('https://sync.example.com/v1/cardory/container'),
+      credentialStore: _Credentials('secret-token'),
+      client: MockClient((value) async {
+        request = value;
+        return http.Response('', 201);
+      }),
+    );
+
+    await provider.uploadFile('attachments/v1/file.blob', source.path);
+
+    expect(request?.method, 'PUT');
+    expect(
+      request?.url.toString(),
+      'https://sync.example.com/v1/cardory/attachments/v1/file.blob',
+    );
+    expect(request?.bodyBytes, [1, 2, 3, 4]);
+  });
 }
 
 class _Credentials implements SyncCredentialStore {
@@ -72,20 +101,9 @@ class _Credentials implements SyncCredentialStore {
   final String? token;
 
   @override
-  Future<void> deleteSelfHostedToken() async {}
+  Future<SyncCredentials> read() async =>
+      SyncCredentials(selfHostedToken: token);
 
   @override
-  Future<void> deleteWebDav() async {}
-
-  @override
-  Future<String?> readSelfHostedToken() async => token;
-
-  @override
-  Future<WebDavCredentials?> readWebDav() async => null;
-
-  @override
-  Future<void> writeSelfHostedToken(String token) async {}
-
-  @override
-  Future<void> writeWebDav(WebDavCredentials credentials) async {}
+  Future<void> write(SyncCredentials credentials) async {}
 }

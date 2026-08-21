@@ -1,8 +1,7 @@
 // 加密容器的完整生命周期管理器。
 //
-// 提供创建、打开、密码修改、恢复密钥轮换和二进制序列化。加密方案基于
-// AES-256-GCM 内容加密 + PBKDF2-HMAC-SHA256 密钥派生，支持密码和恢复密钥
-// 双密钥槽，以及 argon2id 密码哈希的容器检查。
+// 提供创建、打开、密码修改和二进制序列化。加密方案基于 AES-256-GCM
+// 内容加密 + PBKDF2-HMAC-SHA256 密钥派生，仅使用密码加盐加密存储。
 
 import 'dart:convert';
 import 'dart:math';
@@ -34,7 +33,6 @@ class CardoryContainerCodec {
   static const currentVersion = 1;
   static const cipherName = 'AES-256-GCM';
   static const _passwordKdfName = 'PBKDF2-HMAC-SHA256';
-  static const _recoveryKdfName = 'RAW-256';
   static const _prefixLength = 13;
   static const _maxHeaderLength = 1024 * 1024;
   static const _magic = <int>[67, 65, 82, 68, 79, 82, 89, 0];
@@ -46,17 +44,12 @@ class CardoryContainerCodec {
   Future<CardoryContainerCreation> create({
     required List<int> plaintext,
     required String password,
-    String? recoveryKey,
   }) async {
     _validatePassword(password);
     final dataKeyBytes = _randomBytes(32);
     final dataKey = SecretKey(dataKeyBytes);
-    final resolvedRecoveryKey =
-        recoveryKey ?? _encodeRecoveryKey(_randomBytes(32));
-    final recoveryKeyBytes = _decodeRecoveryKey(resolvedRecoveryKey);
     final slots = <Map<String, dynamic>>[
       await _createPasswordSlot(dataKeyBytes, password),
-      await _createRecoverySlot(dataKeyBytes, recoveryKeyBytes),
     ];
     final payloadNonce = _randomBytes(12);
     final protectedHeader = <String, dynamic>{
@@ -84,18 +77,15 @@ class CardoryContainerCodec {
       ..add(payloadBox.cipherText);
     return CardoryContainerCreation(
       bytes: output.takeBytes(),
-      recoveryKey: resolvedRecoveryKey,
     );
   }
 
   Future<CardoryContainerCreation> createFromData({
     required CardoryData data,
     required String password,
-    String? recoveryKey,
   }) => create(
     plaintext: utf8.encode(jsonEncode(data.toJson())),
     password: password,
-    recoveryKey: recoveryKey,
   );
 
   Future<List<int>> openWithPassword(
@@ -135,42 +125,10 @@ class CardoryContainerCodec {
     }
   }
 
-  Future<List<int>> openWithRecoveryKey(
-    List<int> container,
-    String recoveryKey,
-  ) async {
-    final parsed = _parse(container);
-    final slot = _slot(parsed.header, CardoryKeySlotType.recovery);
-    final recoveryKeyBytes = _decodeRecoveryKey(recoveryKey);
-    try {
-      final dataKey = await _unwrapKey(slot, SecretKey(recoveryKeyBytes));
-      return await _decryptPayload(parsed, dataKey);
-    } on CardoryContainerException {
-      rethrow;
-    } on SecretBoxAuthenticationError catch (error) {
-      throw CardoryContainerException(
-        CardoryContainerError.invalidCredential,
-        '恢复密钥不正确或容器已损坏。',
-        error,
-      );
-    } on FormatException catch (error) {
-      throw CardoryContainerException(
-        CardoryContainerError.invalidFormat,
-        '容器密钥槽格式无效。',
-        error,
-      );
-    }
-  }
-
   Future<CardoryData> openDataWithPassword(
     List<int> container,
     String password,
   ) async => _decodeData(await openWithPassword(container, password));
-
-  Future<CardoryData> openDataWithRecoveryKey(
-    List<int> container,
-    String recoveryKey,
-  ) async => _decodeData(await openWithRecoveryKey(container, recoveryKey));
 
   Future<List<int>> updateDataWithPassword(
     List<int> container,
@@ -202,28 +160,6 @@ class CardoryContainerCodec {
     }
   }
 
-  Future<List<int>> updateDataWithRecoveryKey(
-    List<int> container,
-    CardoryData data,
-    String recoveryKey,
-  ) async {
-    final parsed = _parse(container);
-    final slot = _slot(parsed.header, CardoryKeySlotType.recovery);
-    try {
-      return _replacePayload(
-        parsed,
-        utf8.encode(jsonEncode(data.toJson())),
-        await _unwrapKey(slot, SecretKey(_decodeRecoveryKey(recoveryKey))),
-      );
-    } on SecretBoxAuthenticationError catch (error) {
-      throw CardoryContainerException(
-        CardoryContainerError.invalidCredential,
-        '恢复密钥不正确或容器已损坏。',
-        error,
-      );
-    }
-  }
-
   Future<List<int>> replaceWithPassword(
     List<int> container,
     List<int> plaintext,
@@ -232,16 +168,6 @@ class CardoryContainerCodec {
     _validatePassword(password);
     final parsed = _parse(container);
     final dataKey = await _dataKeyWithPassword(parsed, password);
-    return _replacePayload(parsed, plaintext, dataKey);
-  }
-
-  Future<List<int>> replaceWithRecoveryKey(
-    List<int> container,
-    List<int> plaintext,
-    String recoveryKey,
-  ) async {
-    final parsed = _parse(container);
-    final dataKey = await _dataKeyWithRecoveryKey(parsed, recoveryKey);
     return _replacePayload(parsed, plaintext, dataKey);
   }
 
@@ -255,40 +181,12 @@ class CardoryContainerCodec {
     final dataKey = await _dataKeyWithPassword(parsed, currentPassword);
     final plaintext = await _decryptPayload(parsed, dataKey);
     final dataKeyBytes = await dataKey.extractBytes();
-    final recoverySlot = Map<String, dynamic>.from(
-      _slot(parsed.header, CardoryKeySlotType.recovery),
-    );
     return _replacePayload(
       parsed,
       plaintext,
       dataKey,
       keySlots: [
         await _createPasswordSlot(dataKeyBytes, newPassword),
-        recoverySlot,
-      ],
-    );
-  }
-
-  Future<List<int>> changePasswordWithRecoveryKey(
-    List<int> container, {
-    required String recoveryKey,
-    required String newPassword,
-  }) async {
-    _validatePassword(newPassword);
-    final parsed = _parse(container);
-    final dataKey = await _dataKeyWithRecoveryKey(parsed, recoveryKey);
-    final plaintext = await _decryptPayload(parsed, dataKey);
-    final dataKeyBytes = await dataKey.extractBytes();
-    final recoverySlot = Map<String, dynamic>.from(
-      _slot(parsed.header, CardoryKeySlotType.recovery),
-    );
-    return _replacePayload(
-      parsed,
-      plaintext,
-      dataKey,
-      keySlots: [
-        await _createPasswordSlot(dataKeyBytes, newPassword),
-        recoverySlot,
       ],
     );
   }
@@ -332,16 +230,6 @@ class CardoryContainerCodec {
       extra: {'salt': _encode(salt), 'iterations': _passwordIterations},
     );
   }
-
-  Future<Map<String, dynamic>> _createRecoverySlot(
-    List<int> dataKey,
-    List<int> recoveryKey,
-  ) => _createSlot(
-    type: CardoryKeySlotType.recovery,
-    kdf: _recoveryKdfName,
-    wrappingKey: SecretKey(recoveryKey),
-    dataKey: dataKey,
-  );
 
   Future<Map<String, dynamic>> _createSlot({
     required CardoryKeySlotType type,
@@ -412,31 +300,6 @@ class CardoryContainerCodec {
       throw CardoryContainerException(
         CardoryContainerError.invalidCredential,
         '密码不正确或容器已损坏。',
-        error,
-      );
-    } on FormatException catch (error) {
-      throw CardoryContainerException(
-        CardoryContainerError.invalidFormat,
-        '容器密钥槽格式无效。',
-        error,
-      );
-    }
-  }
-
-  Future<SecretKey> _dataKeyWithRecoveryKey(
-    _ParsedContainer parsed,
-    String recoveryKey,
-  ) async {
-    final slot = _slot(parsed.header, CardoryKeySlotType.recovery);
-    final recoveryKeyBytes = _decodeRecoveryKey(recoveryKey);
-    try {
-      return await _unwrapKey(slot, SecretKey(recoveryKeyBytes));
-    } on CardoryContainerException {
-      rethrow;
-    } on SecretBoxAuthenticationError catch (error) {
-      throw CardoryContainerException(
-        CardoryContainerError.invalidCredential,
-        '恢复密钥不正确或容器已损坏。',
         error,
       );
     } on FormatException catch (error) {
@@ -594,30 +457,6 @@ class CardoryContainerCodec {
     if (password.isEmpty) {
       throw ArgumentError.value(password, 'password', '密码不能为空');
     }
-  }
-
-  List<int> _decodeRecoveryKey(String value) {
-    try {
-      final normalized = value.trim().replaceAll('-', '').replaceAll(' ', '');
-      final bytes = base64.decode(base64.normalize(normalized));
-      if (bytes.length != 32) throw const FormatException();
-      return bytes;
-    } on Object catch (error) {
-      throw CardoryContainerException(
-        CardoryContainerError.invalidRecoveryKey,
-        '恢复密钥格式无效。',
-        error,
-      );
-    }
-  }
-
-  static String _encodeRecoveryKey(List<int> bytes) {
-    final encoded = base64.encode(bytes).replaceAll('=', '');
-    return List.generate((encoded.length / 8).ceil(), (index) {
-      final start = index * 8;
-      final end = min(start + 8, encoded.length);
-      return encoded.substring(start, end);
-    }).join('-');
   }
 
   static Uint8List _canonicalJson(Map<String, dynamic> value) =>

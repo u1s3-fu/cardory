@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:cardory/sync/sync_models.dart';
 import 'package:cardory/sync/webdav_sync_provider.dart';
@@ -7,6 +8,25 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test(
+    'fails a stalled WebDAV connection request within the configured timeout',
+    () async {
+      final pendingResponse = Completer<http.Response>();
+      final provider = WebDavSyncProvider(
+        baseUrl: Uri.parse('https://dav.example.com/cardory/'),
+        username: 'user',
+        password: 'secret',
+        requestTimeout: const Duration(milliseconds: 10),
+        client: MockClient((_) => pendingResponse.future),
+      );
+
+      await expectLater(
+        provider.checkConnection(),
+        throwsA(isA<SyncProviderException>()),
+      );
+    },
+  );
+
   test('reads a WebDAV document with basic authentication', () async {
     late http.Request captured;
     final provider = WebDavSyncProvider(

@@ -10,17 +10,20 @@ import 'sync_provider.dart';
 ///
 /// 通过配置的容器资源 URL 与自建服务通信，支持 `GET` / `HEAD` / `PUT` / `DELETE`
 /// 操作，鉴权方式为 Bearer Token。
-class SelfHostedApiSyncProvider implements SyncProvider {
+class SelfHostedApiSyncProvider
+    implements SyncProvider, AttachmentSyncProvider {
   SelfHostedApiSyncProvider({
     required Uri endpoint,
     required this.credentialStore,
     http.Client? client,
   }) : endpoint = _validateEndpoint(endpoint),
-       _client = client ?? http.Client();
+       _client = client ?? http.Client(),
+       _ownsClient = client == null;
 
   final Uri endpoint;
   final SyncCredentialStore credentialStore;
   final http.Client _client;
+  final bool _ownsClient;
 
   @override
   String get id => 'selfHosted';
@@ -32,7 +35,7 @@ class SelfHostedApiSyncProvider implements SyncProvider {
     bool contentType = false,
     String? expectedRevision,
   }) async {
-    final token = await credentialStore.readSelfHostedToken();
+    final token = (await credentialStore.read()).selfHostedToken;
     if (token == null || token.trim().isEmpty) {
       throw const SyncProviderException('请先设置自托管 API 访问令牌');
     }
@@ -139,6 +142,50 @@ class SelfHostedApiSyncProvider implements SyncProvider {
     }
   }
 
+  @override
+  Future<bool> fileExists(String key) async {
+    final response = await _client.head(
+      _urlForFile(key),
+      headers: await _headers(),
+    );
+    if (response.statusCode == 404) return false;
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw SyncProviderException('自托管附件检查失败：HTTP ${response.statusCode}');
+    }
+    return true;
+  }
+
+  @override
+  Future<void> downloadFile(String key, String targetPath) async {
+    final target = File(targetPath);
+    final request = http.Request('GET', _urlForFile(key))
+      ..headers.addAll(await _headers());
+    final response = await _client.send(request);
+    if (response.statusCode == 404) {
+      throw const SyncProviderException('远端附件不存在');
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw SyncProviderException('自托管附件下载失败：HTTP ${response.statusCode}');
+    }
+    await target.parent.create(recursive: true);
+    await response.stream.pipe(target.openWrite());
+  }
+
+  @override
+  Future<void> uploadFile(String key, String sourcePath) async {
+    final source = File(sourcePath);
+    final request = http.StreamedRequest('PUT', _urlForFile(key))
+      ..headers.addAll(await _headers(contentType: true))
+      ..contentLength = await source.length();
+    final responseFuture = _client.send(request);
+    await request.sink.addStream(source.openRead());
+    await request.sink.close();
+    final response = await responseFuture;
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw SyncProviderException('自托管附件上传失败：HTTP ${response.statusCode}');
+    }
+  }
+
   static Uri _validateEndpoint(Uri value) {
     if ((value.scheme != 'http' && value.scheme != 'https') ||
         value.host.isEmpty) {
@@ -151,11 +198,30 @@ class SelfHostedApiSyncProvider implements SyncProvider {
     if (key.isEmpty) throw ArgumentError.value(key, 'key');
   }
 
+  Uri _urlForFile(String key) {
+    final segments = key.split('/');
+    if (key.isEmpty || segments.any((item) => item.isEmpty || item == '..')) {
+      throw ArgumentError.value(key, 'key');
+    }
+    final baseSegments = endpoint.pathSegments.toList();
+    if (baseSegments.isNotEmpty) baseSegments.removeLast();
+    return Uri(
+      scheme: endpoint.scheme,
+      userInfo: endpoint.userInfo,
+      host: endpoint.host,
+      port: endpoint.hasPort ? endpoint.port : null,
+      pathSegments: [...baseSegments, ...segments],
+    );
+  }
+
   String _fallbackRevision(http.Response response) =>
       '${response.headers['last-modified'] ?? ''}:${response.bodyBytes.length}';
 
   DateTime? _readHttpDate(String? value) =>
       value == null ? null : HttpDate.parse(value).toUtc();
 
-  void dispose() => _client.close();
+  @override
+  Future<void> dispose() async {
+    if (_ownsClient) _client.close();
+  }
 }

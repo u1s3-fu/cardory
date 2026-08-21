@@ -289,16 +289,14 @@ ThemeData buildCardoryTheme(
     textTheme: textTheme,
     scaffoldBackgroundColor: CardoryColors.gray50,
     dividerColor: CardoryColors.gray200,
-    splashFactory: brightness == Brightness.light
-        ? InkSparkle.splashFactory
-        : ThemeData().splashFactory,
+    splashFactory: InkRipple.splashFactory,
     hoverColor: CardoryColors.gray100.withValues(alpha: 0.6),
     highlightColor: Colors.transparent,
     cardTheme: CardThemeData(
       elevation: 0,
       margin: EdgeInsets.zero,
       color: CardoryColors.white,
-      shadowColor: CardoryColors.primary.withValues(alpha: 0.08),
+      shadowColor: Colors.black.withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(14)),
         side: BorderSide(color: CardoryColors.gray200),
@@ -478,7 +476,7 @@ ThemeData buildCardoryTheme(
     ),
     popupMenuTheme: PopupMenuThemeData(
       elevation: 10,
-      shadowColor: CardoryColors.primary.withValues(alpha: 0.10),
+      shadowColor: Colors.black.withValues(alpha: 0.10),
       surfaceTintColor: Colors.transparent,
       color: CardoryColors.white,
       shape: RoundedRectangleBorder(
@@ -499,8 +497,8 @@ ThemeData buildCardoryTheme(
         (states) => IconThemeData(
           size: 22,
           color: states.contains(WidgetState.selected)
-              ? primary
-              : CardoryColors.gray400,
+              ? CardoryColors.white
+              : CardoryColors.gray600,
         ),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
@@ -522,21 +520,66 @@ ThemeData buildCardoryTheme(
             borderRadius: BorderRadius.all(Radius.circular(8)),
           ),
         ),
-        side: WidgetStatePropertyAll(BorderSide(color: CardoryColors.gray300)),
+        side: WidgetStateProperty.resolveWith(
+          (states) => BorderSide(
+            color: states.contains(WidgetState.selected)
+                ? primary
+                : CardoryColors.gray300,
+          ),
+        ),
         foregroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? onPrimaryContainer
-              : CardoryColors.gray600,
+              ? CardoryColors.white
+              : states.contains(WidgetState.disabled)
+                  ? CardoryColors.gray400
+                  : CardoryColors.gray600,
         ),
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? primaryContainer
-              : CardoryColors.white,
+              ? primary
+              : states.contains(WidgetState.disabled)
+                  ? CardoryColors.gray100
+                  : CardoryColors.white,
+        ),
+        overlayColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.hovered)
+              ? primary.withValues(alpha: 0.10)
+              : Colors.transparent,
         ),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
         ),
       ),
+    ),
+    switchTheme: SwitchThemeData(
+      trackOutlineWidth: const WidgetStatePropertyAll(1),
+      thumbColor: WidgetStatePropertyAll(CardoryColors.white),
+      trackColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? primary
+            : CardoryColors.gray300,
+      ),
+      trackOutlineColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? Colors.transparent
+            : CardoryColors.gray300,
+      ),
+      overlayColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.hovered)
+            ? primary.withValues(alpha: 0.08)
+            : Colors.transparent,
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: CardoryColors.white,
+      selectedColor: CardoryColors.primarySoft,
+      side: BorderSide(color: CardoryColors.gray300),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      labelStyle: TextStyle(fontSize: 13, color: CardoryColors.gray700),
+      secondaryLabelStyle: TextStyle(fontSize: 13, color: primary),
+      checkmarkColor: primary,
+      deleteIconColor: CardoryColors.gray400,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
@@ -556,10 +599,17 @@ ThemeData buildCardoryTheme(
       fillColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.selected)
             ? primary
-            : CardoryColors.white,
+            : states.contains(WidgetState.disabled)
+                ? CardoryColors.gray100
+                : CardoryColors.white,
       ),
       side: BorderSide(color: CardoryColors.gray300, width: 1.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      overlayColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.hovered)
+            ? primary.withValues(alpha: 0.08)
+            : Colors.transparent,
+      ),
     ),
     sliderTheme: const SliderThemeData(
       trackHeight: 4,
@@ -596,26 +646,32 @@ BoxDecoration cardoryCard({Color? color, double radius = 14}) => BoxDecoration(
   border: Border.all(color: CardoryColors.gray200),
   boxShadow: [
     BoxShadow(
-      color: CardoryColors.primary.withValues(alpha: 0.055),
+      color: Colors.black.withValues(alpha: 0.045),
       blurRadius: 18,
       offset: const Offset(0, 7),
     ),
   ],
 );
 
-/// 蓝紫品牌头图（项目详情页顶部）。
+/// 品牌深色头图（项目详情页顶部）。
 BoxDecoration cardoryDarkHero({double radius = 18}) => BoxDecoration(
   gradient: const LinearGradient(
-    colors: [Color(0xFF4541A8), Color(0xFF6B62DF), Color(0xFFB06DD3)],
+    colors: [Color(0xFF4541A8), Color(0xFF6B62DF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   ),
   borderRadius: BorderRadius.circular(radius),
   boxShadow: [
     BoxShadow(
-      color: CardoryColors.primary.withValues(alpha: 0.20),
+      color: Colors.black.withValues(alpha: 0.14),
       blurRadius: 24,
       offset: const Offset(0, 12),
     ),
   ],
 );
+
+/// Standard content card decoration used across presentation pages.
+BoxDecoration cardDecoration() => cardoryCard();
+
+/// Branded dark card decoration used by project summaries.
+BoxDecoration darkCardDecoration() => cardoryDarkHero();

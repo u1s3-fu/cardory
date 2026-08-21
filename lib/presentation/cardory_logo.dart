@@ -6,10 +6,7 @@ import 'package:flutter/material.dart';
 /// 使用 [BoxFit.contain] 与 [AspectRatio] 保持原始宽高比，
 /// 避免父容器约束（如 Column 的 stretch）造成拉伸变形。
 class CardoryLogo extends StatelessWidget {
-  const CardoryLogo({
-    super.key,
-    this.size = 48,
-  });
+  const CardoryLogo({super.key, this.size = 48});
 
   /// logo 边长（正方形）。
   final double size;
