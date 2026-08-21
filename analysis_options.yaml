@@ -9,19 +9,16 @@
 include: package:flutter_lints/flutter.yaml
 
 linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
+  # 本项目的 lint 规则可在下方区域自定义：
+  # 可禁用上方 include 的 `package:flutter_lints/flutter.yaml` 中的规则，
+  # 也可启用额外规则。全部可用 lint 及其文档见 https://dart.dev/lints。
   #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
+  # 除在下方对整个项目禁用某条 lint 外，也可以仅针对某一行代码
+  # 或某个 dart 文件，使用 `// ignore: 规则名` 与
+  # `// ignore_for_file: 规则名` 语法在产生该 lint 的行或文件中抑制它。
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # avoid_print: false  # 取消注释以禁用 avoid_print 规则
+    # prefer_single_quotes: true  # 取消注释以启用 prefer_single_quotes 规则
 
-# Additional information about this file can be found at
+# 本文件的更多信息参见
 # https://dart.dev/guides/language/analysis-options
