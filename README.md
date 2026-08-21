@@ -2,7 +2,7 @@
 
 Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 Flutter 本地优先跨平台应用。保险库正文和附件在写入磁盘前使用 AES-256-GCM 加密；应用设置另存为不含同步密钥的 JSON 文件。无需联网即可使用。
 
-![Version](https://img.shields.io/badge/version-0.0.4-blue) ![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.9.2-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-private-red)
+![Version](https://img.shields.io/badge/version-0.0.4-blue) ![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.12.2-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-private-red)
 
 ---
 
@@ -11,7 +11,7 @@ Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 F
 ### 项目管理
 
 - **项目看板**：创建、编辑、删除项目，直观总览所有项目及其状态
-- **阶段管理**：支持四级阶段流转 —— 计划中 → 推进中 → 待验收 → 已完成
+- **阶段管理**：支持四级阶段流转 —— 计划中 → 进行中 → 待验收 → 已完成
 - **优先级划分**：P0（高优先级）/ P1（中）/ P2（普通）/ P3（低），颜色编码一目了然
 - **进度追踪**：百分比进度条展示，关键节点可按时间线记录，阶段变更自动归档
 
@@ -31,7 +31,7 @@ Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 F
 ### 自定义主题
 
 - **自由配色**：背景色与强调色自由搭配，打造个性化工作空间
-- **预设色板**：提供 6 种精心设计的预设主题色组合，一键切换
+- **预设色板**：提供 7 种精心设计的预设主题色组合，一键切换
 - **自动暗色模式**：当选择深色背景时，文字与控件自动切换为亮色，无需手动配置
 
 ### 数据同步
@@ -132,7 +132,7 @@ Cardory 将安全放在首位；保险库正文和附件在写入磁盘前均经
 | 平台 | 最低版本 | 备注 |
 |------|----------|------|
 | **Windows** | Windows 10+ | 完整支持，推荐使用 |
-| **Android** | Android 5.0 (API 21) | 完整支持 |
+| **Android** | Android 7.0 (API 24) | 完整支持 |
 | **iOS** | iOS 13+ | 基础 Runner 工程；WidgetKit 源码和共享组配置已提供，但 Widget Extension target 尚未接入 Xcode 工程 |
 | **macOS** | macOS 10.15+ | 沙盒已启用网络权限 |
 
@@ -141,7 +141,7 @@ Cardory 将安全放在首位；保险库正文和附件在写入磁盘前均经
 | 组件 | 版本 |
 |------|------|
 | **Flutter SDK** | stable（最新稳定版） |
-| **Dart SDK** | `3.9.2` |
+| **Dart SDK** | `3.12.2`（约束 `^3.9.2`） |
 | **Java / Kotlin** | JVM 21（Android） |
 | **Swift** | 5.x（iOS/macOS） |
 
