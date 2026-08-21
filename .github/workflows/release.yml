@@ -152,13 +152,46 @@ jobs:
             echo "tag=v${{ github.run_number }}"
           fi >> "$GITHUB_OUTPUT"
 
+      # 从 CHANGELOG.md 提取对应版本的更新日志区块（如 ## [0.0.4]）作为 Release 说明。
+      # 找不到对应版本区块时（例如手动触发但未更新 CHANGELOG），回退为默认平台说明模板。
+      - name: Extract changelog section
+        id: changelog
+        shell: bash
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${TAG#v}"
+          SECTION="$(awk -v h="## [$VERSION]" '
+            index($0, h) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { lines[++n] = $0 }
+            END {
+              start = 1
+              while (start <= n && lines[start] ~ /^[[:space:]]*$/) start++
+              end = n
+              while (end >= 1 && lines[end] ~ /^[[:space:]]*$/) end--
+              for (i = start; i <= end; i++) print lines[i]
+            }
+          ' CHANGELOG.md)"
+          if [ -n "$SECTION" ]; then
+            BODY="Android (arm64) · Windows (x64) · macOS (arm64)
+
+$SECTION"
+          else
+            echo "::warning::CHANGELOG.md 中未找到版本 $VERSION 的更新日志区块，Release 说明将使用默认模板。"
+            BODY="Android (arm64) · Windows (x64) · macOS (arm64)"
+          fi
+          {
+            echo "body<<CHANGELOG_BODY"
+            printf '%s\n' "$BODY"
+            echo "CHANGELOG_BODY"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: Release ${{ steps.tag.outputs.tag }}
           generate_release_notes: false
-          body: |
-            Android (arm64) · Windows (x64) · macOS (arm64)
+          body: ${{ steps.changelog.outputs.body }}
           files: artifacts/*
           fail_on_unmatched_files: true

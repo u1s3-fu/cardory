@@ -4,6 +4,13 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Changed
+
+- 依赖方向重构：将 `WorkspaceRepository`、`SyncRepository`、`VaultRepository`、`CardoryRepository`、`VaultSessionRepository`、`AttachmentRepository`、`SyncCredentials`、`SyncStatus`、`WorkspaceSyncService`、`WidgetDataService` 等接口与模型从 `lib/application/` 下沉至 `lib/domain/`，由应用服务层与表现层统一引用 domain 层，消除对基础设施实现细节的反向依赖
+- `CloudRestoreService` 从 `lib/application/` 迁移至 `lib/sync/`，应用层不再依赖同步实现；`vault_gate`、`cloud_restore_dialog` 相应改用 `sync/cloud_restore_service.dart` 引用
+- 设置页“测试连接”改为依赖注入：`connectionTester` 由 `CardoryApp` 逐层传入（`CardoryVaultGate` → `HomePage` → `SettingsDialog`），默认实现为 `testSyncConnection`，表现层不再直接引用同步提供者注册表
+- CI Release 工作流自动从 `CHANGELOG.md` 提取当前版本（如 `[0.0.4]`）的更新日志区块填充 GitHub Release 说明，替代原先固定的一行平台文字模板；找不到对应版本区块时回退为默认模板并给出警告
+
 ## [0.0.4] - 2026-08-21
 
 ### Added
