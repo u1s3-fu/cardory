@@ -2,7 +2,7 @@
 
 Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 Flutter 本地优先跨平台应用。保险库正文和附件在写入磁盘前使用 AES-256-GCM 加密；应用设置另存为不含同步密钥的 JSON 文件。无需联网即可使用。
 
-![Version](https://img.shields.io/badge/version-0.0.3-blue) ![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.9.2-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-private-red)
+![Version](https://img.shields.io/badge/version-0.0.4-blue) ![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.9.2-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-private-red)
 
 ---
 
