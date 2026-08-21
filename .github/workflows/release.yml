@@ -2,6 +2,7 @@
 # 推送 v* tag 或手动触发时，构建三平台产物：
 #   Android (arm64) / Windows (x64) / macOS (arm64)
 # 产物统一命名为 cardory-平台-架构-版本号 格式。
+# Release 说明仅包含 CHANGELOG.md 中对应版本（如 [0.0.4]）的完整更新日志区块，不含额外内容。
 
 name: Build & Publish Release
 
@@ -161,7 +162,7 @@ jobs:
           TAG="${{ steps.tag.outputs.tag }}"
           VERSION="${TAG#v}"
           SECTION="$(awk -v h="## [$VERSION]" '
-            index($0, h) == 1 { found = 1; next }
+            index($0, h) == 1 { found = 1; print $0; next }
             found && /^## \[/ { exit }
             found { lines[++n] = $0 }
             END {
@@ -173,12 +174,10 @@ jobs:
             }
           ' CHANGELOG.md)"
           if [ -n "$SECTION" ]; then
-            BODY="Android (arm64) · Windows (x64) · macOS (arm64)
-
-$SECTION"
+            BODY="$SECTION"
           else
             echo "::warning::CHANGELOG.md 中未找到版本 $VERSION 的更新日志区块，Release 说明将使用默认模板。"
-            BODY="Android (arm64) · Windows (x64) · macOS (arm64)"
+            BODY="## [$VERSION]"
           fi
           {
             echo "body<<CHANGELOG_BODY"

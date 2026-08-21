@@ -9,7 +9,14 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 - 依赖方向重构：将 `WorkspaceRepository`、`SyncRepository`、`VaultRepository`、`CardoryRepository`、`VaultSessionRepository`、`AttachmentRepository`、`SyncCredentials`、`SyncStatus`、`WorkspaceSyncService`、`WidgetDataService` 等接口与模型从 `lib/application/` 下沉至 `lib/domain/`，由应用服务层与表现层统一引用 domain 层，消除对基础设施实现细节的反向依赖
 - `CloudRestoreService` 从 `lib/application/` 迁移至 `lib/sync/`，应用层不再依赖同步实现；`vault_gate`、`cloud_restore_dialog` 相应改用 `sync/cloud_restore_service.dart` 引用
 - 设置页“测试连接”改为依赖注入：`connectionTester` 由 `CardoryApp` 逐层传入（`CardoryVaultGate` → `HomePage` → `SettingsDialog`），默认实现为 `testSyncConnection`，表现层不再直接引用同步提供者注册表
-- CI Release 工作流自动从 `CHANGELOG.md` 提取当前版本（如 `[0.0.4]`）的更新日志区块填充 GitHub Release 说明，替代原先固定的一行平台文字模板；找不到对应版本区块时回退为默认模板并给出警告
+- `VaultCredentialStore`（保险库主密码存储接口）从 `lib/sync/` 下沉至 `lib/domain/`，`settings_page`、`vault_gate`、`home_page`、`cloud_restore_dialog` 的同步凭据类型引用统一改为直接依赖 `domain/sync_credentials.dart`，组合根 `CardoryApp` 仅从 sync 层导入安全存储实现类，表现层对同步实现层的直接依赖进一步收敛
+- 删除已无引用的 `lib/services/widget_data_service.dart` 冗余转发文件（`WidgetDataService` 接口统一以 `domain/widget_data_service.dart` 为唯一来源）
+- CI Release 工作流自动从 `CHANGELOG.md` 提取当前版本（如 `[0.0.4]`）的完整更新日志区块（含版本标题）填充 GitHub Release 说明，不附加平台说明等额外内容；找不到对应版本区块时回退为默认模板并给出警告
+- 无障碍（WCAG）改进：新增 `cardoryAnimDuration` 工具函数，侧栏展开/收起、选中高亮、页面切换等动画在系统开启「减弱动态效果」时不再播放过渡动画
+- 无障碍（WCAG）改进：桌面端所有按钮（填充/描边/文字/图标按钮）统一设置点击光标，hover 时鼠标显示可点击反馈
+- 无障碍（WCAG）改进：密码可见性切换按钮触控目标从 28×28 提升至 40×40，图标同步放大，达到最小触控面积要求
+- 无障碍（WCAG）改进：侧栏折叠按钮、待办完成切换按钮补充 Tooltip/语义标签，便于读屏与自动化测试识别
+- 无障碍（WCAG）改进：次要文字色 `gray400` 默认值加深（`#98A1BA` → `#7C86A3`），动态浅色主题的灰色文字同步加深，提升与背景的对比度
 
 ## [0.0.4] - 2026-08-21
 
