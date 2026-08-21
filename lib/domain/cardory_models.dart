@@ -391,7 +391,7 @@ DateTime _readAttachmentCreatedAt(Map<String, dynamic> json) {
     try {
       return DateTime.fromMicrosecondsSinceEpoch(microseconds);
     } on ArgumentError {
-      // Fall through to a stable value for malformed legacy metadata.
+      // 对格式异常的旧版元数据，回退到一个稳定的取值。
     }
   }
   return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);

@@ -1,7 +1,7 @@
-// Application settings and synchronization metadata.
+// 应用设置与同步元数据。
 //
-// Kept separate from workspace entities so provider and UI configuration can
-// evolve without changing the CardoryData aggregate.
+// 与工作区实体分开维护，使同步提供者与界面配置可以独立演进，
+// 无需改动 CardoryData 聚合。
 
 enum SyncProviderType { none, directory, webdav, selfHosted, s3 }
 

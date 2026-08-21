@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Password input with an explicit visibility toggle.
+/// 带显式可见性切换的密码输入框。
 class PasswordTextField extends StatefulWidget {
   const PasswordTextField({
     super.key,

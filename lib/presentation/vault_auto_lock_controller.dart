@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-/// Flutter lifecycle adapter that locks an active vault in the background.
+/// Flutter 生命周期适配器，在应用进入后台时锁定已解锁的保险库。
 class VaultAutoLockController with WidgetsBindingObserver {
   VaultAutoLockController({required this.onLock});
 

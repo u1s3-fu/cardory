@@ -670,8 +670,8 @@ BoxDecoration cardoryDarkHero({double radius = 18}) => BoxDecoration(
   ],
 );
 
-/// Standard content card decoration used across presentation pages.
+/// 各表现页面通用的标准内容卡片装饰。
 BoxDecoration cardDecoration() => cardoryCard();
 
-/// Branded dark card decoration used by project summaries.
+/// 项目摘要使用的品牌深色卡片装饰。
 BoxDecoration darkCardDecoration() => cardoryDarkHero();

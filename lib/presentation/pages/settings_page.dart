@@ -587,8 +587,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
         const Text('同步', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         DropdownButtonFormField<SyncProviderType>(
-          // The self-hosted provider remains an internal extension point, but
-          // is intentionally not exposed in the settings UI yet.
+          // 自建服务提供者保留为内部扩展点，
+          // 但刻意不在设置界面中暴露。
           initialValue: _syncProvider == SyncProviderType.selfHosted
               ? SyncProviderType.none
               : _syncProvider,
@@ -1037,7 +1037,7 @@ class SettingsPanel extends StatelessWidget {
     SyncProviderType.none => '未启用',
     SyncProviderType.directory => '同步目录',
     SyncProviderType.webdav => 'WebDAV',
-    // Reserved provider: keep persisted data compatible without exposing it.
+    // 保留提供者：维持持久化数据兼容性而不对外暴露。
     SyncProviderType.selfHosted => '未启用',
     SyncProviderType.s3 => 'S3 兼容存储',
   };
