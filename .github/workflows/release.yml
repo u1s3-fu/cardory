@@ -48,6 +48,17 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      # Android 构建要求 Java 21（见 android/app/build.gradle.kts 的 compileOptions），
+      # 而 ubuntu-latest 内置默认 JDK 17，必须显式安装，否则 javac 报 invalid source release: 21。
+      - name: Set up JDK 21
+        if: matrix.platform == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
       - run: flutter pub get
 
       # 在各平台 job 内独立计算版本号，用于最终产物重命名。
