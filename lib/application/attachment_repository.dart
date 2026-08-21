@@ -3,10 +3,10 @@ import '../domain/cardory_models.dart';
 typedef AttachmentRepositoryFactory =
     AttachmentRepository Function(String dataFilePath);
 
-/// Application-facing attachment storage boundary.
+/// 面向应用的附件存储边界。
 ///
-/// Callers work with attachment metadata and transfer files without depending
-/// on the encrypted filesystem implementation in `data/`.
+/// 调用方只需处理附件元数据并传输文件，
+/// 无需依赖 `data/` 中加密文件系统的实现。
 abstract interface class AttachmentRepository {
   Future<AttachmentData> importFile({
     required String sourcePath,

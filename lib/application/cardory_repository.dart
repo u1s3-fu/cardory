@@ -16,7 +16,7 @@ class CardoryLoadResult {
 
 enum CardoryAccessState { setupRequired, locked, unlocked }
 
-/// Persistent workspace state used by the application controller.
+/// 应用控制器使用的持久化工作区状态。
 abstract interface class WorkspaceRepository {
   Future<CardoryLoadResult> load();
   Future<void> save(CardoryData data, AppSettings settings);
@@ -27,7 +27,7 @@ abstract interface class SyncContainerInspector {
   Future<CardoryData> inspectContainer(List<int> bytes);
 }
 
-/// Encrypted-container operations required by synchronization.
+/// 同步所需的加密容器操作。
 abstract interface class SyncRepository implements WorkspaceRepository {
   Future<List<int>> exportContainer();
   Future<String> saveSyncConflictSnapshot(
@@ -37,7 +37,7 @@ abstract interface class SyncRepository implements WorkspaceRepository {
   Future<CardoryData> importContainer(List<int> bytes, AppSettings settings);
 }
 
-/// Vault lifecycle and password operations required by the security UI.
+/// 安全界面所需的保险库生命周期与密码操作。
 abstract interface class VaultRepository {
   Future<CardoryAccessState> accessState();
   Future<CardoryLoadResult> setup(String password);
@@ -49,10 +49,9 @@ abstract interface class VaultRepository {
   Future<void> changePassword(String currentPassword, String newPassword);
 }
 
-/// Compatibility aggregate for infrastructure implementations.
+/// 供基础设施实现使用的兼容性聚合接口。
 ///
-/// UI and application services should depend on one of the narrower contracts
-/// above instead of this aggregate.
+/// 界面与应用服务应依赖上文更窄的契约之一，而非此聚合接口。
 abstract interface class CardoryRepository
     implements WorkspaceRepository, SyncRepository, VaultRepository {}
 

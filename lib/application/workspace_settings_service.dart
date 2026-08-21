@@ -14,7 +14,7 @@ class SyncCredentialUpdate {
   final S3Credentials? s3;
 }
 
-/// Persists settings and credentials as one application transaction boundary.
+/// 将设置与凭据作为单个应用事务边界持久化。
 class WorkspaceSettingsService {
   const WorkspaceSettingsService({
     required this.repository,

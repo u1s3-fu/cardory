@@ -26,8 +26,8 @@ class AssetEditResult {
   final AssetData recorded;
 }
 
-/// Pure workspace transformations. Persistence and external side effects stay
-/// in [WorkspaceController], which makes these rules independently testable.
+/// 纯粹的工作区状态变换。持久化与外部副作用保留在
+/// [WorkspaceController] 中，使这些规则可独立测试。
 class WorkspaceMutationService {
   const WorkspaceMutationService();
 

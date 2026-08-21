@@ -1,4 +1,4 @@
-/// Synchronization progress exposed to application and presentation code.
+/// 向应用与表现层暴露的同步进度状态。
 library;
 
 enum SyncPhase { idle, checking, pulling, pushing, success, conflict, failure }

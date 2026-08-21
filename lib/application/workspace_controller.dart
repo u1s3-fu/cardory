@@ -7,7 +7,7 @@ import 'workspace_settings_service.dart';
 import 'workspace_sync_service.dart';
 import 'workspace_mutation_service.dart';
 
-/// Owns workspace state and business transactions independently of widgets.
+/// 独立于界面组件管理工作区状态与业务事务。
 class WorkspaceController implements WorkspaceObservable {
   WorkspaceController({
     required this.repository,
@@ -324,8 +324,8 @@ class WorkspaceController implements WorkspaceObservable {
       try {
         await repository.saveSettings(previousSettings);
       } catch (_) {
-        // The next launch retains a superset of deletion work, which is safe:
-        // synchronization never deletes a key still referenced by metadata.
+        // 下次启动会保留一份更完整的删除任务清单，这是安全的：
+        // 同步绝不会删除仍被元数据引用的键。
       }
       _notifyListeners();
       rethrow;
@@ -339,7 +339,7 @@ class WorkspaceController implements WorkspaceObservable {
       try {
         await store.delete(attachment);
       } catch (_) {
-        // Metadata is authoritative; orphan cleanup can be retried separately.
+        // 以元数据为准；孤儿清理可另行重试。
       }
     }
   }

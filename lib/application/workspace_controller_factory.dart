@@ -8,10 +8,10 @@ import 'workspace_sync_service.dart';
 
 typedef WorkspaceSyncServiceFactory = WorkspaceSyncService Function();
 
-/// Composition boundary for the workspace application services.
+/// 工作区应用服务的组合边界。
 ///
-/// Presentation code receives this factory instead of constructing concrete
-/// synchronization and settings services itself.
+/// 表现层代码通过本工厂获取服务，而非自行构造具体的
+/// 同步与设置服务。
 class WorkspaceControllerFactory {
   const WorkspaceControllerFactory({
     required this.workspaceRepository,

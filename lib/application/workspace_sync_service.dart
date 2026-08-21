@@ -9,7 +9,7 @@ abstract interface class WorkspaceObservable {
   void dispose();
 }
 
-/// Application-facing synchronization boundary used by workspace state.
+/// 面向应用的同步边界，供工作区状态使用。
 abstract interface class WorkspaceSyncService implements WorkspaceObservable {
   SyncStatus get status;
   bool get hasPendingConflict;
