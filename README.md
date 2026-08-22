@@ -2,7 +2,7 @@
 
 Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 Flutter 本地优先跨平台应用。保险库正文和附件在写入磁盘前使用 AES-256-GCM 加密；应用设置另存为不含同步密钥的 JSON 文件。无需联网即可使用。
 
-![Version](https://img.shields.io/badge/version-0.0.4-blue) ![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.12.2-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-private-red)
+![Version](https://img.shields.io/badge/version-0.0.4-blue) ![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.12.2-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-GPLv3-blue)
 
 ---
 
@@ -257,4 +257,9 @@ lib/
 
 ## 许可证
 
-私有项目，未公开发布。
+Cardory 采用**双许可**（Dual License）模式发布：
+
+- **开源版**：以 [GPL-3.0](LICENSE) 发布。任何人都可以自由使用、修改和分发，但**衍生作品必须同样以 GPL-3.0 开源**（Copyleft）。
+- **商业版**：如果你的使用场景无法满足 GPL-3.0 的要求（例如需要在闭源产品中集成、需要商业授权或技术支持），请联系作者获取商业许可。
+
+如有商业授权需求，请在 [GitHub 仓库](https://github.com/u1s3-fu/cardory) 提交 Issue 或直接联系作者。
