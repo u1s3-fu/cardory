@@ -99,7 +99,8 @@ jobs:
 
       - name: Set up Inno Setup
         if: matrix.platform == 'windows'
-        uses: crazy-max/ghaction-setup-innosetup@v2
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
 
       # Android：将 APK 重命名为 应用名-平台-架构-版本号 规范格式
       - name: Rename Android APK
