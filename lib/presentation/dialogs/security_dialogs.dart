@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../settings_models.dart';
+import '../cardory_theme.dart';
 import '../widgets/password_text_field.dart';
+
+/// 修改密码对话框的返回值。
+class PasswordChangeResult {
+  const PasswordChangeResult({
+    required this.currentPassword,
+    required this.newPassword,
+  });
+
+  final String currentPassword;
+  final String newPassword;
+}
 
 class PasswordChangeDialog extends StatefulWidget {
   const PasswordChangeDialog({super.key});
@@ -70,7 +81,9 @@ class _PasswordChangeDialogState extends State<PasswordChangeDialog> {
             const SizedBox(height: 12),
             Text(
               _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              style: TextStyle(
+                color: cardoryEnsureWhiteContrast(CardoryColors.error),
+              ),
             ),
           ],
         ],
@@ -144,7 +157,9 @@ class _BackupPasswordDialogState extends State<BackupPasswordDialog> {
             const SizedBox(height: 12),
             Text(
               _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              style: TextStyle(
+                color: cardoryEnsureWhiteContrast(CardoryColors.error),
+              ),
             ),
           ],
         ],

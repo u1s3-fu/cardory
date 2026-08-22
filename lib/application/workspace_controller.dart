@@ -1,11 +1,11 @@
 import '../domain/cardory_models.dart';
-import 'attachment_repository.dart';
-import 'cardory_repository.dart';
-import 'sync_status.dart';
-import 'widget_data_service.dart';
-import 'workspace_settings_service.dart';
-import 'workspace_sync_service.dart';
+import '../domain/attachment_repository.dart';
+import '../domain/cardory_repository.dart';
+import '../domain/sync_status.dart';
+import '../domain/widget_data_service.dart';
+import '../domain/workspace_sync_service.dart';
 import 'workspace_mutation_service.dart';
+import 'workspace_settings_service.dart';
 
 /// 独立于界面组件管理工作区状态与业务事务。
 class WorkspaceController implements WorkspaceObservable {
@@ -173,8 +173,6 @@ class WorkspaceController implements WorkspaceObservable {
       rethrow;
     }
   }
-
-  Future<void> updateProject(ProjectData project) => editProject(project);
 
   Future<void> editProject(ProjectData project) async {
     final original = _data.projects.firstWhere(

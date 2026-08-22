@@ -1,4 +1,4 @@
-import '../domain/cardory_models.dart';
+import 'cardory_models.dart';
 
 class CardoryLoadResult {
   const CardoryLoadResult({

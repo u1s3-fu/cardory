@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:home_widget/home_widget.dart';
 
-import '../application/widget_data_service.dart';
+import '../domain/widget_data_service.dart';
 import '../domain/cardory_models.dart';
 
 /// 基于 [HomeWidget] 包的桌面小组件数据服务。

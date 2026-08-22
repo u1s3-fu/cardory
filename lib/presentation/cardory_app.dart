@@ -6,33 +6,48 @@
 
 import 'package:flutter/material.dart';
 
-import '../application/attachment_repository.dart';
-import '../application/sync_credentials.dart';
-import '../application/widget_data_service.dart';
 import '../application/workspace_controller_factory.dart';
+import '../domain/attachment_repository.dart';
+import '../domain/sync_credentials.dart';
+import '../domain/widget_data_service.dart';
 import '../data/attachment_store.dart';
 import '../data/cardory_store.dart';
 import '../domain/cardory_models.dart';
 import '../services/home_widget_data_service.dart';
-import '../sync/sync_credentials.dart' show SecureSyncCredentialStore, SecureVaultCredentialStore, VaultCredentialStore;
+import '../sync/sync_credentials.dart'
+    show SecureSyncCredentialStore, SecureVaultCredentialStore;
 import '../sync/sync_coordinator.dart';
 import '../sync/sync_provider_registry.dart';
 import 'cardory_theme.dart';
 import 'model_colors.dart';
 import 'pages/vault_gate.dart';
 
+// 以下 re-export 作为统一入口，供 main.dart 与 widget 测试
+// （test/widget_test.dart 经 package:cardory/main.dart）消费公共类型，
+// 请勿随意删除，以免破坏测试编译。
 export 'dialogs/progress_dialog.dart';
 export 'dialogs/security_dialogs.dart';
 export '../application/workspace_controller_factory.dart';
 export 'pages/asset_dialog.dart';
-export 'pages/dashboard.dart';
 export 'pages/home_page.dart';
 export 'pages/project_page.dart';
 export 'pages/settings_page.dart';
-export 'pages/task_dialogs.dart';
+export 'pages/settings_panel.dart';
 export 'pages/vault_gate.dart';
+export 'widgets/app_top_bar.dart';
+export 'widgets/hero_header.dart';
+export 'widgets/overview.dart';
+export 'widgets/progress_timeline.dart';
+export 'widgets/project_dialog.dart';
+export 'widgets/project_list_panel.dart';
+export 'widgets/subtodo_dialogs.dart';
+export 'widgets/todo_dialog.dart';
 export 'settings_models.dart';
+export 'widgets/asset_detail_dialog.dart';
+export 'widgets/kanban_board.dart';
 export 'widgets/password_text_field.dart';
+export 'widgets/reminder_panel.dart';
+export 'widgets/todo_panel.dart';
 
 class CardoryApp extends StatefulWidget {
   CardoryApp({
@@ -46,13 +61,15 @@ class CardoryApp extends StatefulWidget {
     SyncProviderFactory? providerFactory,
     WidgetDataService? widgetDataService,
     AttachmentRepositoryFactory? attachmentRepositoryFactory,
+    Future<void> Function(AppSettings, SyncCredentials)? connectionTester,
   }) : credentialStore = credentialStore ?? SecureSyncCredentialStore(),
        vaultCredentialStore =
            vaultCredentialStore ?? SecureVaultCredentialStore(),
        _providerFactory = providerFactory,
        _widgetDataService = widgetDataService ?? const HomeWidgetDataService(),
        _attachmentRepositoryFactory =
-           attachmentRepositoryFactory ?? AttachmentStore.forDataFile;
+           attachmentRepositoryFactory ?? AttachmentStore.forDataFile,
+       _connectionTester = connectionTester;
 
   final VaultRepository vaultRepository;
   final WorkspaceRepository workspaceRepository;
@@ -63,6 +80,7 @@ class CardoryApp extends StatefulWidget {
   final SyncProviderFactory? _providerFactory;
   final WidgetDataService _widgetDataService;
   final AttachmentRepositoryFactory _attachmentRepositoryFactory;
+  final Future<void> Function(AppSettings, SyncCredentials)? _connectionTester;
 
   WorkspaceControllerFactory get controllerFactory =>
       WorkspaceControllerFactory(
@@ -84,6 +102,8 @@ class CardoryApp extends StatefulWidget {
   WidgetDataService get widgetDataService => _widgetDataService;
   AttachmentRepositoryFactory get attachmentRepositoryFactory =>
       _attachmentRepositoryFactory;
+  Future<void> Function(AppSettings, SyncCredentials) get connectionTester =>
+      _connectionTester ?? testSyncConnection;
 
   @override
   State<CardoryApp> createState() => _CardoryAppState();
@@ -104,6 +124,8 @@ class _CardoryAppState extends State<CardoryApp> {
         _settings.themeColor,
         background: Color(_settings.backgroundColorValue),
       ),
+      // 扁平化：桌面端隐藏滚动条（保留滚轮/键盘/触控板滚动）。
+      scrollBehavior: const CardoryScrollBehavior(),
       home: CardoryVaultGate(
         vaultRepository: widget.vaultRepository,
         workspaceRepository: widget.workspaceRepository,
@@ -116,6 +138,7 @@ class _CardoryAppState extends State<CardoryApp> {
         onSettingsChanged: _applySettings,
         widgetDataService: widget.widgetDataService,
         attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
+        connectionTester: widget.connectionTester,
       ),
     );
   }

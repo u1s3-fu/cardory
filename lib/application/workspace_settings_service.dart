@@ -1,6 +1,6 @@
 import '../domain/cardory_models.dart';
-import 'cardory_repository.dart';
-import 'sync_credentials.dart';
+import '../domain/cardory_repository.dart';
+import '../domain/sync_credentials.dart';
 
 class SyncCredentialUpdate {
   const SyncCredentialUpdate({

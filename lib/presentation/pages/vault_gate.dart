@@ -1,15 +1,14 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../../application/attachment_repository.dart';
-import '../../application/cardory_repository.dart';
-import '../../application/cloud_restore_service.dart';
-import '../../application/sync_credentials.dart';
-import '../../application/widget_data_service.dart';
+import '../../domain/attachment_repository.dart';
+import '../../domain/cardory_repository.dart';
+import '../../domain/sync_credentials.dart';
+import '../../domain/widget_data_service.dart';
+import '../../sync/cloud_restore_service.dart';
 import '../../application/workspace_controller_factory.dart';
 import '../../domain/cardory_container.dart';
 import '../../domain/cardory_models.dart';
-import '../../sync/sync_credentials.dart' show VaultCredentialStore;
 import '../../sync/sync_provider.dart';
 import '../cardory_logo.dart';
 import '../cardory_theme.dart';
@@ -32,6 +31,7 @@ class CardoryVaultGate extends StatefulWidget {
     required this.onSettingsChanged,
     this.widgetDataService,
     required this.attachmentRepositoryFactory,
+    this.connectionTester,
   });
 
   final VaultRepository vaultRepository;
@@ -44,6 +44,10 @@ class CardoryVaultGate extends StatefulWidget {
   final bool autoLockEnabled;
   final WidgetDataService? widgetDataService;
   final AttachmentRepositoryFactory attachmentRepositoryFactory;
+  final Future<void> Function(
+    AppSettings,
+    SyncCredentials,
+  )? connectionTester;
   final ValueChanged<AppSettings> onSettingsChanged;
 
   @override
@@ -127,7 +131,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
         }
         if (mounted) setState(() => _accessState = state);
       } else {
-        setState(() => _accessState = state);
+        if (mounted) setState(() => _accessState = state);
       }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -288,7 +292,9 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
         const SizedBox(height: 12),
         Text(
           _error!,
-          style: TextStyle(color: Theme.of(context).colorScheme.error),
+          style: TextStyle(
+            color: cardoryEnsureWhiteContrast(CardoryColors.error),
+          ),
         ),
       ],
       const SizedBox(height: 20),
@@ -322,6 +328,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
         onSettingsChanged: widget.onSettingsChanged,
         initialResult: _result,
         attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
+        connectionTester: widget.connectionTester,
       );
     }
     if (_accessState == null && _result == null) {
@@ -337,7 +344,10 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                     Icon(
                       Icons.error_outline,
                       size: 42,
-                      color: CardoryColors.error,
+                      color: cardoryEnsureWhiteContrast(
+                        CardoryColors.error,
+                        minRatio: 3,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     const Text(
@@ -425,7 +435,9 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                             Text(
                               _error!,
                               style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
+                                color: cardoryEnsureWhiteContrast(
+                                  CardoryColors.error,
+                                ),
                               ),
                             ),
                           ],

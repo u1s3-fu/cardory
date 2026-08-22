@@ -26,8 +26,8 @@ class Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedContainer(
-    duration: const Duration(milliseconds: 240),
-    curve: Curves.easeInOut,
+    duration: cardoryAnimDuration(context, CardoryMotion.base),
+    curve: CardoryMotion.inOutCubic,
     clipBehavior: Clip.hardEdge,
     width: expanded ? 208 : 64,
     height: double.infinity,
@@ -42,24 +42,27 @@ class Sidebar extends StatelessWidget {
       children: [
         Row(
           children: [
-            IconButton(
-              style: IconButton.styleFrom(
-                minimumSize: const Size(40, 44),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            Tooltip(
+              message: expanded ? '折叠侧栏' : '展开侧栏',
+              child: IconButton(
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(40, 44),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                constraints: const BoxConstraints.tightFor(width: 40, height: 44),
+                padding: EdgeInsets.zero,
+                onPressed: onToggleExpanded,
+                icon: Icon(
+                  expanded ? Icons.menu_open_rounded : Icons.menu_rounded,
+                  size: 20,
+                ),
+                color: CardoryColors.gray500,
               ),
-              constraints: const BoxConstraints.tightFor(width: 40, height: 44),
-              padding: EdgeInsets.zero,
-              onPressed: onToggleExpanded,
-              icon: Icon(
-                expanded ? Icons.menu_open_rounded : Icons.menu_rounded,
-                size: 20,
-              ),
-              color: CardoryColors.gray500,
             ),
             Expanded(
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
+                duration: cardoryAnimDuration(context, CardoryMotion.fast),
+                curve: CardoryMotion.inOutCubic,
                 opacity: expanded ? 1 : 0,
                 child: Align(
                   alignment: Alignment.centerLeft,
@@ -119,7 +122,7 @@ class _SidebarItemState extends State<SidebarItem>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 160),
+    duration: CardoryMotion.fast,
     value: widget.selected ? 1 : 0,
   );
 
@@ -127,6 +130,13 @@ class _SidebarItemState extends State<SidebarItem>
     begin: Colors.transparent,
     end: CardoryColors.primarySoft,
   ).animate(_controller);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 系统开启「减弱动态效果」时，选中高亮动画直接跳转。
+    _controller.duration = cardoryAnimDuration(context, CardoryMotion.fast);
+  }
 
   @override
   void didUpdateWidget(SidebarItem oldWidget) {
@@ -159,7 +169,7 @@ class _SidebarItemState extends State<SidebarItem>
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
             color: _background.value,
             borderRadius: BorderRadius.circular(12),
@@ -177,8 +187,8 @@ class _SidebarItemState extends State<SidebarItem>
             ),
             Expanded(
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
+                duration: cardoryAnimDuration(context, CardoryMotion.fast),
+                curve: CardoryMotion.inOutCubic,
                 opacity: widget.expanded ? 1 : 0,
                 child: Align(
                   alignment: Alignment.centerLeft,

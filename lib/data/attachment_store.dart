@@ -8,7 +8,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as path;
 
-import '../application/attachment_repository.dart';
+import '../domain/attachment_repository.dart';
 import '../domain/cardory_models.dart';
 
 class AttachmentStorageException implements Exception {

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:cardory/application/attachment_repository.dart';
+import 'package:cardory/domain/attachment_repository.dart';
 import 'package:cardory/data/cardory_store.dart';
 import 'package:cardory/domain/cardory_models.dart';
 import 'package:cardory/sync/sync_coordinator.dart';

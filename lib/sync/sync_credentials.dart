@@ -4,15 +4,9 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../application/sync_credentials.dart';
+import '../domain/sync_credentials.dart';
 
-export '../application/sync_credentials.dart';
-
-abstract interface class VaultCredentialStore {
-  Future<String?> readPassword();
-  Future<void> writePassword(String password);
-  Future<void> deletePassword();
-}
+export '../domain/sync_credentials.dart';
 
 class SecureSyncCredentialStore implements SyncCredentialStore {
   SecureSyncCredentialStore({FlutterSecureStorage? storage})

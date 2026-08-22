@@ -22,7 +22,7 @@ publish_to: 'none' # 如需发布到 pub.dev，请删除此行
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # Windows 中 build-name 用作产品与文件版本的主/次/修订号，
 # build-number 用作构建后缀。
-version: 0.0.4+1
+version: 0.0.5+1
 
 environment:
   sdk: ^3.9.2
@@ -44,6 +44,8 @@ dependencies:
   path: ^1.9.1
   home_widget: ^0.7.0
   webdav_client: ^1.2.2
+  package_info_plus: ^9.0.1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

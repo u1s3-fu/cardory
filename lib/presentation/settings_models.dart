@@ -1,7 +1,7 @@
 import '../domain/cardory_models.dart';
-import '../application/sync_credentials.dart';
+import '../domain/sync_credentials.dart';
 
-enum SettingsCategoryType { workspace, security, sync, localData }
+enum SettingsCategoryType { workspace, security, sync }
 
 class SettingsResult {
   const SettingsResult({
@@ -15,20 +15,4 @@ class SettingsResult {
   final WebDavCredentials credentials;
   final String selfHostedToken;
   final S3Credentials? s3;
-}
-
-class AssetDialogResult {
-  const AssetDialogResult({required this.asset});
-
-  final AssetData asset;
-}
-
-class PasswordChangeResult {
-  const PasswordChangeResult({
-    required this.currentPassword,
-    required this.newPassword,
-  });
-
-  final String currentPassword;
-  final String newPassword;
 }

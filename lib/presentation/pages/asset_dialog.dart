@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/cardory_models.dart';
-import '../settings_models.dart';
 import '../widgets/password_text_field.dart';
+
+/// 资产对话框的返回值：确认后返回更新后的资产数据。
+class AssetDialogResult {
+  const AssetDialogResult({required this.asset});
+
+  final AssetData asset;
+}
 
 class AssetDialog extends StatefulWidget {
   const AssetDialog({

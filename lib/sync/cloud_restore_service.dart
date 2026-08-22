@@ -8,15 +8,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../domain/app_settings.dart';
 import '../domain/cardory_models.dart';
-import '../sync/sync_coordinator.dart' show SyncCoordinator;
-import '../sync/sync_credentials.dart'
+import '../domain/cardory_repository.dart';
+import 'sync_coordinator.dart' show SyncCoordinator;
+import 'sync_credentials.dart'
     show S3Credentials, SyncCredentials, WebDavCredentials;
-import '../sync/sync_models.dart' show SyncDocument, SyncProviderException;
-import '../sync/sync_provider.dart' show SyncProvider;
-import '../sync/sync_provider_registry.dart' show createSyncProvider;
-import 'cardory_repository.dart';
+import 'sync_models.dart' show SyncDocument, SyncProviderException;
+import 'sync_provider.dart' show SyncProvider;
+import 'sync_provider_registry.dart' show createSyncProvider;
 
 /// 云端存储服务类型。
 enum CloudRestoreServiceType { webDav, s3 }
@@ -35,11 +34,7 @@ class CloudBackupEntry {
   final int size;
   final DateTime? modifiedAt;
 
-  String get sizeLabel {
-    if (size < 1024) return '$size B';
-    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
-    return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
+  String get sizeLabel => formatFileSize(size);
 }
 
 /// 云存储连接配置（供恢复向导现场填写，不会持久化）。

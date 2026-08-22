@@ -1,4 +1,4 @@
-import '../domain/cardory_models.dart';
+import 'cardory_models.dart';
 import 'sync_status.dart';
 
 typedef WorkspaceListener = void Function();

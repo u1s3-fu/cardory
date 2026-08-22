@@ -1,26 +1,40 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
-import '../../application/attachment_repository.dart';
-import '../../application/cardory_repository.dart';
-import '../../application/sync_status.dart';
 import '../../application/workspace_controller.dart';
 import '../../application/workspace_controller_factory.dart';
 import '../../application/workspace_settings_service.dart';
+import '../../domain/attachment_repository.dart';
 import '../../domain/cardory_models.dart';
-import '../../application/sync_credentials.dart';
-import '../../sync/sync_credentials.dart' show VaultCredentialStore;
+import '../../domain/cardory_repository.dart';
+import '../../domain/sync_credentials.dart';
+import '../../domain/sync_status.dart';
+import '../../services/github_update_service.dart';
 import '../app_section.dart';
 import '../cardory_theme.dart';
+import '../dialogs/about_dialog.dart';
 import '../dialogs/security_dialogs.dart';
+import '../dialogs/update_dialog.dart';
 import '../settings_models.dart';
+import '../widgets/app_top_bar.dart';
+import '../widgets/confirm_dialogs.dart';
+import '../widgets/hero_header.dart';
+import '../widgets/kanban_board.dart';
+import '../widgets/overview.dart';
+import '../widgets/project_dialog.dart';
+import '../widgets/project_list_panel.dart';
+import '../widgets/reminder_panel.dart';
 import '../widgets/section_nav.dart';
 import '../widgets/sidebar.dart';
+import '../widgets/subtodo_dialogs.dart';
+import '../widgets/sync_conflict_dialogs.dart';
+import '../widgets/todo_dialog.dart';
+import '../widgets/todo_panel.dart';
 import 'asset_dialog.dart';
-import 'dashboard.dart';
 import 'project_page.dart';
 import 'settings_page.dart';
-import 'task_dialogs.dart';
+import 'settings_panel.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -32,6 +46,7 @@ class HomePage extends StatefulWidget {
     required this.onSettingsChanged,
     this.initialResult,
     required this.attachmentRepositoryFactory,
+    this.connectionTester,
   });
 
   final WorkspaceControllerFactory controllerFactory;
@@ -41,6 +56,10 @@ class HomePage extends StatefulWidget {
   final ValueChanged<AppSettings> onSettingsChanged;
   final CardoryLoadResult? initialResult;
   final AttachmentRepositoryFactory attachmentRepositoryFactory;
+  final Future<void> Function(
+    AppSettings,
+    SyncCredentials,
+  )? connectionTester;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -92,6 +111,56 @@ class _HomePageState extends State<HomePage> {
         ).showSnackBar(const SnackBar(content: Text('主数据文件损坏，已从备份恢复。')));
       });
     }
+    // 启动完成后静默检查一次更新：无新版本或检查失败均不打扰用户。
+    _checkForUpdate();
+  }
+
+  static final GithubUpdateService _updateService = GithubUpdateService();
+
+  String? _currentVersion;
+
+  /// 检查 GitHub 是否有新版本。
+  ///
+  /// [manual] 为 true 时来自设置面板手动点击：无更新提示"已是最新版本"，
+  /// 检查失败提示错误；为 false 时（启动静默检查）任何情况都不提示。
+  Future<void> _checkForUpdate({bool manual = false}) async {
+    if (!mounted) return;
+    final info = await _updateService.fetchLatestRelease();
+    if (!mounted) return;
+    if (info == null) {
+      if (manual) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('检查更新失败，请稍后重试。')));
+      }
+      return;
+    }
+    final current = await _currentAppVersion();
+    if (!mounted) return;
+    final comparison = compareVersions(current, info.version);
+    if (comparison == VersionComparison.newer) {
+      await showUpdateDialog(
+        context,
+        release: info,
+        currentVersion: current,
+      );
+    } else if (manual) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已是最新版本（$current）。')));
+    }
+  }
+
+  /// 获取本地应用版本号（读取一次后缓存）。
+  Future<String> _currentAppVersion() async {
+    if (_currentVersion != null) return _currentVersion!;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _currentVersion = info.version;
+    } catch (_) {
+      _currentVersion = '0.0.0';
+    }
+    return _currentVersion!;
   }
 
   Future<void> _load() async {
@@ -130,6 +199,7 @@ class _HomePageState extends State<HomePage> {
         credentialStore: widget.credentialStore,
         currentDataPath: _dataPath,
         category: category,
+        connectionTester: widget.connectionTester,
       ),
     );
     if (result == null) return;
@@ -171,70 +241,12 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _resolveSyncConflict() async {
     final conflicts = _syncStatus.conflicts;
-    final choice = await showDialog<SyncConflictChoice>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('同步冲突'),
-        content: SizedBox(
-          width: 460,
-          child: conflicts.isEmpty
-              ? const Text('本地和云端都存在未同步的修改。请选择要保留的数据版本。')
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('发现 ${conflicts.length} 项差异：'),
-                    const SizedBox(height: 12),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 260),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: conflicts.length,
-                        itemBuilder: (_, index) {
-                          final item = conflicts[index];
-                          return ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              item.side == SyncConflictSide.local
-                                  ? Icons.computer
-                                  : Icons.cloud_outlined,
-                            ),
-                            title: Text(item.title),
-                            subtitle: Text('${item.category} · ${item.side == SyncConflictSide.local ? '本地有变化' : '远端新增'}'),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(SyncConflictChoice.cancel),
-            child: const Text('取消'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(SyncConflictChoice.manualMerge),
-            child: const Text('手动合并'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(SyncConflictChoice.keepRemote),
-            child: const Text('使用远端'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(SyncConflictChoice.keepLocal),
-            child: const Text('保留本地'),
-          ),
-        ],
-      ),
-    );
+    final choice = await showSyncConflictDialog(context, conflicts);
     if (choice == null || choice == SyncConflictChoice.cancel || !mounted) return;
 
     Map<String, SyncConflictSide> itemChoices = const {};
     if (choice == SyncConflictChoice.manualMerge) {
-      final selected = await _chooseManualMerge(conflicts);
+      final selected = await showManualMergeDialog(context, conflicts);
       if (selected == null || !mounted) return;
       itemChoices = selected;
     }
@@ -252,50 +264,6 @@ class _HomePageState extends State<HomePage> {
     } catch (error) {
       _showError(error);
     }
-  }
-
-  Future<Map<String, SyncConflictSide>?> _chooseManualMerge(
-    List<SyncConflictItem> conflicts,
-  ) async {
-    final choices = <String, SyncConflictSide>{
-      for (final item in conflicts) item.id: item.side,
-    };
-    return showDialog<Map<String, SyncConflictSide>>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('手动合并'),
-          content: SizedBox(
-            width: 460,
-            child: ListView(
-              shrinkWrap: true,
-              children: conflicts.map((item) {
-                final selected = choices[item.id] ?? item.side;
-                return ListTile(
-                  title: Text(item.title),
-                  subtitle: Text(item.category),
-                  trailing: DropdownButton<SyncConflictSide>(
-                    value: selected,
-                    items: const [
-                      DropdownMenuItem(value: SyncConflictSide.local, child: Text('本地')),
-                      DropdownMenuItem(value: SyncConflictSide.remote, child: Text('远端')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => choices[item.id] = value);
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('取消')),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext, choices), child: const Text('应用合并')),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _changePassword() async {
@@ -373,22 +341,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _deleteProject(ProjectData project) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('删除项目'),
-        content: Text('确定删除“${project.title}”吗？关联待办和资产也会一并删除。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final ok = await showConfirmDialog(
+      context,
+      title: '删除项目',
+      content: '确定删除“${project.title}”吗？关联待办和资产也会一并删除。',
+      confirmLabel: '删除',
     );
     if (ok != true) return;
     await _perform(() => _controller.deleteProject(project.id));
@@ -422,22 +379,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<bool> _deleteTodo(TodoData todo) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('删除待办'),
-        content: Text('确定删除“${todo.title}”吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: '删除待办',
+      content: '确定删除“${todo.title}”吗？',
+      confirmLabel: '删除',
     );
     if (confirmed != true) return false;
     return _perform(() => _controller.deleteTodo(todo.id));
@@ -487,7 +433,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _updateProject(ProjectData project) async {
     try {
-      await _controller.updateProject(project);
+      await _controller.editProject(project);
     } catch (error) {
       _showError(error);
       rethrow;
@@ -572,22 +518,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _deleteAsset(AssetData asset) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('删除资产'),
-        content: Text('确定删除“${asset.name}”吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: '删除资产',
+      content: '确定删除“${asset.name}”吗？',
+      confirmLabel: '删除',
     );
     if (confirmed == true) {
       await _perform(() => _controller.deleteAsset(asset));
@@ -642,12 +577,15 @@ class _HomePageState extends State<HomePage> {
       case AppSection.settings:
         return SettingsPanel(
           settings: _settings,
-          dataPath: _dataPath,
           syncStatus: _syncStatus,
           onSync: _sync,
           onOpenSettings: _openSettings,
           onChangePassword: _changePassword,
           onRestoreBackup: _restoreBackupFromSettings,
+          onShowAbout: () => showAboutCardoryDialog(
+            context,
+            onCheckForUpdate: () => _checkForUpdate(manual: true),
+          ),
         );
     }
   }
@@ -683,7 +621,10 @@ class _HomePageState extends State<HomePage> {
                     Icon(
                       Icons.error_outline,
                       size: 42,
-                      color: CardoryColors.error,
+                      color: cardoryEnsureWhiteContrast(
+                        CardoryColors.error,
+                        minRatio: 3,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     const Text(
@@ -716,16 +657,8 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              CardoryColors.gray50,
-              CardoryColors.gray100,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+        // 扁平化：纯色背景，不再使用渐变。
+        decoration: BoxDecoration(color: CardoryColors.gray50),
         child: SafeArea(
           child: Column(
             children: [
@@ -768,9 +701,12 @@ class _HomePageState extends State<HomePage> {
                                     maxWidth: 1680,
                                   ),
                                   child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 240),
-                                    switchInCurve: Curves.easeOutCubic,
-                                    switchOutCurve: Curves.easeInCubic,
+                                    duration: cardoryAnimDuration(
+                                      context,
+                                      CardoryMotion.base,
+                                    ),
+                                    switchInCurve: CardoryMotion.outCubic,
+                                    switchOutCurve: CardoryMotion.inCubic,
                                     transitionBuilder: (child, animation) =>
                                         FadeTransition(
                                           opacity: animation,

@@ -1,184 +1,23 @@
 import 'package:flutter/material.dart';
 
-/// Cardory 设计系统：柔和蓝紫基调搭配轻盈的彩色状态层次。
-///
-/// 以「明快留白、低饱和状态色、圆润卡片」为原则：
-/// - 雾蓝灰背景承接内容，蓝紫仅用于导航与关键动作
-/// - 14px 圆角与细腻阴影建立层次，避免厚重的模板化面板
-/// - 清晰字阶与克制的状态色，便于快速扫描项目进展
-/// 主题可用的调色板。
-///
-/// [CardoryColors] 通过 [CardoryColors.apply] 切换当前激活的调色板，
-/// 使全应用硬编码的 `CardoryColors.*` 引用能跟随主题预设变化。
-class CardoryPalette {
-  const CardoryPalette({
-    required this.white,
-    required this.gray25,
-    required this.gray50,
-    required this.gray100,
-    required this.gray200,
-    required this.gray300,
-    required this.gray400,
-    required this.gray500,
-    required this.gray600,
-    required this.gray700,
-    required this.gray800,
-    required this.gray900,
-    required this.primary,
-    required this.primarySoft,
-    required this.success,
-    required this.error,
-    required this.warning,
-    required this.pink,
-  });
+import 'cardory_motion.dart';
+import 'cardory_palette.dart';
 
-  final Color white;
-  final Color gray25;
-  final Color gray50;
-  final Color gray100;
-  final Color gray200;
-  final Color gray300;
-  final Color gray400;
-  final Color gray500;
-  final Color gray600;
-  final Color gray700;
-  final Color gray800;
-  final Color gray900;
-  final Color primary;
-  final Color primarySoft;
-  final Color success;
-  final Color error;
-  final Color warning;
-  final Color pink;
-}
+export 'cardory_motion.dart';
+export 'cardory_palette.dart';
 
-/// Cardory 设计系统：柔和蓝紫基调搭配轻盈的彩色状态层次。
+/// Cardory 设计系统：扁平化的蓝紫基调搭配克制的功能色。
 ///
-/// 以「明快留白、低饱和状态色、圆润卡片」为原则：
+/// 以「明快留白、边框分层、克制状态色」为原则：
 /// - 雾蓝灰背景承接内容，蓝紫仅用于导航与关键动作
-/// - 14px 圆角与细腻阴影建立层次，避免厚重的模板化面板
+/// - 12–16px 圆角与浅阴影建立层次，不使用渐变与厚重阴影
 /// - 清晰字阶与克制的状态色，便于快速扫描项目进展
 ///
-/// 字段为动态 getter，取值来自当前激活的 [CardoryPalette]。
-abstract final class CardoryColors {
-  static CardoryPalette _active = cardoryDefaultPalette;
+/// 调色板与色彩工具见 `cardory_palette.dart`，本文件只负责主题构建。
 
-  static Color get white => _active.white;
-  static Color get gray25 => _active.gray25;
-  static Color get gray50 => _active.gray50;
-  static Color get gray100 => _active.gray100;
-  static Color get gray200 => _active.gray200;
-  static Color get gray300 => _active.gray300;
-  static Color get gray400 => _active.gray400;
-  static Color get gray500 => _active.gray500;
-  static Color get gray600 => _active.gray600;
-  static Color get gray700 => _active.gray700;
-  static Color get gray800 => _active.gray800;
-  static Color get gray900 => _active.gray900;
-  static Color get primary => _active.primary;
-  static Color get primarySoft => _active.primarySoft;
-  static Color get success => _active.success;
-  static Color get error => _active.error;
-  static Color get warning => _active.warning;
-  static Color get pink => _active.pink;
-
-  /// 切换当前激活的调色板。
-  static void apply(CardoryPalette palette) => _active = palette;
-}
-
-/// 默认（蓝紫 / 精致）调色板。
-const CardoryPalette cardoryDefaultPalette = CardoryPalette(
-  white: Color(0xFFFFFFFF),
-  gray25: Color(0xFFFCFCFF),
-  gray50: Color(0xFFF5F6FC),
-  gray100: Color(0xFFEEF0F8),
-  gray200: Color(0xFFE2E5F0),
-  gray300: Color(0xFFCDD2E3),
-  gray400: Color(0xFF98A1BA),
-  gray500: Color(0xFF69738E),
-  gray600: Color(0xFF4F5974),
-  gray700: Color(0xFF363F59),
-  gray800: Color(0xFF252C43),
-  gray900: Color(0xFF1E2438),
-  primary: Color(0xFF6B62DF),
-  primarySoft: Color(0xFFEEECFF),
-  success: Color(0xFF44B88A),
-  error: Color(0xFFEF7180),
-  warning: Color(0xFFF2A354),
-  pink: Color(0xFFCF79DF),
-);
-
-/// 根据背景色的感知亮度判断是否应使用暗色文字/暗色主题。
-///
-/// 阈值取 0.5：背景色偏暗则返回暗色模式，偏亮则返回亮色模式。
-Brightness brightnessForBackground(Color background) {
-  // 用线性亮度近似判断：0.2126 R + 0.7152 G + 0.0722 B（0..1）
-  final luminance =
-      background.r * 0.2126 + background.g * 0.7152 + background.b * 0.0722;
-  return luminance < 0.5 ? Brightness.dark : Brightness.light;
-}
-
-/// 由背景色与强调色推导一套完整调色板。
-///
-/// 亮色背景：灰阶由背景色向黑/白 lerp，产生常规明暗文字阶。
-/// 暗色背景：文字色阶由 surface 向白色方向 lerp，保证深底上有足够对比度。
-CardoryPalette paletteFromColors(Color background, Color primary) {
-  final bg = background;
-  Color lerpTo(Color a, Color b, double t) => Color.lerp(a, b, t)!;
-  final light = brightnessForBackground(bg) == Brightness.light;
-
-  // 表面色：亮色下比背景更亮（接近白），暗色下比背景更亮一个台阶。
-  final surface = light
-      ? lerpTo(bg, Colors.white, 0.96)
-      : lerpTo(bg, Colors.white, 0.14);
-  // 强调色柔和底：亮色下向白，暗色下向表面色。
-  final primarySoft = light
-      ? Color.lerp(primary, Colors.white, 0.88)!
-      : Color.lerp(primary, surface, 0.78)!;
-
-  Color gray(double t) => lerpTo(surface, Colors.white, t);
-
-  // 边框色：暗色下明显高于背景但低于文字，亮色下略深于表面。
-  final borderColor = light
-      ? lerpTo(surface, Colors.black, 0.10)
-      : lerpTo(surface, Colors.white, 0.16);
-
-  return CardoryPalette(
-    white: light ? Color(0xFFFFFFFF) : surface,
-    gray25: light
-        ? lerpTo(surface, Colors.white, 0.96)
-        : lerpTo(bg, surface, 0.5),
-    gray50: bg,
-    gray100: light ? lerpTo(bg, Colors.white, 0.55) : lerpTo(bg, surface, 0.85),
-    gray200: borderColor,
-    gray300: light ? lerpTo(bg, Colors.black, 0.10) : gray(0.22),
-    gray400: light ? lerpTo(bg, Colors.black, 0.30) : gray(0.40),
-    gray500: light ? lerpTo(bg, Colors.black, 0.48) : gray(0.55),
-    gray600: light ? lerpTo(bg, Colors.black, 0.62) : gray(0.72),
-    gray700: light ? lerpTo(bg, Colors.black, 0.74) : gray(0.85),
-    gray800: light ? lerpTo(bg, Colors.black, 0.84) : gray(0.93),
-    gray900: light ? lerpTo(bg, Colors.black, 0.90) : gray(0.98),
-    primary: primary,
-    primarySoft: primarySoft,
-    success: light ? const Color(0xFF44B88A) : const Color(0xFF5CD0A0),
-    error: light ? const Color(0xFFEF7180) : const Color(0xFFF28B97),
-    warning: light ? const Color(0xFFF2A354) : const Color(0xFFF5B86E),
-    pink: light ? const Color(0xFFCF79DF) : const Color(0xFFD998E5),
-  );
-}
-
-/// 应用背景色与强调色：切换全局 [CardoryColors] 调色板。
-///
-/// 供 [buildCardoryTheme] 调用，使全应用硬编码颜色随主题变化。
-void applyCardoryColors(Color background, Color primary) {
-  CardoryColors.apply(paletteFromColors(background, primary));
-}
-
-Color cardoryTint(Color base, double amount) =>
-    Color.lerp(base, CardoryColors.white, amount)!;
-
-Color cardoryShade(Color base, double amount) =>
-    Color.lerp(base, Colors.black, amount)!;
+/// 所有可点击控件统一使用的鼠标光标（桌面端 hover 反馈）。
+const WidgetStateProperty<MouseCursor> _cardoryClickCursor =
+    WidgetStatePropertyAll(SystemMouseCursors.click);
 
 /// 构建 Cardory 全局主题。
 ///
@@ -189,11 +28,12 @@ ThemeData buildCardoryTheme(
   Color seed, {
   Color background = const Color(0xFFF5F6FC),
 }) {
-  applyCardoryColors(background, seed);
+  // 强调色若过浅，白字按钮/文字会不达标；统一加深到与白色对比度 ≥ 4.5:1。
+  final primary = cardoryEnsureWhiteContrast(seed);
+  applyCardoryColors(background, primary);
   final brightness = brightnessForBackground(background);
-  final primary = seed;
-  final primaryContainer = cardoryTint(seed, 0.88);
-  final onPrimaryContainer = cardoryShade(seed, 0.24);
+  final primaryContainer = cardoryTint(primary, 0.88);
+  final onPrimaryContainer = cardoryShade(primary, 0.24);
 
   final colorScheme =
       ColorScheme.fromSeed(seedColor: seed, brightness: brightness).copyWith(
@@ -302,6 +142,31 @@ ThemeData buildCardoryTheme(
         side: BorderSide(color: CardoryColors.gray200),
       ),
     ),
+    // 扁平化：桌面端彻底隐藏滚动条，保留滚轮/键盘/触控板滚动。
+    // 任何平台都不构建 Scrollbar 组件（见 CardoryScrollBehavior）。
+    scrollbarTheme: ScrollbarThemeData(
+      thumbVisibility: const WidgetStatePropertyAll(false),
+      trackVisibility: const WidgetStatePropertyAll(false),
+      trackColor: const WidgetStatePropertyAll(Colors.transparent),
+      interactive: true,
+      thickness: const WidgetStatePropertyAll(0),
+      minThumbLength: 44,
+      radius: const Radius.circular(8),
+      mainAxisMargin: 2,
+      crossAxisMargin: 2,
+      thumbColor: const WidgetStatePropertyAll(Colors.transparent),
+    ),
+    // 全平台统一使用「淡入 + 轻微横移」的页面转场，见 CardoryPageTransitionsBuilder。
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CardoryPageTransitionsBuilder(),
+        TargetPlatform.iOS: CardoryPageTransitionsBuilder(),
+        TargetPlatform.windows: CardoryPageTransitionsBuilder(),
+        TargetPlatform.macOS: CardoryPageTransitionsBuilder(),
+        TargetPlatform.linux: CardoryPageTransitionsBuilder(),
+        TargetPlatform.fuchsia: CardoryPageTransitionsBuilder(),
+      },
+    ),
     appBarTheme: AppBarTheme(
       elevation: 0,
       scrolledUnderElevation: 0,
@@ -323,7 +188,7 @@ ThemeData buildCardoryTheme(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         shape: buttonShape,
         textStyle: buttonTextStyle,
-      ),
+      ).copyWith(mouseCursor: _cardoryClickCursor),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style:
@@ -335,6 +200,7 @@ ThemeData buildCardoryTheme(
             textStyle: buttonTextStyle,
             side: BorderSide(color: CardoryColors.gray300),
           ).copyWith(
+            mouseCursor: _cardoryClickCursor,
             overlayColor: WidgetStateProperty.resolveWith(
               (states) => states.contains(WidgetState.hovered)
                   ? CardoryColors.gray100
@@ -349,21 +215,21 @@ ThemeData buildCardoryTheme(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: buttonShape,
         textStyle: buttonTextStyle,
-      ),
+      ).copyWith(mouseCursor: _cardoryClickCursor),
     ),
     iconButtonTheme: IconButtonThemeData(
       style: IconButton.styleFrom(
         foregroundColor: CardoryColors.gray500,
         hoverColor: CardoryColors.gray100,
         shape: buttonShape,
-      ),
+      ).copyWith(mouseCursor: _cardoryClickCursor),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: CardoryColors.white,
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      hintStyle: TextStyle(color: CardoryColors.gray400, fontSize: 14),
+      hintStyle: TextStyle(color: CardoryColors.gray500, fontSize: 14),
       labelStyle: TextStyle(color: CardoryColors.gray500, fontSize: 14),
       border: _inputBorder(CardoryColors.gray300),
       enabledBorder: _inputBorder(CardoryColors.gray300),
@@ -619,6 +485,7 @@ ThemeData buildCardoryTheme(
     progressIndicatorTheme: ProgressIndicatorThemeData(
       color: CardoryColors.gray900,
       linearTrackColor: CardoryColors.gray100,
+      circularTrackColor: CardoryColors.gray100,
     ),
     dividerTheme: DividerThemeData(
       color: CardoryColors.gray200,
@@ -639,33 +506,22 @@ OutlineInputBorder _inputBorder(Color color, {double width = 1}) =>
       borderSide: BorderSide(color: color, width: width),
     );
 
-/// 标准内容卡片：白底、14px 圆角、细边框和克制阴影。
+/// 标准内容卡片：白底、14px 圆角、极浅边框（扁平化，不使用阴影）。
 BoxDecoration cardoryCard({Color? color, double radius = 14}) => BoxDecoration(
   color: color ?? CardoryColors.white,
   borderRadius: BorderRadius.circular(radius),
-  border: Border.all(color: CardoryColors.gray200),
-  boxShadow: [
-    BoxShadow(
-      color: Colors.black.withValues(alpha: 0.045),
-      blurRadius: 18,
-      offset: const Offset(0, 7),
-    ),
-  ],
+  border: Border.all(color: CardoryColors.gray100),
 );
 
-/// 品牌深色头图（项目详情页顶部）。
+/// 品牌深色头图（项目详情页顶部）：纯色 + 极浅阴影（扁平化，不使用渐变）。
 BoxDecoration cardoryDarkHero({double radius = 18}) => BoxDecoration(
-  gradient: const LinearGradient(
-    colors: [Color(0xFF4541A8), Color(0xFF6B62DF)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  ),
+  color: cardoryShade(CardoryColors.primary, 0.18),
   borderRadius: BorderRadius.circular(radius),
   boxShadow: [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.14),
-      blurRadius: 24,
-      offset: const Offset(0, 12),
+      color: Colors.black.withValues(alpha: 0.06),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
     ),
   ],
 );
@@ -673,5 +529,19 @@ BoxDecoration cardoryDarkHero({double radius = 18}) => BoxDecoration(
 /// 各表现页面通用的标准内容卡片装饰。
 BoxDecoration cardDecoration() => cardoryCard();
 
-/// 项目摘要使用的品牌深色卡片装饰。
-BoxDecoration darkCardDecoration() => cardoryDarkHero();
+/// Cardory 全局滚动行为：桌面端彻底隐藏滚动条。
+///
+/// [buildScrollbar] 直接返回子组件，任何平台都不构建 Scrollbar 组件，
+/// 但保留滚轮 / 键盘 / 触控板滚动能力。移动端也遵循同一策略，
+/// 与主题中的 `scrollbarTheme` 保持一致。
+class CardoryScrollBehavior extends MaterialScrollBehavior {
+  const CardoryScrollBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) =>
+      child;
+}

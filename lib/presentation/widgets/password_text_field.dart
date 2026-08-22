@@ -38,23 +38,24 @@ class _PasswordTextFieldState extends State<PasswordTextField> {
     onChanged: widget.onChanged,
     onSubmitted: widget.onSubmitted,
     decoration: widget.decoration.copyWith(
-      suffixIconConstraints: const BoxConstraints.tightFor(width: 28, height: 28),
+      suffixIconConstraints: const BoxConstraints.tightFor(width: 40, height: 40),
       suffixIcon: SizedBox(
-        width: 28,
-        height: 28,
+        width: 40,
+        height: 40,
         child: Tooltip(
           message: _obscureText ? '显示密码' : '隐藏密码',
           child: Semantics(
             button: true,
             label: _obscureText ? '显示密码' : '隐藏密码',
             child: InkWell(
+              borderRadius: BorderRadius.circular(8),
               onTap: () => setState(() => _obscureText = !_obscureText),
               child: Center(
                 child: Icon(
                   _obscureText
                       ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined,
-                  size: 16,
+                  size: 18,
                 ),
               ),
             ),

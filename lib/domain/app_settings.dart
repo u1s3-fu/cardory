@@ -3,6 +3,8 @@
 // 与工作区实体分开维护，使同步提供者与界面配置可以独立演进，
 // 无需改动 CardoryData 聚合。
 
+import 'cardory_enums.dart';
+
 enum SyncProviderType { none, directory, webdav, selfHosted, s3 }
 
 class AppSettings {
@@ -313,19 +315,4 @@ bool _stringListsEqual(List<String> first, List<String> second) {
     if (first[index] != second[index]) return false;
   }
   return true;
-}
-
-enum ProjectPriority {
-  p0('高优先级'),
-  p1('中'),
-  p2('普通'),
-  p3('低');
-
-  const ProjectPriority(this.label);
-  final String label;
-  static ProjectPriority fromName(String name) =>
-      ProjectPriority.values.firstWhere(
-        (item) => item.name == name,
-        orElse: () => ProjectPriority.p2,
-      );
 }

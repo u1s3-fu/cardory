@@ -97,6 +97,10 @@ jobs:
 
       - run: flutter build ${{ matrix.build }} --release ${{ matrix.flags }}
 
+      - name: Set up Inno Setup
+        if: matrix.platform == 'windows'
+        uses: crazy-max/ghaction-setup-innosetup@v2
+
       # Android：将 APK 重命名为 应用名-平台-架构-版本号 规范格式
       - name: Rename Android APK
         if: matrix.platform == 'android'
@@ -109,21 +113,46 @@ jobs:
           path: cardory-android-arm64-${{ steps.version.outputs.version }}.apk
           if-no-files-found: error
 
-      # Windows / macOS 重命名并压缩成 应用名-平台-架构-版本号.zip 后上传
-      - name: Package & Rename Windows build
+      # Windows：保留完整构建目录打包为便携版 ZIP，并额外生成 Inno Setup 安装程序。
+      - name: Package Windows portable archive
         if: matrix.platform == 'windows'
-        run: Compress-Archive -Path "${{ matrix.path }}/*" -DestinationPath "cardory-windows-x64-${{ steps.version.outputs.version }}.zip"
+        shell: pwsh
+        run: Compress-Archive -Path "${{ matrix.path }}/*" -DestinationPath "cardory-windows-x64-${{ steps.version.outputs.version }}-portable.zip"
+      - name: Build Windows installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $iscc = (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) {
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          if (-not (Test-Path $iscc)) {
+            throw "未找到 Inno Setup 编译器 ISCC.exe"
+          }
+          $releaseVersion = "${{ steps.version.outputs.version }}"
+          $appVersion = $releaseVersion.TrimStart('v')
+          & $iscc "windows/installer/cardory.iss" "/DAppVersion=$appVersion" "/DOutputBaseFilename=cardory-windows-x64-$releaseVersion-setup" "/DOutputDir=${{ github.workspace }}" "/DBuildOutput=${{ github.workspace }}\${{ matrix.path }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload Windows packages
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardory-windows-x64-${{ steps.version.outputs.version }}-packages
+          path: |
+            cardory-windows-x64-${{ steps.version.outputs.version }}-portable.zip
+            cardory-windows-x64-${{ steps.version.outputs.version }}-setup.exe
+          if-no-files-found: error
       - name: Rename & Upload macOS build
         if: matrix.platform == 'macos'
         run: |
           mv "${{ matrix.path }}" "cardory-macos-arm64-${{ steps.version.outputs.version }}.app"
           ditto -c -k --keepParent "cardory-macos-arm64-${{ steps.version.outputs.version }}.app" "cardory-macos-arm64-${{ steps.version.outputs.version }}.zip"
-      - name: Upload packaged archive
-        if: matrix.platform != 'android'
+      - name: Upload packaged macOS archive
+        if: matrix.platform == 'macos'
         uses: actions/upload-artifact@v4
         with:
-          name: cardory-${{ matrix.platform }}-${{ matrix.arch }}-${{ steps.version.outputs.version }}.zip
-          path: cardory-${{ matrix.platform }}-${{ matrix.arch }}-${{ steps.version.outputs.version }}.zip
+          name: cardory-macos-arm64-${{ steps.version.outputs.version }}.zip
+          path: cardory-macos-arm64-${{ steps.version.outputs.version }}.zip
           if-no-files-found: error
 
   # 汇总所有产物并创建 GitHub Release

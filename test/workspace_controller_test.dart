@@ -1,5 +1,5 @@
-import 'package:cardory/application/attachment_repository.dart';
-import 'package:cardory/application/widget_data_service.dart';
+import 'package:cardory/domain/attachment_repository.dart';
+import 'package:cardory/domain/widget_data_service.dart';
 import 'package:cardory/application/workspace_controller.dart';
 import 'package:cardory/application/workspace_settings_service.dart';
 import 'package:cardory/data/cardory_store.dart';

@@ -58,3 +58,13 @@ abstract interface class SyncCredentialStore {
   Future<SyncCredentials> read();
   Future<void> write(SyncCredentials credentials);
 }
+
+/// 保险库主密码的安全存储接口。
+///
+/// 抽象于表现层与具体实现层之间，使 UI 仅依赖此接口，
+/// 而无需感知平台 keychain / keystore 等实现细节。
+abstract interface class VaultCredentialStore {
+  Future<String?> readPassword();
+  Future<void> writePassword(String password);
+  Future<void> deletePassword();
+}

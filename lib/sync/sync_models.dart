@@ -5,7 +5,7 @@
 
 import 'dart:typed_data';
 
-export '../application/sync_status.dart';
+export '../domain/sync_status.dart';
 
 class SyncDocument {
   const SyncDocument({required this.bytes, this.revision, this.modifiedAt});
@@ -31,11 +31,19 @@ class SyncConflictException implements Exception {
   String toString() => 'SyncConflictException: $message';
 }
 
+/// 同步提供者异常的可选机器可读错误码，供上层结构化判断，
+/// 避免依赖中文字面量做字符串匹配。
+enum SyncProviderErrorCode {
+  webDavCredentialsMissing,
+  s3CredentialsMissing,
+}
+
 class SyncProviderException implements Exception {
-  const SyncProviderException(this.message, {this.cause});
+  const SyncProviderException(this.message, {this.cause, this.code});
 
   final String message;
   final Object? cause;
+  final SyncProviderErrorCode? code;
 
   @override
   String toString() => 'SyncProviderException: $message';

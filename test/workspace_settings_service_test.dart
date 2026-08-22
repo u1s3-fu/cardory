@@ -1,5 +1,5 @@
-import 'package:cardory/application/cardory_repository.dart';
-import 'package:cardory/application/sync_credentials.dart';
+import 'package:cardory/domain/cardory_repository.dart';
+import 'package:cardory/domain/sync_credentials.dart';
 import 'package:cardory/application/workspace_settings_service.dart';
 import 'package:cardory/domain/cardory_models.dart';
 import 'package:flutter_test/flutter_test.dart';

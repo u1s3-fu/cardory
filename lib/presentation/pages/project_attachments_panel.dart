@@ -1,10 +1,17 @@
+// 项目附件面板：附件导入、筛选、分组、批量操作与分类管理入口。
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 
-import '../../application/attachment_repository.dart';
+import '../../domain/attachment_repository.dart';
 import '../../domain/cardory_models.dart';
 import '../cardory_theme.dart';
+import '../widgets/attachment_dialogs.dart';
+import '../widgets/attachment_row.dart';
+import '../widgets/batch_action_bar.dart';
+import '../widgets/confirm_dialogs.dart';
+import '../widgets/grouped_expansion_list.dart';
 import '../widgets/section_title.dart';
 
 class ProjectAttachmentsPanel extends StatefulWidget {
@@ -38,7 +45,6 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
   final Set<String> _selectedIds = {};
   String? _filterCategoryId;
   bool _grouped = false;
-  final Set<String> _collapsedGroups = {};
 
   List<AttachmentData> get _filteredAttachments {
     final filter = _filterCategoryId;
@@ -115,7 +121,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     List<AttachmentData> files,
   ) => showDialog<Map<String, String>>(
     context: context,
-    builder: (_) => _BatchRenameDialog(
+    builder: (_) => BatchRenameDialog(
       files: files,
       keepExtension: widget.keepExtensionOnRename,
     ),
@@ -189,31 +195,14 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
   }
 
   Future<void> _editNote(AttachmentData attachment) async {
-    final controller = TextEditingController(text: attachment.note);
-    final note = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('附件备注'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 2,
-          maxLines: 5,
-          decoration: const InputDecoration(labelText: '备注'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+    final note = await showTextInputDialog(
+      context,
+      title: '附件备注',
+      initialValue: attachment.note,
+      labelText: '备注',
+      minLines: 2,
+      maxLines: 5,
     );
-    controller.dispose();
     if (note == null || note == attachment.note) return;
     await _change(
       attachments: widget.attachments
@@ -226,41 +215,18 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
 
   Future<void> _renameOne(AttachmentData attachment) async {
     final keepExtension = widget.keepExtensionOnRename;
-    final controller = TextEditingController(
-      text: keepExtension
-          ? _stripExtension(attachment.fileName)
+    final name = await showTextInputDialog(
+      context,
+      title: '重命名附件',
+      initialValue: keepExtension
+          ? stripExtension(attachment.fileName)
           : attachment.fileName,
+      labelText: keepExtension ? '文件名（扩展名保留）' : '文件名',
+      helperText: keepExtension ? '仅修改文件名主体，原扩展名保持不变' : null,
     );
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('重命名附件'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: keepExtension ? '文件名（扩展名保留）' : '文件名',
-            helperText: keepExtension
-                ? '仅修改文件名主体，原扩展名保持不变'
-                : null,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
     if (name == null || name.isEmpty) return;
     final newName = keepExtension
-        ? _applyRenameKeepingExtension(name, attachment.fileName)
+        ? applyRenameKeepingExtension(name, attachment.fileName)
         : name;
     if (newName == attachment.fileName) return;
     await _change(
@@ -275,7 +241,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
   Future<void> _editCategoriesOne(AttachmentData attachment) async {
     final selected = await showDialog<Set<String>>(
       context: context,
-      builder: (_) => _CategoryAssignDialog(
+      builder: (_) => CategoryAssignDialog(
         categories: widget.categories,
         initialIds: attachment.categoryIds.toSet(),
       ),
@@ -300,7 +266,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     if (selectedAttachments.isEmpty) return;
     final selected = await showDialog<Set<String>>(
       context: context,
-      builder: (_) => _CategoryAssignDialog(
+      builder: (_) => CategoryAssignDialog(
         categories: widget.categories,
         initialIds: const {},
       ),
@@ -340,28 +306,12 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
   Future<void> _batchRemove() async {
     final selected = _selectedAttachments;
     if (selected.isEmpty) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除附件'),
-        content: Text(
-          '确定删除选中的 ${selected.length} 个附件吗？附件文件将从本地存储中移除。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: CardoryColors.error,
-              foregroundColor: CardoryColors.white,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: '删除附件',
+      content: '确定删除选中的 ${selected.length} 个附件吗？附件文件将从本地存储中移除。',
+      confirmLabel: '删除',
+      confirmColor: CardoryColors.error,
     );
     if (confirmed != true || !mounted) return;
     final repository = widget.repository;
@@ -388,16 +338,15 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
   }
 
   Future<void> _manageCategories() async {
-    final result = await showDialog<_CategoryManagerResult>(
+    final result = await showDialog<AttachmentCategoryManagerResult>(
       context: context,
-      builder: (_) => _CategoryManagerDialog(
+      builder: (_) => CategoryManagerDialog(
         categories: widget.categories,
         attachments: widget.attachments,
       ),
     );
     if (result == null || !mounted) return;
     setState(() {
-      _collapsedGroups.removeAll(result.removedIds);
       if (result.removedIds.contains(_filterCategoryId)) {
         _filterCategoryId = null;
       }
@@ -417,21 +366,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
       await widget.onChanged(attachments, categories ?? widget.categories);
     } catch (error) {
       debugPrint('Failed to update project attachments: $error');
-      if (context.mounted) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('附件更新失败'),
-            content: const Text('附件更新失败，请稍后重试。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('知道了'),
-              ),
-            ],
-          ),
-        );
-      }
+      // 与文件内其他错误处理一致：仅提示一次 SnackBar，避免对话框 + SnackBar 双重打扰。
       if (mounted) _showError('附件更新失败，请稍后重试。');
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -445,14 +380,20 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
   }
 
   void _showError(String message) {
+    // 先清除排队中的提示（如父级先弹出的通用错误），避免具体错误被延迟展示。
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    )
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredAttachments;
+    final categoryById = {
+      for (final category in widget.categories) category.id: category.name,
+    };
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: cardDecoration(),
@@ -540,12 +481,35 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
               child: Text('暂无匹配的附件'),
             )
           else if (_grouped)
-            _buildGrouped(filtered)
+            _buildGrouped(filtered, categoryById)
           else
-            _buildList(filtered),
+            _buildList(filtered, categoryById),
           if (_selectedIds.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _buildBatchBar(),
+            BatchActionBar(
+              count: _selectedIds.length,
+              actions: [
+                TextButton.icon(
+                  onPressed: _busy ? null : _batchExport,
+                  icon: const Icon(Icons.download_outlined, size: 18),
+                  label: const Text('批量导出'),
+                ),
+                TextButton.icon(
+                  onPressed: _busy ? null : _batchAssignCategories,
+                  icon: const Icon(Icons.label_outline_rounded, size: 18),
+                  label: const Text('分配分类'),
+                ),
+                TextButton.icon(
+                  onPressed: _busy ? null : _batchRemove,
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('删除'),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _selectedIds.clear()),
+                  child: const Text('取消选择'),
+                ),
+              ],
+            ),
           ],
         ],
       ),
@@ -568,82 +532,48 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     );
   }
 
-  Widget _buildList(List<AttachmentData> filtered) => Column(
-    children: [
-      for (var index = 0; index < filtered.length; index++) ...[
-        _buildRow(filtered[index]),
-        if (index < filtered.length - 1) const Divider(height: 20),
-      ],
-    ],
-  );
-
-  Widget _buildGrouped(List<AttachmentData> filtered) {
-    final grouped = <String, List<AttachmentData>>{};
-    for (final category in widget.categories) {
-      final items = filtered
-          .where((attachment) => attachment.categoryIds.contains(category.id))
-          .toList();
-      if (items.isNotEmpty) grouped[category.id] = items;
-    }
-    final uncategorized = filtered
-        .where((attachment) => attachment.categoryIds.isEmpty)
-        .toList();
-
-    return Column(
-      children: [
-        for (final category in widget.categories)
-          if (grouped.containsKey(category.id))
-            _buildGroupTile(category: category, items: grouped[category.id]!),
-        if (uncategorized.isNotEmpty)
-          _buildGroupTile(category: null, items: uncategorized),
-      ],
-    );
-  }
-
-  Widget _buildGroupTile({
-    required AttachmentCategory? category,
-    required List<AttachmentData> items,
-  }) {
-    final groupKey = category?.id ?? '__uncategorized__';
-    final expanded = !_collapsedGroups.contains(groupKey);
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        initiallyExpanded: expanded,
-        onExpansionChanged: (value) => setState(() {
-          if (value) {
-            _collapsedGroups.remove(groupKey);
-          } else {
-            _collapsedGroups.add(groupKey);
-          }
-        }),
-        shape: const Border(),
-        collapsedShape: const Border(),
-        leading: Icon(
-          category == null
-              ? Icons.folder_off_outlined
-              : Icons.label_outline_rounded,
-          color: CardoryColors.primary,
-        ),
-        title: Text(
-          category?.name ?? '未分类',
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text('${items.length} 个文件'),
-        children: [
-          for (var index = 0; index < items.length; index++) ...[
-            _buildRow(items[index]),
-            if (index < items.length - 1) const Divider(height: 20),
+  Widget _buildList(
+    List<AttachmentData> filtered,
+    Map<String, String> categoryById,
+  ) =>
+      ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: filtered.length,
+        itemBuilder: (context, index) => Column(
+          key: ValueKey('attachment-${filtered[index].id}'),
+          children: [
+            _buildRow(filtered[index], categoryById),
+            if (index < filtered.length - 1) const Divider(height: 20),
           ],
-          const SizedBox(height: 4),
-        ],
-      ),
-    );
-  }
+        ),
+      );
 
-  Widget _buildRow(AttachmentData attachment) => _AttachmentRow(
+  Widget _buildGrouped(
+    List<AttachmentData> filtered,
+    Map<String, String> categoryById,
+  ) =>
+      GroupedExpansionList<AttachmentData>(
+        items: filtered,
+        groupKeysOf: (attachment) => attachment.categoryIds,
+        groupOrder: [for (final category in widget.categories) category.id],
+        groupTitleOf: (key) => categoryById[key] ?? key,
+        rowBuilder: (context, attachment) =>
+            _buildRow(attachment, categoryById),
+        uncategorizedTitle: '未分类',
+        countLabel: '个文件',
+        groupIcon: Icons.label_outline_rounded,
+        uncategorizedIcon: Icons.folder_off_outlined,
+        rowSeparator: const Divider(height: 20),
+      );
+
+  Widget _buildRow(
+    AttachmentData attachment,
+    Map<String, String> categoryById,
+  ) =>
+      AttachmentRow(
     attachment: attachment,
-    categories: widget.categories,
+    categoryNamesById: categoryById,
     selected: _selectedIds.contains(attachment.id),
     batchMode: _selectedIds.isNotEmpty,
     enabled: !_busy,
@@ -654,681 +584,4 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     onExport: widget.repository == null ? null : _export,
     onRemove: _remove,
   );
-
-  Widget _buildBatchBar() {
-    final count = _selectedIds.length;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: CardoryColors.primarySoft,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Text(
-            '已选 $count 项',
-            style: TextStyle(
-              color: CardoryColors.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          TextButton.icon(
-            onPressed: _busy ? null : _batchExport,
-            icon: const Icon(Icons.download_outlined, size: 18),
-            label: const Text('批量导出'),
-          ),
-          TextButton.icon(
-            onPressed: _busy ? null : _batchAssignCategories,
-            icon: const Icon(Icons.label_outline_rounded, size: 18),
-            label: const Text('分配分类'),
-          ),
-          TextButton.icon(
-            onPressed: _busy ? null : _batchRemove,
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('删除'),
-          ),
-          TextButton(
-            onPressed: () => setState(() => _selectedIds.clear()),
-            child: const Text('取消选择'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AttachmentRow extends StatelessWidget {
-  const _AttachmentRow({
-    required this.attachment,
-    required this.categories,
-    required this.selected,
-    required this.batchMode,
-    required this.enabled,
-    required this.onToggleSelect,
-    required this.onEditNote,
-    required this.onRename,
-    required this.onEditCategories,
-    required this.onExport,
-    required this.onRemove,
-  });
-
-  final AttachmentData attachment;
-  final List<AttachmentCategory> categories;
-  final bool selected;
-  final bool batchMode;
-  final bool enabled;
-  final VoidCallback onToggleSelect;
-  final Future<void> Function(AttachmentData attachment) onEditNote;
-  final Future<void> Function(AttachmentData attachment) onRename;
-  final Future<void> Function(AttachmentData attachment) onEditCategories;
-  final Future<void> Function(AttachmentData attachment)? onExport;
-  final Future<void> Function(AttachmentData attachment) onRemove;
-
-  void _handleAction(_AttachmentAction action) {
-    switch (action) {
-      case _AttachmentAction.editNote:
-        onEditNote(attachment);
-        break;
-      case _AttachmentAction.rename:
-        onRename(attachment);
-        break;
-      case _AttachmentAction.editCategories:
-        onEditCategories(attachment);
-        break;
-      case _AttachmentAction.export:
-        onExport?.call(attachment);
-        break;
-      case _AttachmentAction.remove:
-        onRemove(attachment);
-        break;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final categoryNames = <String>[
-      for (final id in attachment.categoryIds)
-        for (final category in categories)
-          if (category.id == id) category.name,
-    ];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (batchMode) ...[
-          Checkbox(
-            value: selected,
-            onChanged: enabled ? (_) => onToggleSelect() : null,
-            visualDensity: VisualDensity.compact,
-          ),
-          const SizedBox(width: 4),
-        ],
-        Icon(_iconFor(attachment.kind), color: CardoryColors.primary),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                attachment.fileName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 5),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Chip(
-                    label: Text(attachment.kind.label),
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  if (attachment.fileExtension.isNotEmpty)
-                    Text(attachment.fileExtension.toUpperCase()),
-                  Text(_formatFileSize(attachment.size)),
-                  Text(formatDate(attachment.createdAt)),
-                ],
-              ),
-              if (categoryNames.isNotEmpty) ...[
-                const SizedBox(height: 5),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    for (final name in categoryNames)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1.5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: CardoryColors.primarySoft,
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        child: Text(
-                          name,
-                          style: TextStyle(
-                            color: CardoryColors.primary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-              if (attachment.note.isNotEmpty) ...[
-                const SizedBox(height: 5),
-                Text(
-                  attachment.note,
-                  style: TextStyle(
-                    color: CardoryColors.gray500,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (!batchMode)
-          PopupMenuButton<_AttachmentAction>(
-            tooltip: '更多附件操作',
-            enabled: enabled,
-            icon: const Icon(Icons.more_vert_rounded),
-            onSelected: _handleAction,
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: _AttachmentAction.editNote,
-                child: ListTile(
-                  leading: Icon(Icons.edit_note_outlined),
-                  title: Text('编辑备注'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: _AttachmentAction.rename,
-                child: ListTile(
-                  leading: Icon(Icons.drive_file_rename_outline),
-                  title: Text('重命名'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem(
-                value: _AttachmentAction.editCategories,
-                child: ListTile(
-                  leading: Icon(Icons.label_outline_rounded),
-                  title: Text('编辑分类'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              if (onExport != null)
-                const PopupMenuItem(
-                  value: _AttachmentAction.export,
-                  child: ListTile(
-                    leading: Icon(Icons.download_outlined),
-                    title: Text('导出附件'),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              const PopupMenuItem(
-                value: _AttachmentAction.remove,
-                child: ListTile(
-                  leading: Icon(Icons.delete_outline),
-                  title: Text('删除附件'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-}
-
-enum _AttachmentAction { editNote, rename, editCategories, export, remove }
-
-IconData _iconFor(AttachmentKind kind) => switch (kind) {
-  AttachmentKind.image => Icons.image_outlined,
-  AttachmentKind.document => Icons.description_outlined,
-  AttachmentKind.archive => Icons.folder_zip_outlined,
-  AttachmentKind.other => Icons.insert_drive_file_outlined,
-};
-
-String _formatFileSize(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  if (bytes < 1024 * 1024 * 1024) {
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-}
-
-class _CategoryManagerResult {
-  const _CategoryManagerResult({
-    required this.attachments,
-    required this.categories,
-    required this.removedIds,
-  });
-
-  final List<AttachmentData> attachments;
-  final List<AttachmentCategory> categories;
-  final Set<String> removedIds;
-}
-
-class _CategoryManagerDialog extends StatefulWidget {
-  const _CategoryManagerDialog({
-    required this.categories,
-    required this.attachments,
-  });
-
-  final List<AttachmentCategory> categories;
-  final List<AttachmentData> attachments;
-
-  @override
-  State<_CategoryManagerDialog> createState() => _CategoryManagerDialogState();
-}
-
-class _CategoryManagerDialogState extends State<_CategoryManagerDialog> {
-  late List<AttachmentCategory> _categories = [...widget.categories];
-  late List<AttachmentData> _attachments = [...widget.attachments];
-  final TextEditingController _newCategory = TextEditingController();
-  final Set<String> _removedIds = {};
-
-  int _countFor(String categoryId) =>
-      _attachments.where((item) => item.categoryIds.contains(categoryId)).length;
-
-  void _addCategory() {
-    final name = _newCategory.text.trim();
-    if (name.isEmpty) return;
-    setState(() {
-      _categories.add(
-        AttachmentCategory(id: newId(), name: name, createdAt: DateTime.now()),
-      );
-      _newCategory.clear();
-    });
-  }
-
-  Future<void> _renameCategory(AttachmentCategory category) async {
-    final controller = TextEditingController(text: category.name);
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('重命名分类'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '分类名称'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (name == null || name.isEmpty) return;
-    setState(() {
-      _categories = [
-        for (final item in _categories)
-          item.id == category.id ? item.copyWith(name: name) : item,
-      ];
-    });
-  }
-
-  Future<void> _deleteCategory(AttachmentCategory category) async {
-    final count = _countFor(category.id);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除分类'),
-        content: Text(
-          count == 0
-              ? '确定删除分类“${category.name}”吗？'
-              : '删除分类“${category.name}”将同时移除 $count 个附件的该分类标记，确定删除吗？',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: CardoryColors.error,
-              foregroundColor: CardoryColors.white,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    setState(() {
-      _categories.removeWhere((item) => item.id == category.id);
-      _attachments = [
-        for (final attachment in _attachments)
-          if (attachment.categoryIds.contains(category.id))
-            _withoutCategory(attachment, category.id)
-          else
-            attachment,
-      ];
-      _removedIds.add(category.id);
-    });
-  }
-
-  AttachmentData _withoutCategory(AttachmentData attachment, String categoryId) {
-    final remaining = attachment.categoryIds
-        .where((id) => id != categoryId)
-        .toList();
-    return attachment.copyWith(
-      categoryIds: remaining,
-      clearCategoryIds: remaining.isEmpty,
-    );
-  }
-
-  @override
-  void dispose() {
-    _newCategory.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('管理分类'),
-      content: SizedBox(
-        width: 440,
-        height: 360,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _newCategory,
-                    onSubmitted: (_) => _addCategory(),
-                    decoration: const InputDecoration(
-                      labelText: '新分类名称',
-                      isDense: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _addCategory,
-                  child: const Text('添加'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _categories.isEmpty
-                  ? Center(
-                      child: Text(
-                        '暂无分类，输入名称后点击“添加”创建。',
-                        style: TextStyle(color: CardoryColors.gray400),
-                      ),
-                    )
-                  : SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          for (final category in _categories)
-                            ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.label_outline_rounded),
-                              title: Text(category.name),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${_countFor(category.id)} 个附件',
-                                    style: TextStyle(
-                                      color: CardoryColors.gray500,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: '重命名分类',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () =>
-                                        _renameCategory(category),
-                                    icon: const Icon(Icons.edit_outlined),
-                                  ),
-                                  IconButton(
-                                    tooltip: '删除分类',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () =>
-                                        _deleteCategory(category),
-                                    icon: const Icon(Icons.delete_outline),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(
-            context,
-            _CategoryManagerResult(
-              attachments: _attachments,
-              categories: _categories,
-              removedIds: _removedIds,
-            ),
-          ),
-          child: const Text('完成'),
-        ),
-      ],
-    );
-  }
-}
-
-class _CategoryAssignDialog extends StatefulWidget {
-  const _CategoryAssignDialog({
-    required this.categories,
-    required this.initialIds,
-  });
-
-  final List<AttachmentCategory> categories;
-  final Set<String> initialIds;
-
-  @override
-  State<_CategoryAssignDialog> createState() => _CategoryAssignDialogState();
-}
-
-class _CategoryAssignDialogState extends State<_CategoryAssignDialog> {
-  late final Set<String> _selected = {...widget.initialIds};
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('分配分类'),
-      content: SizedBox(
-        width: 360,
-        child: widget.categories.isEmpty
-            ? const Text('还没有分类，请先在“管理分类”中创建。')
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '可选择一个或多个分类，保存后将覆盖所选附件的现有分类。',
-                    style: TextStyle(color: CardoryColors.gray500, fontSize: 12),
-                  ),
-                  const SizedBox(height: 8),
-                  for (final category in widget.categories)
-                    CheckboxListTile(
-                      value: _selected.contains(category.id),
-                      onChanged: (value) => setState(() {
-                        if (value == true) {
-                          _selected.add(category.id);
-                        } else {
-                          _selected.remove(category.id);
-                        }
-                      }),
-                      title: Text(category.name),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                ],
-              ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: widget.categories.isEmpty
-              ? null
-              : () => Navigator.pop(context, _selected),
-          child: const Text('保存'),
-        ),
-      ],
-    );
-  }
-}
-
-class _BatchRenameDialog extends StatefulWidget {
-  const _BatchRenameDialog({
-    required this.files,
-    required this.keepExtension,
-  });
-
-  final List<AttachmentData> files;
-  final bool keepExtension;
-
-  @override
-  State<_BatchRenameDialog> createState() => _BatchRenameDialogState();
-}
-
-class _BatchRenameDialogState extends State<_BatchRenameDialog> {
-  late final List<TextEditingController> _controllers;
-
-  @override
-  void initState() {
-    super.initState();
-    _controllers = [
-      for (final file in widget.files)
-        TextEditingController(
-          text: widget.keepExtension
-              ? _stripExtension(file.fileName)
-              : file.fileName,
-        ),
-    ];
-  }
-
-  @override
-  void dispose() {
-    for (final controller in _controllers) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('重命名上传文件（${widget.files.length} 个）'),
-      content: SizedBox(
-        width: 460,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.keepExtension) ...[
-                Text(
-                  '仅修改文件名主体，原扩展名保持不变。',
-                  style: TextStyle(color: CardoryColors.gray500, fontSize: 12),
-                ),
-                const SizedBox(height: 10),
-              ],
-              for (var index = 0; index < widget.files.length; index++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: TextField(
-                    controller: _controllers[index],
-                    decoration: InputDecoration(
-                      labelText: widget.keepExtension
-                          ? '文件 ${index + 1}（扩展名保留）'
-                          : '文件 ${index + 1}',
-                      isDense: true,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('跳过'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final result = <String, String>{};
-            for (var index = 0; index < widget.files.length; index++) {
-              final input = _controllers[index].text.trim();
-              if (input.isEmpty) continue;
-              final newName = widget.keepExtension
-                  ? _applyRenameKeepingExtension(
-                      input,
-                      widget.files[index].fileName,
-                    )
-                  : input;
-              if (newName != widget.files[index].fileName) {
-                result[widget.files[index].id] = newName;
-              }
-            }
-            Navigator.pop(context, result);
-          },
-          child: const Text('保存'),
-        ),
-      ],
-    );
-  }
-}
-
-String _stripExtension(String fileName) {
-  final dot = fileName.lastIndexOf('.');
-  if (dot <= 0 || dot == fileName.length - 1) return fileName;
-  return fileName.substring(0, dot);
-}
-
-String _applyRenameKeepingExtension(String input, String originalFileName) {
-  final originalBody = _stripExtension(originalFileName);
-  final extension = originalBody == originalFileName
-      ? ''
-      : originalFileName.substring(originalBody.length + 1);
-  var body = input.trim();
-  if (extension.isNotEmpty &&
-      body.toLowerCase().endsWith('.$extension'.toLowerCase())) {
-    body = body.substring(0, body.length - extension.length - 1).trimRight();
-  }
-  if (body.isEmpty) return originalFileName;
-  return extension.isEmpty ? body : '$body.$extension';
 }

@@ -1,10 +1,9 @@
 import 'package:cardory/main.dart';
-import 'package:cardory/application/attachment_repository.dart';
-import 'package:cardory/application/cardory_repository.dart';
+import 'package:cardory/domain/attachment_repository.dart';
+import 'package:cardory/domain/cardory_repository.dart';
 import 'package:cardory/data/attachment_store.dart';
 import 'package:cardory/data/cardory_store.dart';
 import 'package:cardory/domain/cardory_models.dart';
-import 'package:cardory/presentation/pages/home_page.dart';
 import 'package:cardory/presentation/widgets/sidebar.dart';
 import 'package:cardory/sync/sync_coordinator.dart';
 import 'package:cardory/sync/sync_credentials.dart';
@@ -24,6 +23,7 @@ void main() {
     throw const SyncUnavailableException('测试未配置同步');
   };
 
+  // ignore: prefer_function_declarations_over_variables
   AttachmentRepositoryFactory attachmentRepositoryFactory =
       (_) => _MemoryAttachmentRepository();
 
@@ -274,23 +274,26 @@ void main() {
     SettingsCategoryType? openedCategory;
     var passwordChangeCount = 0;
     var restoreCount = 0;
+    var aboutCount = 0;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SettingsPanel(
-            settings: const AppSettings(
-              syncProvider: SyncProviderType.directory,
-              syncDirectoryPath: '/sync',
+          body: SingleChildScrollView(
+            child: SettingsPanel(
+              settings: const AppSettings(
+                syncProvider: SyncProviderType.directory,
+                syncDirectoryPath: '/sync',
+              ),
+              syncStatus: const SyncStatus(
+                phase: SyncPhase.failure,
+                message: '网络不可用',
+              ),
+              onSync: () => syncCount++,
+              onOpenSettings: (category) => openedCategory = category,
+              onChangePassword: () => passwordChangeCount++,
+              onRestoreBackup: () => restoreCount++,
+              onShowAbout: () => aboutCount++,
             ),
-            dataPath: '/test/data/path',
-            syncStatus: const SyncStatus(
-              phase: SyncPhase.failure,
-              message: '网络不可用',
-            ),
-            onSync: () => syncCount++,
-            onOpenSettings: (category) => openedCategory = category,
-            onChangePassword: () => passwordChangeCount++,
-            onRestoreBackup: () => restoreCount++,
           ),
         ),
       ),
@@ -298,21 +301,34 @@ void main() {
 
     expect(find.text('工作台偏好'), findsOneWidget);
     expect(find.text('安全'), findsOneWidget);
-    expect(find.text('同步'), findsOneWidget);
+    expect(find.text('数据与同步'), findsOneWidget);
     expect(find.text('配置同步'), findsNothing);
     expect(find.text('同步方式：同步目录'), findsOneWidget);
     expect(find.text('网络不可用'), findsOneWidget);
     expect(find.text('修改密码'), findsOneWidget);
     expect(find.text('恢复数据'), findsOneWidget);
+    expect(find.text('关于'), findsOneWidget);
 
     await tester.tap(find.text('安全'));
     expect(openedCategory, SettingsCategoryType.security);
+
+    await tester.ensureVisible(find.text('立即同步'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('立即同步'));
+    await tester.ensureVisible(find.text('修改密码'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('修改密码'));
+    await tester.ensureVisible(find.text('恢复数据'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('恢复数据'));
+    await tester.ensureVisible(find.text('关于'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关于'));
+
     expect(syncCount, 1);
     expect(passwordChangeCount, 1);
     expect(restoreCount, 1);
+    expect(aboutCount, 1);
   });
 
   testWidgets('shows a sync failure in a snack bar', (tester) async {
@@ -522,7 +538,7 @@ void main() {
     expect(find.text('应用切到后台时自动锁定'), findsOneWidget);
     expect(find.text('工作台'), findsNothing);
     expect(find.text('本地数据'), findsNothing);
-    expect(find.text('同步'), findsNothing);
+    expect(find.text('数据与同步'), findsNothing);
   });
 
   testWidgets('sync settings expose connection testing for WebDAV and S3', (
@@ -546,6 +562,15 @@ void main() {
     );
 
     expect(find.byKey(const Key('test-webdav-connection')), findsOneWidget);
+    // 测试凭据以表单输入优先，先输入密码再点击测试。
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(PasswordTextField),
+        matching: find.byType(TextField),
+      ),
+      'test-password',
+    );
+    await pumpUiFrames(tester);
     await tester.tap(find.byKey(const Key('test-webdav-connection')));
       await pumpUiFrames(tester);
 
@@ -864,7 +889,11 @@ void main() {
     // 待办页（TodoTile）提供删除入口。
     await tester.tap(find.byTooltip('删除待办'));
     await tester.pump();
-    await tester.scrollUntilVisible(find.byTooltip('编辑进度'), 200);
+    await tester.scrollUntilVisible(
+      find.byTooltip('编辑进度'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byTooltip('编辑进度'));
     await tester.pump();
 

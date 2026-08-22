@@ -1,4 +1,4 @@
-import '../domain/app_settings.dart';
+import '../domain/cardory_enums.dart';
 
 String reminderPriorityRangeLabel(ProjectPriority priority) =>
     switch (priority) {

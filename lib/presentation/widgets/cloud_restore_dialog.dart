@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../application/cloud_restore_service.dart';
+import '../../sync/cloud_restore_service.dart';
 import '../../domain/app_settings.dart';
-import '../../sync/sync_credentials.dart' show SyncCredentials;
+import '../../domain/cardory_models.dart' show formatDateTime;
+import '../cardory_theme.dart';
+import '../../domain/sync_credentials.dart' show SyncCredentials;
 import '../../sync/sync_models.dart' show SyncDocument;
 import '../widgets/password_text_field.dart';
 
@@ -437,7 +439,11 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.inbox_outlined, size: 48, color: Colors.grey),
+          Icon(
+            Icons.inbox_outlined,
+            size: 48,
+            color: CardoryColors.gray400,
+          ),
           const SizedBox(height: 12),
           Text(
             '云端没有可恢复的备份数据。',
@@ -479,7 +485,7 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
             title: const Text('最新数据备份'),
             subtitle: Text(
               '${entry.name} · ${entry.sizeLabel}'
-              '${entry.modifiedAt != null ? ' · ${_formatDate(entry.modifiedAt!)}' : ''}',
+              '${entry.modifiedAt != null ? ' · ${formatDateTime(entry.modifiedAt!)}' : ''}',
             ),
             selected: true,
           ),
@@ -570,13 +576,6 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
           ),
       ],
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final local = date.toLocal();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${local.year}-${two(local.month)}-${two(local.day)} '
-        '${two(local.hour)}:${two(local.minute)}';
   }
 }
 

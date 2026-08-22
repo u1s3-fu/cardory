@@ -1,10 +1,10 @@
-import 'attachment_repository.dart';
-import 'cardory_repository.dart';
-import 'sync_credentials.dart';
-import 'widget_data_service.dart';
+import '../domain/attachment_repository.dart';
+import '../domain/cardory_repository.dart';
+import '../domain/sync_credentials.dart';
+import '../domain/widget_data_service.dart';
+import '../domain/workspace_sync_service.dart';
 import 'workspace_controller.dart';
 import 'workspace_settings_service.dart';
-import 'workspace_sync_service.dart';
 
 typedef WorkspaceSyncServiceFactory = WorkspaceSyncService Function();
 

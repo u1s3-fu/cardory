@@ -1,4 +1,4 @@
-import '../domain/cardory_models.dart';
+import 'cardory_models.dart';
 
 /// 面向应用的端口，用于将工作区摘要发布到平台小组件。
 abstract interface class WidgetDataService {

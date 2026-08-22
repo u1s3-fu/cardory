@@ -46,7 +46,10 @@ SyncProvider createSyncProvider(
         throw const SyncProviderException('WebDAV 地址无效');
       }
       if (credentials.webDav == null) {
-        throw const SyncProviderException('WebDAV 密码尚未保存');
+        throw const SyncProviderException(
+          'WebDAV 密码尚未保存',
+          code: SyncProviderErrorCode.webDavCredentialsMissing,
+        );
       }
       return WebDavSyncProvider(
         baseUrl: uri,
@@ -76,6 +79,7 @@ SyncProvider createSyncProvider(
       if (credentials.s3 == null) {
         throw const SyncProviderException(
           'S3 Access Key / Secret Key 尚未保存',
+          code: SyncProviderErrorCode.s3CredentialsMissing,
         );
       }
       return S3SyncProvider(
