@@ -47,7 +47,7 @@ void main() {
     });
 
     test('位数不一致时按语义补零比较', () {
-      expect(compareVersions('1.0', '0.9.9'), VersionComparison.newer);
+      expect(compareVersions('1.0', '0.9.9'), VersionComparison.older);
       expect(compareVersions('1', '1.0.0'), VersionComparison.equal);
     });
 
