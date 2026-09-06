@@ -541,6 +541,10 @@ class _EmptyAttachments implements AttachmentRepository {
       throw UnimplementedError();
 
   @override
+  Future<Uint8List> readAttachmentBytes(AttachmentData attachment) =>
+      throw UnimplementedError();
+
+  @override
   Future<AttachmentData> importFile({
     required String sourcePath,
     required String id,

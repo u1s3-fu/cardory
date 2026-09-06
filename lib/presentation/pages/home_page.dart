@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -306,18 +308,18 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _restoreBackupFromSettings() async {
     try {
-      final selected = await FilePicker.platform.pickFiles(
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: const ['cardory'],
-        allowMultiple: false,
-        withData: true,
       );
-      if (selected == null || !mounted) return;
-      final file = selected.files.single;
-      final bytes = file.bytes;
-      if (bytes == null) {
+      if (file == null || !mounted) return;
+      final Uint8List bytes;
+      try {
+        bytes = await file.readAsBytes();
+      } catch (_) {
         throw const CardoryStorageException('无法读取所选备份文件。');
       }
+      if (!mounted) return;
       final password = await showDialog<String>(
         context: context,
         builder: (_) => BackupPasswordDialog(fileName: file.name),

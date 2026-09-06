@@ -353,7 +353,7 @@ class SyncSettingsSectionState extends State<SyncSettingsSection> {
               suffixIcon: IconButton(
                 tooltip: '选择目录',
                 onPressed: () async {
-                  final selected = await FilePicker.platform.getDirectoryPath();
+                  final selected = await FilePicker.getDirectoryPath();
                   if (selected != null) _syncDirectory.text = selected;
                 },
                 icon: const Icon(Icons.folder_open_rounded),

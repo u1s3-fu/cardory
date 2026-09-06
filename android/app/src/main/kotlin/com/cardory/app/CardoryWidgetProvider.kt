@@ -19,7 +19,8 @@ import org.json.JSONObject
 class CardoryWidgetProvider : AppWidgetProvider() {
 
     companion object {
-        private const val PREFS_NAME = "FlutterHomeWidget"
+        // 与 home_widget 插件的 HomeWidgetPlugin.PREFERENCES 保持一致
+        private const val PREFS_NAME = "HomeWidgetPreferences"
         private const val DATA_KEY = "cardory_todos"
         private const val MAX_ITEMS = 5
 

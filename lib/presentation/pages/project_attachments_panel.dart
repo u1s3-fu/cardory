@@ -63,18 +63,14 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
       _showError('附件存储尚未初始化，请重新打开应用后再试。');
       return;
     }
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: true,
-      withData: false,
-    );
-    if (result == null || !mounted) return;
+    final result = await FilePicker.pickFiles(type: FileType.any);
+    if (!mounted) return;
 
     setState(() => _busy = true);
     final imported = <AttachmentData>[];
     var handedToWorkspace = false;
     try {
-      for (final file in result.files) {
+      for (final file in result) {
         final sourcePath = file.path;
         if (sourcePath == null || sourcePath.isEmpty) {
           throw StateError('当前平台无法访问所选文件路径。');
@@ -131,12 +127,12 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     final repository = widget.repository;
     if (repository == null) return;
     try {
-      final target = await FilePicker.platform.saveFile(
-        dialogTitle: '导出附件',
+      final bytes = await repository.readAttachmentBytes(attachment);
+      final saved = await FilePicker.saveFile(
         fileName: attachment.fileName,
+        bytes: bytes,
       );
-      if (target == null) return;
-      await repository.exportFile(attachment, target);
+      if (saved == null) return;
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -157,7 +153,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     if (selected.isEmpty) return;
     String? directory;
     try {
-      directory = await FilePicker.platform.getDirectoryPath(
+      directory = await FilePicker.getDirectoryPath(
         dialogTitle: '选择导出目录',
       );
     } catch (_) {

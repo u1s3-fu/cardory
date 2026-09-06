@@ -40,11 +40,11 @@ dependencies:
   crypto: ^3.0.7
   http: ^1.6.0
   flutter_secure_storage: ^10.3.1
-  file_picker: ^10.3.0
+  file_picker: ^12.2.0
   path: ^1.9.1
-  home_widget: ^0.7.0
+  home_widget: ^0.9.4
   webdav_client: ^1.2.2
-  package_info_plus: ^9.0.1
+  package_info_plus: ^10.2.1
   url_launcher: ^6.3.2
 
 dev_dependencies:

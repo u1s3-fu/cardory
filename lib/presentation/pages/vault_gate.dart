@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
@@ -177,20 +179,20 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
 
   Future<void> _pickRestoreBackup() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: const ['cardory'],
-        allowMultiple: false,
-        withData: true,
       );
-      if (result == null || !mounted) return;
-      final file = result.files.single;
-      if (file.bytes == null) {
-        setState(() => _error = '无法读取所选备份文件。');
+      if (file == null || !mounted) return;
+      final Uint8List bytes;
+      try {
+        bytes = await file.readAsBytes();
+      } catch (_) {
+        if (mounted) setState(() => _error = '无法读取所选备份文件。');
         return;
       }
       setState(() {
-        _restoreBytes = file.bytes;
+        _restoreBytes = bytes;
         _restoreFileName = file.name;
         _error = null;
       });

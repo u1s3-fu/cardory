@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cardory/domain/attachment_repository.dart';
 import 'package:cardory/domain/widget_data_service.dart';
 import 'package:cardory/application/workspace_controller.dart';
@@ -209,6 +211,10 @@ class _MemoryRepository implements CardoryRepository {
 
 class _MemoryAttachments implements AttachmentRepository {
   final List<AttachmentData> deleted = [];
+
+  @override
+  Future<Uint8List> readAttachmentBytes(AttachmentData attachment) =>
+      throw UnimplementedError();
 
   @override
   Future<void> prune(Set<String> activeStorageKeys) async {}

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cardory/main.dart';
 import 'package:cardory/domain/attachment_repository.dart';
 import 'package:cardory/domain/cardory_repository.dart';
@@ -1188,6 +1190,10 @@ class _CredentialStore implements SyncCredentialStore {
 
 class _MemoryAttachmentRepository implements AttachmentRepository {
   final _attachments = <String, AttachmentData>{};
+
+  @override
+  Future<Uint8List> readAttachmentBytes(AttachmentData attachment) async =>
+      Uint8List(0);
 
   @override
   Future<AttachmentData> importFile({

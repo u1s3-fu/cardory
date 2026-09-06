@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'cardory_models.dart';
 
 typedef AttachmentRepositoryFactory =
@@ -20,6 +22,9 @@ abstract interface class AttachmentRepository {
   Future<AttachmentData> migrateLegacy(AttachmentData attachment);
 
   Future<void> exportFile(AttachmentData attachment, String targetPath);
+
+  /// 读取附件的解密内容。file_picker 12 的 saveFile 需要直接提供字节。
+  Future<Uint8List> readAttachmentBytes(AttachmentData attachment);
 
   Future<void> delete(AttachmentData attachment);
 

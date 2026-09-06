@@ -143,6 +143,35 @@ class AttachmentStore implements AttachmentRepository {
   }
 
   @override
+  Future<Uint8List> readAttachmentBytes(AttachmentData attachment) async {
+    _validateStoredAttachment(attachment);
+    final source = _fileFor(attachment.storageKey);
+    if (!await source.exists()) {
+      throw AttachmentStorageException('附件文件不存在：${attachment.fileName}');
+    }
+    final temporary = File('${source.path}.export.tmp');
+    try {
+      if (await temporary.exists()) await temporary.delete();
+      await _decrypt(
+        source,
+        temporary,
+        base64Url.decode(base64Url.normalize(attachment.encryptionKey)),
+      );
+      final digest = await crypto.sha256.bind(temporary.openRead()).first;
+      if (digest.toString() != attachment.sha256 ||
+          await temporary.length() != attachment.size) {
+        throw const AttachmentStorageException('附件完整性校验失败。');
+      }
+      return await temporary.readAsBytes();
+    } catch (error) {
+      if (error is AttachmentStorageException) rethrow;
+      throw AttachmentStorageException('无法导出附件：${attachment.fileName}', error);
+    } finally {
+      if (await temporary.exists()) await temporary.delete();
+    }
+  }
+
+  @override
   Future<void> delete(AttachmentData attachment) async {
     if (attachment.storageKey.isEmpty) return;
     final file = _fileFor(attachment.storageKey);
