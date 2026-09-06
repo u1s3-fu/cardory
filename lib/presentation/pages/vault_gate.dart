@@ -5,6 +5,7 @@ import '../../domain/attachment_repository.dart';
 import '../../domain/cardory_repository.dart';
 import '../../domain/sync_credentials.dart';
 import '../../domain/widget_data_service.dart';
+import '../../services/github_update_service.dart';
 import '../../sync/cloud_restore_service.dart';
 import '../../application/workspace_controller_factory.dart';
 import '../../domain/cardory_container.dart';
@@ -32,6 +33,7 @@ class CardoryVaultGate extends StatefulWidget {
     this.widgetDataService,
     required this.attachmentRepositoryFactory,
     this.connectionTester,
+    this.updateService,
   });
 
   final VaultRepository vaultRepository;
@@ -44,11 +46,11 @@ class CardoryVaultGate extends StatefulWidget {
   final bool autoLockEnabled;
   final WidgetDataService? widgetDataService;
   final AttachmentRepositoryFactory attachmentRepositoryFactory;
-  final Future<void> Function(
-    AppSettings,
-    SyncCredentials,
-  )? connectionTester;
+  final Future<void> Function(AppSettings, SyncCredentials)? connectionTester;
   final ValueChanged<AppSettings> onSettingsChanged;
+
+  /// 更新检查服务；测试可注入假实现，null 时由 HomePage 使用默认 GitHub 服务。
+  final GithubUpdateService? updateService;
 
   @override
   State<CardoryVaultGate> createState() => _CardoryVaultGateState();
@@ -238,7 +240,9 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
   Future<void> _restoreFromCloud() async {
     if (_busy) return;
     setState(() => _error = null);
-    final service = CloudRestoreService(vaultRepository: widget.vaultRepository);
+    final service = CloudRestoreService(
+      vaultRepository: widget.vaultRepository,
+    );
     final ok = await CloudRestoreDialog.show(
       context,
       service: service,
@@ -329,6 +333,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
         initialResult: _result,
         attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
         connectionTester: widget.connectionTester,
+        updateService: widget.updateService,
       );
     }
     if (_accessState == null && _result == null) {
@@ -404,9 +409,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            setup
-                                ? '设置密码后，所有项目和待办都会加密保存。'
-                                : '输入密码以打开加密数据。',
+                            setup ? '设置密码后，所有项目和待办都会加密保存。' : '输入密码以打开加密数据。',
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 20),

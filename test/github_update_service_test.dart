@@ -36,14 +36,8 @@ void main() {
     });
 
     test('处理 v 前缀与构建号', () {
-      expect(
-        compareVersions('0.0.4+1', 'v0.0.5'),
-        VersionComparison.newer,
-      );
-      expect(
-        compareVersions('v0.0.5', '0.0.5+1'),
-        VersionComparison.equal,
-      );
+      expect(compareVersions('0.0.4+1', 'v0.0.5'), VersionComparison.newer);
+      expect(compareVersions('v0.0.5', '0.0.5+1'), VersionComparison.equal);
     });
 
     test('位数不一致时按语义补零比较', () {
@@ -53,6 +47,12 @@ void main() {
 
     test('版本无法解析时返回 invalid', () {
       expect(compareVersions('0.0.4', 'abc'), VersionComparison.invalid);
+    });
+
+    test('0.0.0 是合法最低版本，会误判为有更新', () {
+      // 记录为何本地版本读取失败时不能回退 '0.0.0'：
+      // 它会被判为 newer，导致每次启动必弹更新框。
+      expect(compareVersions('0.0.0', '0.0.5'), VersionComparison.newer);
     });
   });
 

@@ -31,19 +31,13 @@ void main() {
       const defaults = AppSettings();
       expect(defaults.renameAttachmentsOnUpload, isTrue);
       expect(defaults.keepAttachmentExtensionOnRename, isFalse);
-      expect(
-        AppSettings.fromJson(defaults.toJson()),
-        defaults,
-      );
+      expect(AppSettings.fromJson(defaults.toJson()), defaults);
 
       const customized = AppSettings(
         renameAttachmentsOnUpload: false,
         keepAttachmentExtensionOnRename: true,
       );
-      expect(
-        AppSettings.fromJson(customized.toJson()),
-        customized,
-      );
+      expect(AppSettings.fromJson(customized.toJson()), customized);
     });
   });
 
@@ -163,7 +157,11 @@ void main() {
         'stage': 'doing',
         'progressEntries': <Object?>[],
         'categories': [
-          {'id': 'category-docs', 'name': '文档', 'createdAt': '2026-08-20T00:00:00.000Z'},
+          {
+            'id': 'category-docs',
+            'name': '文档',
+            'createdAt': '2026-08-20T00:00:00.000Z',
+          },
           {'id': 'category-assets', 'name': '素材'},
         ],
         'attachments': [
@@ -181,14 +179,17 @@ void main() {
 
       expect(restored.categories, hasLength(2));
       expect(restored.categories.first.name, '文档');
-      expect(restored.categories.first.createdAt, DateTime(2026, 8, 20));
+      // fromJson 解析带 Z 后缀的时间为 UTC DateTime；
+      // 与本地 DateTime(2026, 8, 20) 在非 UTC 时区不相等。
+      expect(restored.categories.first.createdAt, DateTime.utc(2026, 8, 20));
       expect(
         restored.attachments.single.categoryIds,
         containsAll(['category-docs', 'category-assets']),
       );
       expect(json, contains('categories'));
       expect(
-        ((json['attachments'] as List).single as Map<String, dynamic>)['categoryIds'],
+        ((json['attachments'] as List).single
+            as Map<String, dynamic>)['categoryIds'],
         containsAll(['category-docs', 'category-assets']),
       );
     });
@@ -267,9 +268,7 @@ void main() {
         'categoryIds': ['category-a'],
       });
 
-      final updated = attachment.copyWith(
-        categoryIds: const ['category-b'],
-      );
+      final updated = attachment.copyWith(categoryIds: const ['category-b']);
       final cleared = attachment.copyWith(
         categoryIds: const [],
         clearCategoryIds: true,
@@ -277,10 +276,9 @@ void main() {
 
       expect(updated.categoryIds, ['category-b']);
       expect(cleared.categoryIds, isEmpty);
-      expect(
-        AttachmentData.fromJson(updated.toJson()).categoryIds,
-        ['category-b'],
-      );
+      expect(AttachmentData.fromJson(updated.toJson()).categoryIds, [
+        'category-b',
+      ]);
     });
 
     test('derives a stable creation date from legacy generated ids', () {
@@ -368,10 +366,7 @@ void main() {
         restored.assets.single.tagIds,
         containsAll(['tag-prod', 'tag-db']),
       );
-      expect(
-        AssetTag.fromJson(restored.assetTags.first.toJson()).name,
-        '生产环境',
-      );
+      expect(AssetTag.fromJson(restored.assetTags.first.toJson()).name, '生产环境');
     });
 
     test('defaults missing asset tags to empty lists', () {
@@ -395,10 +390,7 @@ void main() {
       final cleared = asset.copyWith(tagIds: const [], clearTagIds: true);
 
       expect(cleared.tagIds, isEmpty);
-      expect(
-        AssetData.fromJson(cleared.toJson()).tagIds,
-        isEmpty,
-      );
+      expect(AssetData.fromJson(cleared.toJson()).tagIds, isEmpty);
     });
   });
 

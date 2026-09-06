@@ -78,8 +78,9 @@ CardoryData mergeSyncData(
     return [
       for (final id in {...localById.keys, ...remoteById.keys})
         (choices[id] == SyncConflictSide.remote
-            ? remoteById[id]
-            : localById[id] ?? remoteById[id]) as T,
+                ? remoteById[id]
+                : localById[id] ?? remoteById[id])
+            as T,
     ];
   }
 
@@ -102,5 +103,18 @@ CardoryData mergeSyncData(
       (item) => item.toJson(),
       AssetData.fromJson,
     ),
+    // 标签不参与冲突对比（无 id 级冲突项），按 id 并集合并：
+    // 本地优先，保留远端新增的标签。漏掉该字段会把用户全部标签清空。
+    assetTags: _mergeAssetTags(local.assetTags, remote.assetTags),
   );
+}
+
+/// 按 id 并集合并两侧标签，同名冲突保留本地定义。
+List<AssetTag> _mergeAssetTags(List<AssetTag> local, List<AssetTag> remote) {
+  final merged = [...local];
+  final seenIds = local.map((tag) => tag.id).toSet();
+  for (final tag in remote) {
+    if (seenIds.add(tag.id)) merged.add(tag);
+  }
+  return merged;
 }

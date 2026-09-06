@@ -64,8 +64,13 @@ class SyncCoordinator implements WorkspaceSyncService {
   final Duration providerInitializationTimeout;
   SyncStatus _status = const SyncStatus();
   _PendingSyncConflict? _pendingConflict;
+  // 最近一次 synchronize 收到的设置。pending 冲突丢失时（过期请求、
+  // 竞态重入）resolveConflict 用它兜底，避免把用户配置重置为出厂默认。
+  AppSettings _lastKnownSettings = const AppSettings();
   final _listeners = <WorkspaceListener>{};
-  late final CloudConfigSync _configSync = CloudConfigSync(repository: repository);
+  late final CloudConfigSync _configSync = CloudConfigSync(
+    repository: repository,
+  );
 
   @override
   SyncStatus get status => _status;
@@ -79,7 +84,7 @@ class SyncCoordinator implements WorkspaceSyncService {
     Map<String, SyncConflictSide> itemChoices = const {},
   }) async {
     final pending = _pendingConflict;
-    if (pending == null) return const AppSettings();
+    if (pending == null) return _lastKnownSettings;
     if (choice == SyncConflictChoice.cancel) {
       _pendingConflict = null;
       _setStatus(
@@ -199,6 +204,7 @@ class SyncCoordinator implements WorkspaceSyncService {
   @override
   Future<AppSettings> synchronize(AppSettings settings) async {
     if (_status.isRunning) return settings;
+    _lastKnownSettings = settings;
     if (settings.syncProvider == SyncProviderType.none) {
       return _fail(settings, '请先选择同步方式');
     }
@@ -238,7 +244,10 @@ class SyncCoordinator implements WorkspaceSyncService {
         if (!_isEmpty(localResult.data)) {
           final snapshot = await _saveConflictSnapshot(remote.bytes);
           final remoteData = await _inspectRemote(repository, remote.bytes);
-          final conflicts = buildSyncConflictItems(localResult.data, remoteData);
+          final conflicts = buildSyncConflictItems(
+            localResult.data,
+            remoteData,
+          );
           _pendingConflict = _PendingSyncConflict(
             local: local,
             localHash: localHash,
@@ -301,7 +310,11 @@ class SyncCoordinator implements WorkspaceSyncService {
             requiresReload: true,
           ),
         );
-        final withConfig = await _configSync.sync(activeProvider, updated, _hash);
+        final withConfig = await _configSync.sync(
+          activeProvider,
+          updated,
+          _hash,
+        );
         return withConfig.copyWith(pendingAttachmentDeletes: remainingDeletes);
       }
       if (remoteChanged && localChanged) {
@@ -328,9 +341,7 @@ class SyncCoordinator implements WorkspaceSyncService {
             conflicts: conflicts,
           ),
         );
-        throw SyncConflictException(
-          '本地与远端均有修改，未自动覆盖任何数据。远端副本已保留：$snapshot',
-        );
+        throw SyncConflictException('本地与远端均有修改，未自动覆盖任何数据。远端副本已保留：$snapshot');
       }
       if (remoteChanged) {
         final remoteHash = await _hash(remote.bytes);
@@ -373,7 +384,11 @@ class SyncCoordinator implements WorkspaceSyncService {
             requiresReload: true,
           ),
         );
-        final withConfig = await _configSync.sync(activeProvider, updated, _hash);
+        final withConfig = await _configSync.sync(
+          activeProvider,
+          updated,
+          _hash,
+        );
         return withConfig.copyWith(pendingAttachmentDeletes: remainingDeletes);
       }
       if (localChanged) {
@@ -418,8 +433,7 @@ class SyncCoordinator implements WorkspaceSyncService {
         _status.copyWith(
           phase: SyncPhase.conflict,
           providerId: providerId,
-          message: _status.message ??
-              '检测到本地与远端均有更改，已暂停同步以避免覆盖数据。',
+          message: _status.message ?? '检测到本地与远端均有更改，已暂停同步以避免覆盖数据。',
           lastSyncedAt: settings.lastSyncedAt,
         ),
       );
@@ -567,10 +581,7 @@ class SyncCoordinator implements WorkspaceSyncService {
         settings,
       ).timeout(providerInitializationTimeout);
     } on TimeoutException catch (error) {
-      throw SyncProviderException(
-        '同步初始化超时，请检查系统安全存储后重试。',
-        cause: error,
-      );
+      throw SyncProviderException('同步初始化超时，请检查系统安全存储后重试。', cause: error);
     }
   }
 

@@ -13,6 +13,7 @@ import '../domain/widget_data_service.dart';
 import '../data/attachment_store.dart';
 import '../data/cardory_store.dart';
 import '../domain/cardory_models.dart';
+import '../services/github_update_service.dart';
 import '../services/home_widget_data_service.dart';
 import '../sync/sync_credentials.dart'
     show SecureSyncCredentialStore, SecureVaultCredentialStore;
@@ -62,6 +63,7 @@ class CardoryApp extends StatefulWidget {
     WidgetDataService? widgetDataService,
     AttachmentRepositoryFactory? attachmentRepositoryFactory,
     Future<void> Function(AppSettings, SyncCredentials)? connectionTester,
+    GithubUpdateService? updateService,
   }) : credentialStore = credentialStore ?? SecureSyncCredentialStore(),
        vaultCredentialStore =
            vaultCredentialStore ?? SecureVaultCredentialStore(),
@@ -69,7 +71,8 @@ class CardoryApp extends StatefulWidget {
        _widgetDataService = widgetDataService ?? const HomeWidgetDataService(),
        _attachmentRepositoryFactory =
            attachmentRepositoryFactory ?? AttachmentStore.forDataFile,
-       _connectionTester = connectionTester;
+       _connectionTester = connectionTester,
+       _updateService = updateService;
 
   final VaultRepository vaultRepository;
   final WorkspaceRepository workspaceRepository;
@@ -81,6 +84,10 @@ class CardoryApp extends StatefulWidget {
   final WidgetDataService _widgetDataService;
   final AttachmentRepositoryFactory _attachmentRepositoryFactory;
   final Future<void> Function(AppSettings, SyncCredentials)? _connectionTester;
+  final GithubUpdateService? _updateService;
+
+  /// 更新检查服务；测试可注入假实现，null 时由 HomePage 使用默认 GitHub 服务。
+  GithubUpdateService? get updateService => _updateService;
 
   WorkspaceControllerFactory get controllerFactory =>
       WorkspaceControllerFactory(
@@ -139,6 +146,7 @@ class _CardoryAppState extends State<CardoryApp> {
         widgetDataService: widget.widgetDataService,
         attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
         connectionTester: widget.connectionTester,
+        updateService: widget.updateService,
       ),
     );
   }

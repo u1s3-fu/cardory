@@ -182,32 +182,36 @@ void main() {
     expect(coordinator.status.message, '已下载远端更新');
   });
 
-  test('keeps both sides untouched when both changed until a choice is made', () async {
-    final repository = _Repository([9]);
-    final provider = _Provider(
-      document: SyncDocument(bytes: Uint8List.fromList([4]), revision: 'v2'),
-    );
-    final coordinator = SyncCoordinator(
-      repository: repository,
-      providerFactory: (_) async => provider,
-      attachmentRepositoryFactory: (_) => _EmptyAttachments(),
-    );
+  test(
+    'keeps both sides untouched when both changed until a choice is made',
+    () async {
+      final repository = _Repository([9]);
+      final provider = _Provider(
+        document: SyncDocument(bytes: Uint8List.fromList([4]), revision: 'v2'),
+      );
+      final coordinator = SyncCoordinator(
+        repository: repository,
+        providerFactory: (_) async => provider,
+        attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+      );
 
-    final settings = await coordinator.synchronize(
-      const AppSettings(
-        syncProvider: SyncProviderType.directory,
-        syncRevision: 'v1',
-        syncLocalHash: 'old',
-      ),
-    );
+      final settings = await coordinator.synchronize(
+        const AppSettings(
+          syncProvider: SyncProviderType.directory,
+          syncRevision: 'v1',
+          syncLocalHash: 'old',
+        ),
+      );
 
-    expect(settings.syncRevision, 'v1');
-    expect(repository.container, [9]);
-    expect(provider.written, isNull);
-    expect(coordinator.hasPendingConflict, isTrue);
-    expect(coordinator.status.phase, SyncPhase.conflict);
-    expect(coordinator.status.message, contains('已暂停同步'));
-  });
+      expect(settings.syncRevision, 'v1');
+      expect(repository.container, [9]);
+      expect(provider.written, isNull);
+      expect(coordinator.hasPendingConflict, isTrue);
+      expect(coordinator.status.phase, SyncPhase.conflict);
+      // 0.0.5 起冲突消息会列出具体差异数量。
+      expect(coordinator.status.message, contains('本地与远端差异'));
+    },
+  );
 
   test('uses remote data only after keepRemote conflict choice', () async {
     final repository = _Repository([9]);
@@ -291,8 +295,8 @@ void main() {
     expect(coordinator.status.phase, SyncPhase.success);
   });
 
-  test('downloads existing remote data on first sync', () async {
-    final repository = _Repository([1]);
+  test('downloads remote data on first sync when local is empty', () async {
+    final repository = _Repository([1], data: CardoryData.empty());
     final provider = _Provider(
       document: SyncDocument(bytes: Uint8List.fromList([2]), revision: 'v1'),
     );
@@ -315,6 +319,31 @@ void main() {
     expect(coordinator.status.message, '已下载远端数据');
   });
 
+  test('pauses for direction choice on first sync with local data', () async {
+    // 0.0.5 起首次同步发现本地已有数据且远端存在文档时，
+    // 不会自动覆盖任何一侧，而是暂停等待用户选择同步方向。
+    final repository = _Repository([1]);
+    final provider = _Provider(
+      document: SyncDocument(bytes: Uint8List.fromList([2]), revision: 'v1'),
+    );
+    final coordinator = SyncCoordinator(
+      repository: repository,
+      providerFactory: (_) async => provider,
+      attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+    );
+
+    final settings = await coordinator.synchronize(
+      const AppSettings(syncProvider: SyncProviderType.directory),
+    );
+
+    expect(repository.container, [1]);
+    expect(provider.written, isNull);
+    expect(coordinator.hasPendingConflict, isTrue);
+    expect(coordinator.status.phase, SyncPhase.conflict);
+    expect(coordinator.status.message, contains('首次同步发现本地数据'));
+    expect(settings.syncRevision, isNull);
+  });
+
   test('reports provider failures without changing settings', () async {
     final coordinator = SyncCoordinator(
       repository: _Repository([1]),
@@ -335,8 +364,7 @@ void main() {
   test('reports a write failure after a remote-empty check', () async {
     final coordinator = SyncCoordinator(
       repository: _Repository([1]),
-      providerFactory: (_) async =>
-          _Provider(writeFailure: 'WebDAV 请求超时'),
+      providerFactory: (_) async => _Provider(writeFailure: 'WebDAV 请求超时'),
       attachmentRepositoryFactory: (_) => _EmptyAttachments(),
     );
     const settings = AppSettings(syncProvider: SyncProviderType.webdav);
@@ -387,6 +415,27 @@ void main() {
     expect(provider.connectionChecks, 1);
     expect(provider.writeCount, 1);
   });
+
+  test(
+    'resolveConflict without pending conflict keeps current settings',
+    () async {
+      final coordinator = SyncCoordinator(
+        repository: _Repository([1]),
+        providerFactory: (_) async => _Provider(),
+        attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+      );
+      // synchronize 记录最近一次设置；pending 冲突丢失后（过期请求、
+      // 竞态重入），resolveConflict 不应把用户配置重置为出厂默认。
+      const settings = AppSettings(syncProvider: SyncProviderType.webdav);
+      await coordinator.synchronize(settings);
+
+      final resolved = await coordinator.resolveConflict(
+        SyncConflictChoice.keepLocal,
+      );
+
+      expect(resolved.syncProvider, SyncProviderType.webdav);
+    },
+  );
 }
 
 AttachmentData _projectAttachment() => AttachmentData(
@@ -596,7 +645,10 @@ class _Provider implements SyncProvider, AttachmentSyncProvider {
   }
 
   @override
-  Future<SyncDocument?> read(String key) async => document;
+  Future<SyncDocument?> read(String key) async =>
+      // 只有数据文档存在；配置文档等其余 key 视为云端缺失，
+      // 与真实同步后端一致（0.0.5 起协调器会读取配置文档 key）。
+      key == SyncCoordinator.documentKey ? document : null;
 
   @override
   Future<SyncWriteResult> write(
@@ -604,10 +656,15 @@ class _Provider implements SyncProvider, AttachmentSyncProvider {
     List<int> bytes, {
     String? expectedRevision,
   }) async {
+    // 仅数据文档写入计入数据断言；配置文档写入由 CloudConfigSync 发起。
+    if (key != SyncCoordinator.documentKey) {
+      return SyncWriteResult(revision: expectedRevision ?? 'v1');
+    }
     writeCount++;
     if (writeFailure != null) throw SyncProviderException(writeFailure!);
     written = List<int>.from(bytes);
     this.expectedRevision = expectedRevision;
-    return const SyncWriteResult(revision: 'v1');
+    // 模拟真实服务器的乐观并发：写入成功后返回提交修订版本。
+    return SyncWriteResult(revision: expectedRevision ?? 'v1');
   }
 }

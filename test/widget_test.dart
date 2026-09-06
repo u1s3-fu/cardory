@@ -8,13 +8,32 @@ import 'package:cardory/presentation/widgets/sidebar.dart';
 import 'package:cardory/sync/sync_coordinator.dart';
 import 'package:cardory/sync/sync_credentials.dart';
 import 'package:cardory/sync/sync_models.dart';
+import 'package:cardory/services/github_update_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'
+    show MethodChannel, MissingPluginException;
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> pumpUiFrames(WidgetTester tester) async {
   for (var index = 0; index < 20; index++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
+}
+
+/// 让 package_info 平台通道抛错，模拟“本地版本号不可读”。
+///
+/// 测试环境中该通道的调用会永久悬挂（future 永不完成），
+/// 卡住依赖 PackageInfo 的关于对话框与更新检查，必须显式 mock。
+void mockUnreadablePackageInfo() {
+  const channel = MethodChannel('dev.fluttercommunity.plus/package_info');
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (call) async {
+        throw MissingPluginException('测试环境无法读取版本');
+      });
+  addTearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+  });
 }
 
 void main() {
@@ -24,25 +43,24 @@ void main() {
   };
 
   // ignore: prefer_function_declarations_over_variables
-  AttachmentRepositoryFactory attachmentRepositoryFactory =
-      (_) => _MemoryAttachmentRepository();
+  AttachmentRepositoryFactory attachmentRepositoryFactory = (_) =>
+      _MemoryAttachmentRepository();
 
   WorkspaceControllerFactory controllerFactory(
     CardoryRepository repository, {
     SyncProviderFactory? syncProviderFactory,
-  }) =>
-      WorkspaceControllerFactory(
-        workspaceRepository: repository,
-        vaultRepository: repository,
-        syncRepository: repository,
-        credentialStore: _CredentialStore(null),
-        syncServiceFactory: () => SyncCoordinator(
-          repository: repository,
-          providerFactory: syncProviderFactory ?? _noopFactory,
-          attachmentRepositoryFactory: attachmentRepositoryFactory,
-        ),
-        attachmentRepositoryFactory: attachmentRepositoryFactory,
-      );
+  }) => WorkspaceControllerFactory(
+    workspaceRepository: repository,
+    vaultRepository: repository,
+    syncRepository: repository,
+    credentialStore: _CredentialStore(null),
+    syncServiceFactory: () => SyncCoordinator(
+      repository: repository,
+      providerFactory: syncProviderFactory ?? _noopFactory,
+      attachmentRepositoryFactory: attachmentRepositoryFactory,
+    ),
+    attachmentRepositoryFactory: attachmentRepositoryFactory,
+  );
 
   testWidgets('Cardory home renders loaded data', (WidgetTester tester) async {
     final repository = _MemoryRepository();
@@ -185,7 +203,7 @@ void main() {
           workspaceRepository: repository,
           syncRepository: repository,
           vaultCredentialStore: _MemoryVaultCredentialStore(),
-        attachmentRepositoryFactory: attachmentRepositoryFactory,
+          attachmentRepositoryFactory: attachmentRepositoryFactory,
         ),
       );
       await pumpUiFrames(tester);
@@ -367,6 +385,77 @@ void main() {
     );
   });
 
+  GithubReleaseInfo fakeRemoteRelease() => GithubReleaseInfo.fromJson({
+    'tag_name': 'v99.0.0',
+    'name': 'Cardory 99.0.0',
+    'body': '远端版本远高于任何可能的本地版本，若被误判将弹出更新框。',
+    'html_url': 'https://example.com/release',
+    'assets': const [],
+  });
+
+  HomePage homePageForUpdateCheck(
+    _MemoryRepository repository,
+    GithubUpdateService updateService,
+  ) => HomePage(
+    controllerFactory: controllerFactory(repository),
+    vaultRepository: repository,
+    credentialStore: _CredentialStore(null),
+    vaultCredentialStore: _MemoryVaultCredentialStore(),
+    attachmentRepositoryFactory: attachmentRepositoryFactory,
+    onSettingsChanged: (_) {},
+    updateService: updateService,
+  );
+
+  testWidgets('update check skips silently when local version is unreadable', (
+    tester,
+  ) async {
+    mockUnreadablePackageInfo();
+    final repository = _MemoryRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: homePageForUpdateCheck(
+          repository,
+          _FakeUpdateService(fakeRemoteRelease()),
+        ),
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    // PackageInfo 平台通道抛错：本地版本不可读时应静默跳过，
+    // 而不是回退 '0.0.0' 被判为“有新版本”弹出更新框。
+    expect(find.text('发现新版本'), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('manual update check reports unreadable local version', (
+    tester,
+  ) async {
+    mockUnreadablePackageInfo();
+    final repository = _MemoryRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: homePageForUpdateCheck(
+          repository,
+          _FakeUpdateService(fakeRemoteRelease()),
+        ),
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    await tester.tap(find.text('设置').first);
+    await pumpUiFrames(tester);
+    // 默认测试视口下「关于」位于设置面板底部，滚动到可见后才能命中。
+    await tester.ensureVisible(find.text('关于'));
+    await pumpUiFrames(tester);
+    await tester.tap(find.text('关于'));
+    await pumpUiFrames(tester);
+    await tester.tap(find.text('检查更新'));
+    await pumpUiFrames(tester);
+
+    expect(find.text('无法读取本地版本号，请稍后重试。'), findsOneWidget);
+    expect(find.text('发现新版本'), findsNothing);
+  });
+
   testWidgets('asset dialog switches fields by asset type', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -428,7 +517,7 @@ void main() {
         ),
       ),
     );
-      await pumpUiFrames(tester);
+    await pumpUiFrames(tester);
 
     expect(find.text('项目附件'), findsOneWidget);
     expect(find.text('文档'), findsOneWidget);
@@ -472,19 +561,19 @@ void main() {
         attachmentRepositoryFactory: attachmentRepositoryFactory,
       ),
     );
-      await pumpUiFrames(tester);
+    await pumpUiFrames(tester);
 
     final projectCard = find.text('附件保存失败项目');
     await tester.ensureVisible(projectCard);
     await tester.tap(projectCard);
-      await pumpUiFrames(tester);
+    await pumpUiFrames(tester);
     expect(find.text('must-stay.txt'), findsOneWidget);
 
     repository.failNextSave = true;
     await tester.tap(find.byTooltip('更多附件操作'));
-      await pumpUiFrames(tester);
+    await pumpUiFrames(tester);
     await tester.tap(find.text('删除附件'));
-      await pumpUiFrames(tester);
+    await pumpUiFrames(tester);
 
     expect(find.text('must-stay.txt'), findsOneWidget);
     expect(find.text('附件更新失败，请稍后重试。'), findsOneWidget);
@@ -513,7 +602,7 @@ void main() {
       context: tester.element(find.byType(SizedBox)),
       builder: (_) => const AssetDetailDialog(asset: asset),
     );
-      await pumpUiFrames(tester);
+    await pumpUiFrames(tester);
 
     expect(find.text('Cardory API'), findsOneWidget);
     expect(find.text('版本'), findsOneWidget);
@@ -572,15 +661,15 @@ void main() {
     );
     await pumpUiFrames(tester);
     await tester.tap(find.byKey(const Key('test-webdav-connection')));
-      await pumpUiFrames(tester);
+    await pumpUiFrames(tester);
 
     expect(testedProvider, SyncProviderType.webdav);
     expect(find.text('连接成功，可以保存设置。'), findsOneWidget);
 
     await tester.tap(find.byType(DropdownButtonFormField<SyncProviderType>));
-      await pumpUiFrames(tester);
+    await pumpUiFrames(tester);
     await tester.tap(find.text('S3 兼容存储').last);
-      await pumpUiFrames(tester);
+    await pumpUiFrames(tester);
     expect(find.byKey(const Key('test-s3-connection')), findsOneWidget);
   });
   testWidgets('password dialog validates and returns credentials', (
@@ -604,7 +693,7 @@ void main() {
     );
 
     await tester.tap(find.text('打开修改密码'));
-      await pumpUiFrames(tester);
+    await pumpUiFrames(tester);
     await tester.enterText(
       find.widgetWithText(TextField, '当前密码'),
       'current password',
@@ -949,6 +1038,15 @@ void main() {
     expect(result?.note, '更新说明');
     expect(result?.progress, entry.progress);
   });
+}
+
+class _FakeUpdateService extends GithubUpdateService {
+  _FakeUpdateService(this.release);
+
+  final GithubReleaseInfo? release;
+
+  @override
+  Future<GithubReleaseInfo?> fetchLatestRelease() async => release;
 }
 
 class _MemoryRepository implements CardoryRepository {

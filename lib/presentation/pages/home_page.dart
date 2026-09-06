@@ -47,6 +47,7 @@ class HomePage extends StatefulWidget {
     this.initialResult,
     required this.attachmentRepositoryFactory,
     this.connectionTester,
+    this.updateService,
   });
 
   final WorkspaceControllerFactory controllerFactory;
@@ -56,10 +57,10 @@ class HomePage extends StatefulWidget {
   final ValueChanged<AppSettings> onSettingsChanged;
   final CardoryLoadResult? initialResult;
   final AttachmentRepositoryFactory attachmentRepositoryFactory;
-  final Future<void> Function(
-    AppSettings,
-    SyncCredentials,
-  )? connectionTester;
+  final Future<void> Function(AppSettings, SyncCredentials)? connectionTester;
+
+  /// 更新检查服务；测试可注入假实现，缺省使用 GitHub Releases。
+  final GithubUpdateService? updateService;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -115,7 +116,11 @@ class _HomePageState extends State<HomePage> {
     _checkForUpdate();
   }
 
-  static final GithubUpdateService _updateService = GithubUpdateService();
+  static final GithubUpdateService _defaultUpdateService =
+      GithubUpdateService();
+
+  GithubUpdateService get _updateService =>
+      widget.updateService ?? _defaultUpdateService;
 
   String? _currentVersion;
 
@@ -137,13 +142,17 @@ class _HomePageState extends State<HomePage> {
     }
     final current = await _currentAppVersion();
     if (!mounted) return;
+    if (current == null) {
+      if (manual) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('无法读取本地版本号，请稍后重试。')));
+      }
+      return;
+    }
     final comparison = compareVersions(current, info.version);
     if (comparison == VersionComparison.newer) {
-      await showUpdateDialog(
-        context,
-        release: info,
-        currentVersion: current,
-      );
+      await showUpdateDialog(context, release: info, currentVersion: current);
     } else if (manual) {
       ScaffoldMessenger.of(
         context,
@@ -152,15 +161,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// 获取本地应用版本号（读取一次后缓存）。
-  Future<String> _currentAppVersion() async {
-    if (_currentVersion != null) return _currentVersion!;
+  ///
+  /// 读取失败返回 null 且不缓存失败结果，调用方应跳过版本比较：
+  /// 回退到可比较的假版本号（如 '0.0.0'）会被判为“有新版本”造成误报。
+  Future<String?> _currentAppVersion() async {
+    final cached = _currentVersion;
+    if (cached != null) return cached;
     try {
       final info = await PackageInfo.fromPlatform();
       _currentVersion = info.version;
     } catch (_) {
-      _currentVersion = '0.0.0';
+      return null;
     }
-    return _currentVersion!;
+    return _currentVersion;
   }
 
   Future<void> _load() async {
@@ -180,10 +193,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _showError(
-    Object error, {
-    String message = '操作未完成，请检查设置后重试。',
-  }) {
+  void _showError(Object error, {String message = '操作未完成，请检查设置后重试。'}) {
     if (!mounted) return;
     debugPrint('Cardory operation failed: $error');
     ScaffoldMessenger.of(
@@ -242,7 +252,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> _resolveSyncConflict() async {
     final conflicts = _syncStatus.conflicts;
     final choice = await showSyncConflictDialog(context, conflicts);
-    if (choice == null || choice == SyncConflictChoice.cancel || !mounted) return;
+    if (choice == null || choice == SyncConflictChoice.cancel || !mounted) {
+      return;
+    }
 
     Map<String, SyncConflictSide> itemChoices = const {};
     if (choice == SyncConflictChoice.manualMerge) {
@@ -258,7 +270,11 @@ class _HomePageState extends State<HomePage> {
         _showError(status, message: status.message!);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(status.summary?.displayText ?? status.message ?? '同步完成')),
+          SnackBar(
+            content: Text(
+              status.summary?.displayText ?? status.message ?? '同步完成',
+            ),
+          ),
         );
       }
     } catch (error) {
@@ -307,10 +323,7 @@ class _HomePageState extends State<HomePage> {
         builder: (_) => BackupPasswordDialog(fileName: file.name),
       );
       if (password == null || !mounted) return;
-      final result = await _controller.restoreBackup(
-        bytes,
-        password,
-      );
+      final result = await _controller.restoreBackup(bytes, password);
       await widget.vaultCredentialStore.writePassword(password);
       if (!mounted) return;
       widget.onSettingsChanged(result.settings);
