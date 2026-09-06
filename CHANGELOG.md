@@ -4,6 +4,18 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-09-06
+
+### 修复（Fixed）
+
+- 修复 Android release 包启动即闪退的问题：R8 混淆移除了 WorkManager（经 home_widget 传递引入）反射实例化所需的 Room 数据库实现类，新增 ProGuard keep 规则保留 `RoomDatabase` 实现类构造函数。
+- 修复 Android 桌面小组件一直显示「打开应用以同步待办」的问题：原生小组件读取的 SharedPreferences 名称（`FlutterHomeWidget`）与 home_widget 插件实际写入的名称（`HomeWidgetPreferences`）不一致，已统一。
+
+### 变更（Changed）
+
+- 升级 file_picker 至 12.2.0、home_widget 至 0.9.4、package_info_plus 至 10.2.1，减少与 AGP 9 Built-in Kotlin 不兼容的插件数量（home_widget 因 Flutter 3.44 工具链限制仍需过渡开关，已在 gradle.properties 注释说明）。
+- 适配 file_picker 12 新 API：备份恢复改用 `FilePicker.pickFile` + `PlatformFile.readAsBytes`，附件导出改为先解密到内存再交由系统保存对话框写入，附件仓库新增 `readAttachmentBytes` 方法。
+
 ## [0.0.5] - 2026-08-22
 
 ### 新增（Added）
