@@ -456,39 +456,46 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openProject(ProjectData project) async {
-    final current = _data.projects.firstWhere(
-      (item) => item.id == project.id,
-      orElse: () => project,
-    );
+    // 用控制器监听重建路由内容：详情页内增删资产/待办后立即反映到列表，
+    // 否则路由只会持有进入时的快照数据。
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ProjectDetailPage(
-          project: current,
-          todos: _data.todos
-              .where((todo) => todo.projectId == current.id)
-              .toList(),
-          assets: _data.assets
-              .where((asset) => asset.projectId == current.id)
-              .toList(),
-          onUpdateProject: _updateProject,
-          onAddAsset: () => _addAsset(current),
-          onEditAsset: _editAsset,
-          onDeleteAsset: _deleteAsset,
-          onToggleTodo: _toggleTodo,
-          onToggleSubTodo: _toggleSubTodo,
-          onOpenTodo: _openTodo,
-          onAddTodo: _addProjectTodo,
-          onDeleteTodo: _deleteTodo,
-          assetTags: _data.assetTags,
-          onUpdateAssetsTags: (assetIds, tagIds) =>
-              _controller.updateAssetsTags(assetIds, tagIds),
-          onAddAssetTag: (tag) => _controller.addAssetTag(tag),
-          onUpdateAssetTag: (tag) => _controller.updateAssetTag(tag),
-          onDeleteAssetTag: (tagId) => _controller.deleteAssetTag(tagId),
-          attachmentStore: _attachmentStore,
-          renameAttachmentsOnUpload: _settings.renameAttachmentsOnUpload,
-          keepAttachmentExtensionOnRename:
-              _settings.keepAttachmentExtensionOnRename,
+        builder: (_) => _WorkspaceBoundBuilder(
+          controller: _controller,
+          builder: (context) {
+            final current = _data.projects.firstWhere(
+              (item) => item.id == project.id,
+              orElse: () => project,
+            );
+            return ProjectDetailPage(
+              project: current,
+              todos: _data.todos
+                  .where((todo) => todo.projectId == current.id)
+                  .toList(),
+              assets: _data.assets
+                  .where((asset) => asset.projectId == current.id)
+                  .toList(),
+              onUpdateProject: _updateProject,
+              onAddAsset: () => _addAsset(current),
+              onEditAsset: _editAsset,
+              onDeleteAsset: _deleteAsset,
+              onToggleTodo: _toggleTodo,
+              onToggleSubTodo: _toggleSubTodo,
+              onOpenTodo: _openTodo,
+              onAddTodo: _addProjectTodo,
+              onDeleteTodo: _deleteTodo,
+              assetTags: _data.assetTags,
+              onUpdateAssetsTags: (assetIds, tagIds) =>
+                  _controller.updateAssetsTags(assetIds, tagIds),
+              onAddAssetTag: (tag) => _controller.addAssetTag(tag),
+              onUpdateAssetTag: (tag) => _controller.updateAssetTag(tag),
+              onDeleteAssetTag: (tagId) => _controller.deleteAssetTag(tagId),
+              attachmentStore: _attachmentStore,
+              renameAttachmentsOnUpload: _settings.renameAttachmentsOnUpload,
+              keepAttachmentExtensionOnRename:
+                  _settings.keepAttachmentExtensionOnRename,
+            );
+          },
         ),
       ),
     );
@@ -762,4 +769,46 @@ class _HomePageState extends State<HomePage> {
           : null,
     );
   }
+}
+
+/// 订阅工作区控制器并在数据变化时重建子树的最小包装，
+/// 用于 Navigator 路由内容（路由不会随页面 setState 重建）。
+class _WorkspaceBoundBuilder extends StatefulWidget {
+  const _WorkspaceBoundBuilder({required this.controller, required this.builder});
+
+  final WorkspaceController controller;
+  final WidgetBuilder builder;
+
+  @override
+  State<_WorkspaceBoundBuilder> createState() => _WorkspaceBoundBuilderState();
+}
+
+class _WorkspaceBoundBuilderState extends State<_WorkspaceBoundBuilder> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onChanged);
+  }
+
+  @override
+  void didUpdateWidget(_WorkspaceBoundBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) {
+      oldWidget.controller.removeListener(_onChanged);
+      widget.controller.addListener(_onChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context);
 }

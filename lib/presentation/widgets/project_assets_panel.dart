@@ -8,7 +8,7 @@ import 'asset_tag_dialogs.dart';
 import 'badges.dart';
 import 'batch_action_bar.dart';
 import 'grouped_expansion_list.dart';
-import 'section_title.dart';
+import 'panel_header.dart';
 
 /// 资产面板：展示软件/硬件资产，支持按标签筛选与分组、批量分配标签。
 class ProjectAssetsPanel extends StatefulWidget {
@@ -130,15 +130,11 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: SectionTitle(
-                  title: '项目资产',
-                  subtitle: '软件与硬件资产均归属当前项目 · '
-                      '${widget.assetTags.length} 个标签',
-                ),
-              ),
+          PanelHeader(
+            title: '项目资产',
+            subtitle: '软件与硬件资产均归属当前项目 · '
+                '${widget.assetTags.length} 个标签',
+            actions: [
               IconButton(
                 key: const Key('manage-asset-tags-button'),
                 tooltip: '管理标签',
@@ -180,14 +176,13 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
                 showSelectedIcon: false,
                 style: const ButtonStyle(visualDensity: VisualDensity.compact),
               ),
-              const SizedBox(width: 8),
-              FilledButton.tonalIcon(
-                key: const Key('add-project-asset-button'),
-                onPressed: _busy ? null : () => widget.onAdd(),
-                icon: const Icon(Icons.add),
-                label: const Text('新增资产'),
-              ),
             ],
+            primaryAction: FilledButton.tonalIcon(
+              key: const Key('add-project-asset-button'),
+              onPressed: _busy ? null : () => widget.onAdd(),
+              icon: const Icon(Icons.add),
+              label: const Text('新增资产'),
+            ),
           ),
           if (widget.assetTags.isNotEmpty) ...[
             const SizedBox(height: 12),

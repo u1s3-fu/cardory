@@ -12,7 +12,7 @@ import '../widgets/attachment_row.dart';
 import '../widgets/batch_action_bar.dart';
 import '../widgets/confirm_dialogs.dart';
 import '../widgets/grouped_expansion_list.dart';
-import '../widgets/section_title.dart';
+import '../widgets/panel_header.dart';
 
 class ProjectAttachmentsPanel extends StatefulWidget {
   const ProjectAttachmentsPanel({
@@ -396,15 +396,11 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: SectionTitle(
-                  title: '项目附件',
-                  subtitle: '${widget.attachments.length} 个文件 · '
-                      '${widget.categories.length} 个分类',
-                ),
-              ),
+          PanelHeader(
+            title: '项目附件',
+            subtitle: '${widget.attachments.length} 个文件 · '
+                '${widget.categories.length} 个分类',
+            actions: [
               IconButton(
                 key: const Key('manage-attachment-categories-button'),
                 tooltip: '管理分类',
@@ -448,14 +444,13 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
                   visualDensity: VisualDensity.compact,
                 ),
               ),
-              const SizedBox(width: 8),
-              FilledButton.tonalIcon(
-                key: const Key('add-project-attachment-button'),
-                onPressed: _busy ? null : _pickFiles,
-                icon: const Icon(Icons.attach_file_outlined),
-                label: Text(_busy ? '处理中' : '添加文件'),
-              ),
             ],
+            primaryAction: FilledButton.tonalIcon(
+              key: const Key('add-project-attachment-button'),
+              onPressed: _busy ? null : _pickFiles,
+              icon: const Icon(Icons.attach_file_outlined),
+              label: Text(_busy ? '处理中' : '添加文件'),
+            ),
           ),
           if (widget.categories.isNotEmpty) ...[
             const SizedBox(height: 12),
