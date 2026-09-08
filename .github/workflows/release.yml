@@ -1,8 +1,10 @@
 # Cardory 多平台自动发布工作流。
-# 推送 v* tag 或手动触发时，构建三平台产物：
+# 推送 v* tag 或手动触发时，先跑质量门禁（format + analyze + test），
+# 通过后构建三平台产物：
 #   Android (arm64) / Windows (x64) / macOS (arm64)
 # 产物统一命名为 cardory-平台-架构-版本号 格式。
-# Release 说明仅包含 CHANGELOG.md 中对应版本（如 [0.0.4]）的完整更新日志区块，不含额外内容。
+# 版本号带 "-"（如 v0.1.0-beta.1）时 GitHub Release 自动标记为 prerelease；
+# Release 说明仅包含 CHANGELOG.md 中对应版本（如 [0.0.7]）的完整更新日志区块，不含额外内容。
 
 name: Build & Publish Release
 
@@ -18,8 +20,27 @@ on:
         default: ''
 
 jobs:
+  # 质量门禁：发布构建前先跑 格式化检查 + 严格静态分析 + 全量测试，
+  # 任一失败即终止（build 依赖本 job），防止携带问题的 tag 被发布。
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Static analysis
+        run: flutter analyze --fatal-infos
+      - name: Run tests
+        run: flutter test
+
   # 三平台自动构建并上传构建产物
   build:
+    needs: quality-gate
     strategy:
       fail-fast: false
       matrix:
@@ -131,7 +152,11 @@ jobs:
             throw "未找到 Inno Setup 编译器 ISCC.exe"
           }
           $releaseVersion = "${{ steps.version.outputs.version }}"
-          $appVersion = $releaseVersion.TrimStart('v')
+          # Inno Setup 的 AppVersion / 版本元数据要求纯数字主次修订号，
+          # 预发布版本（如 v0.1.0-beta.1）取数字前缀传给安装程序，
+          # 产物文件名仍保留完整版本号。
+          $fullVersion = $releaseVersion.TrimStart('v')
+          $appVersion = $fullVersion.Split('-')[0]
           & $iscc "windows/installer/cardory.iss" "/DAppVersion=$appVersion" "/DOutputBaseFilename=cardory-windows-x64-$releaseVersion-setup" "/DOutputDir=${{ github.workspace }}" "/DBuildOutput=${{ github.workspace }}\${{ matrix.path }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload Windows packages
@@ -215,11 +240,25 @@ jobs:
             echo "CHANGELOG_BODY"
           } >> "$GITHUB_OUTPUT"
 
+      # 预发布判定：tag 含 "-"（如 v0.1.0-beta.1）视为 prerelease，
+      # 不含则为正式版。GitHub Release 据此标记 prerelease。
+      - name: Determine prerelease
+        id: ispre
+        shell: bash
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if printf '%s' "$TAG" | grep -q -- '-'; then
+            echo "prerelease=true"
+          else
+            echo "prerelease=false"
+          fi >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: Release ${{ steps.tag.outputs.tag }}
+          prerelease: ${{ steps.ispre.outputs.prerelease }}
           generate_release_notes: false
           body: ${{ steps.changelog.outputs.body }}
           files: artifacts/*
