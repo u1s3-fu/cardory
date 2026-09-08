@@ -62,6 +62,15 @@ class CardoryStorageException implements Exception {
   String toString() => message;
 }
 
+/// 云端/远端数据快照无法用本地保险库密钥解密。
+///
+/// 可能原因：文件在上传/传输中损坏，或快照由使用不同保险库密码的设备上传。
+/// 同步协调器据此把“自动失败”转为可供用户选择的手动处理状态，而不是抛出
+/// 一条无从措手的失败提示。
+class CardorySnapshotUndecryptableException extends CardoryStorageException {
+  const CardorySnapshotUndecryptableException(super.message, [super.cause]);
+}
+
 abstract interface class VaultSessionRepository {
   Future<void> lock();
 }

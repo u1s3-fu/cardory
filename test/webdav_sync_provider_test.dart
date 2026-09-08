@@ -76,4 +76,62 @@ void main() {
     );
     expect(captured.headers['if-match'], '"old"');
   });
+
+  test('reports the exact request and server reason on an HTTP 403', () async {
+    final provider = WebDavSyncProvider(
+      baseUrl: Uri.parse('https://dav.example.com/cardory/'),
+      username: 'user',
+      password: 'secret',
+      client: MockClient((request) async {
+        expect(request.method, 'GET');
+        return http.Response('<h1>403 Forbidden by policy</h1>', 403);
+      }),
+    );
+
+    await expectLater(
+      provider.read('cardory-data.json'),
+      throwsA(
+        isA<SyncProviderException>().having(
+          (error) => error.message,
+          'message',
+          allOf(
+            contains('下载'),
+            contains('GET'),
+            contains('cardory-data.json'),
+            contains('403'),
+            contains('拒绝访问'),
+            contains('Forbidden by policy'),
+          ),
+        ),
+      ),
+    );
+  });
+
+  test('reports a forbidden upload with the PUT target', () async {
+    final provider = WebDavSyncProvider(
+      baseUrl: Uri.parse('https://dav.example.com/cardory/'),
+      username: 'user',
+      password: 'secret',
+      client: MockClient((request) async {
+        expect(request.method, 'PUT');
+        return http.Response('Forbidden', 403);
+      }),
+    );
+
+    await expectLater(
+      provider.write('cardory-data.json', utf8.encode('{}')),
+      throwsA(
+        isA<SyncProviderException>().having(
+          (error) => error.message,
+          'message',
+          allOf(
+            contains('PUT'),
+            contains('cardory-data.json'),
+            contains('403'),
+            contains('拒绝访问'),
+          ),
+        ),
+      ),
+    );
+  });
 }

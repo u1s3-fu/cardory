@@ -249,10 +249,36 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _resolveSyncConflict() async {
-    final conflicts = _syncStatus.conflicts;
-    final choice = await showSyncConflictDialog(context, conflicts);
+    final status = _syncStatus;
+    final conflicts = status.conflicts;
+    final kind = status.conflictKind ?? SyncConflictKind.concurrent;
+    final SyncConflictChoice? choice;
+    if (kind == SyncConflictKind.unreadableRemote) {
+      // 云端快照无法解密：不展示差异清单，只给「用本地覆盖云端 / 跳过」。
+      choice = await showUndecryptableRemoteDialog(context);
+    } else {
+      choice = await showSyncConflictDialog(context, conflicts, kind: kind);
+    }
     if (choice == null || choice == SyncConflictChoice.cancel || !mounted) {
       return;
+    }
+
+    // 云端快照无法解密时的「覆盖云端」会替换云端数据，且可能影响另一台
+    // 密码不同的设备，需二次确认。
+    if (kind == SyncConflictKind.unreadableRemote) {
+      final confirmed = await confirmLocalOverwriteCloud(context);
+      if (!confirmed || !mounted) return;
+    }
+
+    // 首次同步选「使用远端」会把本地从未上云的数据整体替换，需二次确认。
+    if (choice == SyncConflictChoice.keepRemote &&
+        kind == SyncConflictKind.firstSync) {
+      final confirmed = await confirmDestructiveSyncOverride(
+        context,
+        isFirstSync: true,
+        conflicts: conflicts,
+      );
+      if (!confirmed || !mounted) return;
     }
 
     Map<String, SyncConflictSide> itemChoices = const {};

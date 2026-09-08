@@ -21,4 +21,34 @@ void main() {
       throwsA(isA<WebDavConnectionException>()),
     );
   });
+
+  test('includes the request URL and server reason body on a 403', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'PROPFIND');
+      return http.Response(
+        '<html><body>Access denied for this directory</body></html>',
+        403,
+      );
+    });
+
+    await expectLater(
+      verifyWebDavConnection(
+        client: client,
+        baseUrl: Uri.parse('https://example.com/storage/'),
+        headers: const <String, String>{},
+      ),
+      throwsA(
+        isA<WebDavConnectionException>().having(
+          (error) => error.message,
+          'message',
+          allOf(
+            contains('PROPFIND'),
+            contains('example.com/storage'),
+            contains('403'),
+            contains('Access denied for this directory'),
+          ),
+        ),
+      ),
+    );
+  });
 }

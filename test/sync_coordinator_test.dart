@@ -184,6 +184,41 @@ void main() {
   });
 
   test(
+    'keeps a remote download successful when the manifest rewrite fails',
+    () async {
+      final repository = _Repository([1, 2, 3]);
+      final provider = _Provider(
+        document: SyncDocument(
+          bytes: Uint8List.fromList([4, 5]),
+          revision: 'v2',
+        ),
+        manifestWriteFailure: '清单写入被拒绝',
+      );
+      final hash = await Sha256().hash([1, 2, 3]);
+      final coordinator = SyncCoordinator(
+        repository: repository,
+        providerFactory: (_) async => provider,
+        attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+      );
+
+      final settings = await coordinator.synchronize(
+        AppSettings(
+          syncProvider: SyncProviderType.directory,
+          syncRevision: 'v1',
+          syncLocalHash: base64Url.encode(hash.bytes),
+        ),
+      );
+
+      // manifest 发布属尽力而为，失败不应把已完成的下载同步翻转成失败，
+      // 也不应丢失 requiresReload（否则磁盘已更新而内存不重载）。
+      expect(repository.container, [4, 5]);
+      expect(settings.syncRevision, 'v2');
+      expect(coordinator.status.phase, SyncPhase.success);
+      expect(coordinator.status.requiresReload, isTrue);
+    },
+  );
+
+  test(
     'keeps both sides untouched when both changed until a choice is made',
     () async {
       final repository = _Repository([9]);
@@ -211,6 +246,8 @@ void main() {
       expect(coordinator.status.phase, SyncPhase.conflict);
       // 0.0.5 起冲突消息会列出具体差异数量。
       expect(coordinator.status.message, contains('本地与远端差异'));
+      // 双向修改场景应标记为并发冲突，供界面差异化提示。
+      expect(coordinator.status.conflictKind, SyncConflictKind.concurrent);
     },
   );
 
@@ -241,6 +278,43 @@ void main() {
     expect(coordinator.hasPendingConflict, isFalse);
     expect(coordinator.status.requiresReload, isTrue);
   });
+
+  test(
+    'rolls back to local data when keepRemote attachment sync fails',
+    () async {
+      final attachment = _projectAttachment();
+      final repository = _Repository([
+        9,
+      ], data: _dataWithAttachment(attachment));
+      final provider = _Provider(
+        document: SyncDocument(bytes: Uint8List.fromList([4]), revision: 'v2'),
+        remoteFilesExist: true,
+      );
+      final coordinator = SyncCoordinator(
+        repository: repository,
+        providerFactory: (_) async => provider,
+        attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+      );
+
+      await coordinator.synchronize(
+        const AppSettings(
+          syncProvider: SyncProviderType.directory,
+          syncRevision: 'v1',
+          syncLocalHash: 'old',
+        ),
+      );
+      final resolved = await coordinator.resolveConflict(
+        SyncConflictChoice.keepRemote,
+      );
+
+      // 导入/附件准备中途失败时应整体回滚：本地库仍为冲突前数据、
+      // 设置锚点未被污染、冲突上下文保留供重试。
+      expect(repository.container, [9]);
+      expect(resolved.syncRevision, 'v1');
+      expect(coordinator.status.phase, SyncPhase.failure);
+      expect(coordinator.hasPendingConflict, isTrue);
+    },
+  );
 
   test('uses local data only after keepLocal conflict choice', () async {
     final repository = _Repository([9]);
@@ -342,6 +416,7 @@ void main() {
     expect(coordinator.hasPendingConflict, isTrue);
     expect(coordinator.status.phase, SyncPhase.conflict);
     expect(coordinator.status.message, contains('首次同步发现本地数据'));
+    expect(coordinator.status.conflictKind, SyncConflictKind.firstSync);
     expect(settings.syncRevision, isNull);
   });
 
@@ -455,6 +530,165 @@ void main() {
     expect(provider.publishedManifest, isNotNull);
     final manifest = AttachmentManifest.fromBytes(provider.publishedManifest!);
     expect(manifest.contains(attachment.storageKey), isTrue);
+  });
+
+  test('suspends for manual handling when a downloaded cloud snapshot cannot '
+      'be decrypted', () async {
+    final repository = _UndecryptableRepository([
+      1,
+      2,
+      3,
+    ], data: const CardoryData(projects: [], todos: []));
+    final provider = _Provider(
+      document: SyncDocument(bytes: Uint8List.fromList([4, 5]), revision: 'v2'),
+    );
+    final hash = await Sha256().hash([1, 2, 3]);
+    final coordinator = SyncCoordinator(
+      repository: repository,
+      providerFactory: (_) async => provider,
+      attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+    );
+
+    final settings = await coordinator.synchronize(
+      AppSettings(
+        syncProvider: SyncProviderType.directory,
+        syncRevision: 'v1',
+        syncLocalHash: base64Url.encode(hash.bytes),
+      ),
+    );
+
+    // 不再把「无法解密」吞成一句失败：挂起为可手动处理的冲突场景，
+    // 本地库与配置锚点保持原样。
+    expect(repository.container, [1, 2, 3]);
+    expect(settings.syncRevision, 'v1');
+    expect(coordinator.status.phase, SyncPhase.conflict);
+    expect(coordinator.status.conflictKind, SyncConflictKind.unreadableRemote);
+    expect(coordinator.status.message, contains('无法解密'));
+    expect(coordinator.hasPendingConflict, isTrue);
+  });
+
+  test(
+    'rejects manual merge against an undecryptable remote snapshot',
+    () async {
+      final repository = _UndecryptableRepository([
+        1,
+        2,
+        3,
+      ], data: const CardoryData(projects: [], todos: []));
+      final provider = _Provider(
+        document: SyncDocument(
+          bytes: Uint8List.fromList([4, 5]),
+          revision: 'v2',
+        ),
+      );
+      final hash = await Sha256().hash([1, 2, 3]);
+      final coordinator = SyncCoordinator(
+        repository: repository,
+        providerFactory: (_) async => provider,
+        attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+      );
+
+      await coordinator.synchronize(
+        AppSettings(
+          syncProvider: SyncProviderType.directory,
+          syncRevision: 'v1',
+          syncLocalHash: base64Url.encode(hash.bytes),
+        ),
+      );
+      final resolved = await coordinator.resolveConflict(
+        SyncConflictChoice.manualMerge,
+      );
+
+      // 云端内容不可读，手动合并/使用远端在协调器层被拒绝，本地保持原样。
+      expect(repository.container, [1, 2, 3]);
+      expect(coordinator.status.phase, SyncPhase.failure);
+      expect(coordinator.status.message, contains('无法读取其内容'));
+      expect(resolved.syncRevision, 'v1');
+    },
+  );
+
+  test(
+    'overwrites the cloud with local data after an explicit manual choice',
+    () async {
+      final repository = _UndecryptableRepository([
+        1,
+        2,
+        3,
+      ], data: const CardoryData(projects: [], todos: []));
+      final provider = _Provider(
+        document: SyncDocument(
+          bytes: Uint8List.fromList([4, 5]),
+          revision: 'v2',
+        ),
+      );
+      final hash = await Sha256().hash([1, 2, 3]);
+      final coordinator = SyncCoordinator(
+        repository: repository,
+        providerFactory: (_) async => provider,
+        attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+      );
+
+      await coordinator.synchronize(
+        AppSettings(
+          syncProvider: SyncProviderType.directory,
+          syncRevision: 'v1',
+          syncLocalHash: base64Url.encode(hash.bytes),
+        ),
+      );
+      final settings = await coordinator.resolveConflict(
+        SyncConflictChoice.keepLocal,
+      );
+
+      expect(provider.written, [1, 2, 3]);
+      expect(settings.syncRevision, 'v2');
+      expect(coordinator.status.phase, SyncPhase.success);
+      expect(coordinator.status.message, contains('覆盖云端'));
+      expect(coordinator.hasPendingConflict, isFalse);
+    },
+  );
+
+  test('suspends when a first-sync cloud snapshot cannot be decrypted and '
+      'skipping keeps both sides untouched', () async {
+    final repository = _UndecryptableRepository(
+      [1, 2, 3],
+      data: CardoryData(
+        projects: [
+          ProjectData(
+            id: 'project-1',
+            title: '项目',
+            description: '',
+            priority: ProjectPriority.p1,
+            stage: ProjectStage.doing,
+            progressEntries: const [],
+          ),
+        ],
+        todos: const [],
+      ),
+    );
+    final provider = _Provider(
+      document: SyncDocument(bytes: Uint8List.fromList([4, 5]), revision: 'v1'),
+    );
+    final coordinator = SyncCoordinator(
+      repository: repository,
+      providerFactory: (_) async => provider,
+      attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+    );
+
+    await coordinator.synchronize(
+      const AppSettings(syncProvider: SyncProviderType.directory),
+    );
+
+    expect(coordinator.status.phase, SyncPhase.conflict);
+    expect(coordinator.status.conflictKind, SyncConflictKind.unreadableRemote);
+    expect(repository.container, [1, 2, 3]);
+
+    final skipped = await coordinator.resolveConflict(
+      SyncConflictChoice.cancel,
+    );
+    expect(skipped.syncRevision, isNull);
+    expect(coordinator.status.phase, SyncPhase.idle);
+    expect(coordinator.status.message, contains('已跳过'));
+    expect(repository.container, [1, 2, 3]);
   });
 
   test('fails closed when a remote snapshot references an attachment that the '
@@ -579,6 +813,25 @@ class _Repository implements CardoryRepository, SyncContainerInspector {
   ) => load();
 }
 
+/// 云端快照始终无法用本地密钥解密的仓库（模拟损坏或不同保险库密码设备
+/// 上传的快照）。导入解密失败时不改动本地库，与真实行为一致。
+class _UndecryptableRepository extends _Repository {
+  _UndecryptableRepository(super.container, {super.data});
+
+  @override
+  Future<CardoryData> inspectContainer(List<int> bytes) async {
+    throw const CardorySnapshotUndecryptableException('无法读取云端数据快照（测试）');
+  }
+
+  @override
+  Future<CardoryData> importContainer(
+    List<int> bytes,
+    AppSettings settings,
+  ) async {
+    throw const CardorySnapshotUndecryptableException('下载的云端数据无法解密（测试）');
+  }
+}
+
 class _EmptyAttachments implements AttachmentRepository {
   @override
   Future<void> prune(Set<String> activeStorageKeys) async {}
@@ -648,6 +901,7 @@ class _Provider implements SyncProvider, AttachmentSyncProvider {
     this.document,
     this.failure,
     this.writeFailure,
+    this.manifestWriteFailure,
     this.connection,
     this.remoteFilesExist = false,
   });
@@ -655,6 +909,7 @@ class _Provider implements SyncProvider, AttachmentSyncProvider {
   SyncDocument? document;
   final String? failure;
   final String? writeFailure;
+  final String? manifestWriteFailure;
   final Future<void>? connection;
   final bool remoteFilesExist;
   SyncDocument? manifestDoc;
@@ -721,6 +976,9 @@ class _Provider implements SyncProvider, AttachmentSyncProvider {
     // 仅数据文档写入计入数据断言；配置/附件清单写入由对应协调器发起。
     if (key != SyncCoordinator.documentKey) {
       if (key == attachmentManifestKey) {
+        if (manifestWriteFailure != null) {
+          throw SyncProviderException(manifestWriteFailure!);
+        }
         publishedManifestKey = key;
         publishedManifest = List<int>.from(bytes);
       }

@@ -1,8 +1,12 @@
 // 启动时通过 Riverpod 注入持久化与凭据实现；构造参数仍保留给测试和嵌入方。
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../application/workspace_controller_factory.dart';
 import '../data/attachment_store.dart';
@@ -18,6 +22,7 @@ import '../services/home_widget_data_service.dart';
 import '../sync/sync_coordinator.dart';
 import '../sync/sync_credentials.dart'
     show SecureSyncCredentialStore, SecureVaultCredentialStore;
+import '../sync/sync_debug_log.dart';
 import '../sync/sync_provider_registry.dart';
 import 'cardory_theme.dart';
 import 'model_colors.dart';
@@ -150,6 +155,7 @@ class _CardoryAppState extends State<CardoryApp> {
   @override
   void initState() {
     super.initState();
+    _enableSyncDebugLog();
     _router = createAppRouter(
       navigatorKey: _navigatorKey,
       vaultGateBuilder: _buildVaultGate,
@@ -158,6 +164,17 @@ class _CardoryAppState extends State<CardoryApp> {
       refreshListenable: _vaultUnlockedNotifier,
       vaultPageEpoch: () => _vaultEpoch,
     );
+  }
+
+  /// 启用同步调试日志：写入应用文档目录 Cardory/cardory-sync-debug.log，
+  /// 便于手动复现同步问题后查看原始异常。失败时静默降级为仅控制台输出。
+  Future<void> _enableSyncDebugLog() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      initSyncDebugLog(p.join(directory.path, 'Cardory'));
+    } catch (_) {
+      // 文档目录不可用时无需处理，日志器已内置降级。
+    }
   }
 
   @override

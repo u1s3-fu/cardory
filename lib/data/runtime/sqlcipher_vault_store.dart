@@ -261,6 +261,15 @@ class SqlCipherVaultStore
       await candidate
           .customSelect('SELECT count(*) AS value FROM sqlite_master')
           .get();
+    } catch (error) {
+      // 专用异常子类型：供同步协调器识别「远端快照无法解密」场景，
+      // 转为手动处理选项，而不是吞成一条无从措手的失败提示。
+      throw CardorySnapshotUndecryptableException(
+        '无法读取云端数据快照：文件可能已损坏，或由使用不同保险库密码的设备上传。',
+        error,
+      );
+    }
+    try {
       final mapper = SqlCipherDataMapper(candidate);
       return CardoryData(
         projects: await mapper.loadProjects(),
@@ -287,7 +296,36 @@ class SqlCipherVaultStore
         .replaceAll(':', '-');
     final file = File(path.join(root.path, 'snapshot-$stamp.db'));
     await file.writeAsBytes(bytes, flush: true);
+    await _pruneConflictSnapshots(root);
     return file.path;
+  }
+
+  /// 冲突/覆盖前快照的保留上限。每次写入后清理最旧的快照，防止逐次累积
+  /// 整库密文副本长期占用磁盘；清理为尽力而为，失败不影响快照保存。
+  static const maxConflictSnapshots = 8;
+
+  Future<void> _pruneConflictSnapshots(Directory root) async {
+    try {
+      final files = await root
+          .list()
+          .where(
+            (entity) =>
+                entity is File &&
+                path.basename(entity.path).startsWith('snapshot-') &&
+                entity.path.endsWith('.db'),
+          )
+          .cast<File>()
+          .toList();
+      if (files.length <= maxConflictSnapshots) return;
+      files.sort(
+        (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+      );
+      for (final file in files.skip(maxConflictSnapshots)) {
+        await file.delete();
+      }
+    } catch (_) {
+      // 清理失败不阻断快照保存流程。
+    }
   }
 
   @override
@@ -312,6 +350,15 @@ class SqlCipherVaultStore
           await candidate
               .customSelect('SELECT count(*) AS value FROM sqlite_master')
               .get();
+        } catch (error) {
+          // 下载的快照无法用当前保险库密钥解密：文件损坏、上传被中断，或
+          // 来自使用不同保险库密码的设备。导入前校验即失败，本地库未受
+          // 任何改动；以专用异常子类型上抛，协调器据此转为用户可手动选择
+          // 的处理流程，而不是吞成「稍后重试」这类无从处理的提示。
+          throw CardorySnapshotUndecryptableException(
+            '下载的云端数据无法解密：文件可能已损坏，或由使用不同保险库密码的设备上传。',
+            error,
+          );
         } finally {
           await candidate.close();
         }

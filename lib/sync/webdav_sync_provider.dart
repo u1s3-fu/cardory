@@ -65,7 +65,15 @@ class WebDavSyncProvider implements SyncProvider, AttachmentSyncProvider {
         ),
       );
       if (response.statusCode < 200 || response.statusCode >= 400) {
-        throw SyncProviderException('WebDAV 返回 HTTP ${response.statusCode}');
+        throw SyncProviderException(
+          _describe(
+            '连接检查',
+            'OPTIONS',
+            baseUrl,
+            response.statusCode,
+            serverDetail: await _streamSnippet(response),
+          ),
+        );
       }
       await _withTimeout(response.stream.drain<void>());
     } on WebDavConnectionException catch (error) {
@@ -85,7 +93,15 @@ class WebDavSyncProvider implements SyncProvider, AttachmentSyncProvider {
       );
       if (response.statusCode == 404) return null;
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw SyncProviderException('WebDAV 下载失败：HTTP ${response.statusCode}');
+        throw SyncProviderException(
+          _describe(
+            '下载',
+            'GET',
+            _urlFor(key),
+            response.statusCode,
+            serverDetail: _snippet(response.bodyBytes),
+          ),
+        );
       }
       return SyncDocument(
         bytes: response.bodyBytes,
@@ -118,7 +134,15 @@ class WebDavSyncProvider implements SyncProvider, AttachmentSyncProvider {
         throw const SyncConflictException('WebDAV 文件已被其他设备修改');
       }
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw SyncProviderException('WebDAV 上传失败：HTTP ${response.statusCode}');
+        throw SyncProviderException(
+          _describe(
+            '上传',
+            'PUT',
+            _urlFor(key),
+            response.statusCode,
+            serverDetail: _snippet(response.bodyBytes),
+          ),
+        );
       }
       return SyncWriteResult(
         revision:
@@ -149,7 +173,15 @@ class WebDavSyncProvider implements SyncProvider, AttachmentSyncProvider {
         throw const SyncConflictException('WebDAV 文件已被其他设备修改');
       }
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw SyncProviderException('WebDAV 删除失败：HTTP ${response.statusCode}');
+        throw SyncProviderException(
+          _describe(
+            '删除',
+            'DELETE',
+            _urlFor(key),
+            response.statusCode,
+            serverDetail: await _streamSnippet(response),
+          ),
+        );
       }
       await _withTimeout(response.stream.drain<void>());
     } on SyncConflictException {
@@ -170,7 +202,15 @@ class WebDavSyncProvider implements SyncProvider, AttachmentSyncProvider {
     );
     if (response.statusCode == 404) return false;
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw SyncProviderException('WebDAV 检查附件失败：HTTP ${response.statusCode}');
+      throw SyncProviderException(
+        _describe(
+          '检查附件',
+          'HEAD',
+          _urlFor(key),
+          response.statusCode,
+          serverDetail: await _streamSnippet(response),
+        ),
+      );
     }
     await _withTimeout(response.stream.drain<void>());
     return true;
@@ -186,7 +226,15 @@ class WebDavSyncProvider implements SyncProvider, AttachmentSyncProvider {
       throw const SyncProviderException('远端附件不存在');
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw SyncProviderException('WebDAV 下载附件失败：HTTP ${response.statusCode}');
+      throw SyncProviderException(
+        _describe(
+          '下载附件',
+          'GET',
+          _urlFor(key),
+          response.statusCode,
+          serverDetail: await _streamSnippet(response),
+        ),
+      );
     }
     await target.parent.create(recursive: true);
     await _withTimeout(response.stream.pipe(target.openWrite()));
@@ -207,7 +255,15 @@ class WebDavSyncProvider implements SyncProvider, AttachmentSyncProvider {
     await _withTimeout(request.sink.close());
     final response = await responseFuture;
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw SyncProviderException('WebDAV 上传附件失败：HTTP ${response.statusCode}');
+      throw SyncProviderException(
+        _describe(
+          '上传附件',
+          'PUT',
+          _urlFor(key),
+          response.statusCode,
+          serverDetail: await _streamSnippet(response),
+        ),
+      );
     }
   }
 
@@ -223,8 +279,15 @@ class WebDavSyncProvider implements SyncProvider, AttachmentSyncProvider {
           response.statusCode != 200 &&
           response.statusCode != 204 &&
           response.statusCode != 405) {
+        final collectionPath = segments.take(count).join('/');
         throw SyncProviderException(
-          'WebDAV 创建附件目录失败：HTTP ${response.statusCode}',
+          _describe(
+            '创建附件目录',
+            'MKCOL',
+            _urlFor(collectionPath),
+            response.statusCode,
+            serverDetail: await _streamSnippet(response),
+          ),
         );
       }
       await _withTimeout(response.stream.drain<void>());
@@ -259,6 +322,46 @@ class WebDavSyncProvider implements SyncProvider, AttachmentSyncProvider {
 
   DateTime? _readHttpDate(String? value) =>
       value == null ? null : HttpDate.parse(value).toUtc();
+
+  /// 构造携带 HTTP 方法、目标地址与可选服务器响应片段的失败信息，
+  /// 便于用户报告 4xx/5xx 时定位到被拒绝的具体请求。
+  String _describe(
+    String action,
+    String method,
+    Uri url,
+    int statusCode, {
+    String? serverDetail,
+  }) {
+    final detail = (serverDetail == null || serverDetail.isEmpty)
+        ? ''
+        : '，服务器返回：$serverDetail';
+    return 'WebDAV $action失败：$method $url 返回 HTTP $statusCode'
+        '${webDavStatusHint(statusCode)}$detail';
+  }
+
+  /// 从响应体字节中提取可读摘要（错误页 / DAV XML 等），服务器常在其中
+  /// 写明拒绝原因（配额、只读、目录不存在等）；为空时返回 null。
+  String? _snippet(List<int> bodyBytes) {
+    if (bodyBytes.isEmpty) return null;
+    final text = utf8
+        .decode(bodyBytes, allowMalformed: true)
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (text.isEmpty) return null;
+    return text.length > 200 ? '${text.substring(0, 200)}…' : text;
+  }
+
+  /// 读取流式失败响应的响应体摘要；读取失败返回 null，不阻断报错。
+  Future<String?> _streamSnippet(http.StreamedResponse response) async {
+    try {
+      final bytes = await response.stream.toBytes().timeout(
+        const Duration(seconds: 3),
+      );
+      return _snippet(bytes);
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   Future<void> dispose() async {

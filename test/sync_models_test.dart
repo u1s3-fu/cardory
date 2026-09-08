@@ -21,4 +21,25 @@ void main() {
 
     expect(status.phase, SyncPhase.idle);
   });
+
+  test('round-trips conflict kind through serialization', () {
+    for (final kind in SyncConflictKind.values) {
+      final status = SyncStatus(
+        phase: SyncPhase.conflict,
+        conflictKind: kind,
+        conflicts: const [
+          SyncConflictItem(
+            id: 'p-1',
+            category: '项目',
+            title: '项目甲',
+            side: SyncConflictSide.local,
+          ),
+        ],
+      );
+
+      expect(SyncStatus.fromJson(status.toJson()).conflictKind, kind);
+    }
+    // 未携带字段时应回退为 null，保持旧数据兼容。
+    expect(SyncStatus.fromJson({'phase': 'conflict'}).conflictKind, isNull);
+  });
 }

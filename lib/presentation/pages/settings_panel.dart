@@ -80,10 +80,10 @@ class SettingsPanel extends StatelessWidget {
           _syncStatusText(syncStatus, settings),
           style: TextStyle(
             fontSize: 12.5,
-            color:
-                syncStatus.phase == SyncPhase.failure ||
-                    syncStatus.phase == SyncPhase.conflict
+            color: syncStatus.phase == SyncPhase.failure
                 ? cardoryEnsureWhiteContrast(CardoryColors.error)
+                : syncStatus.phase == SyncPhase.conflict
+                ? cardoryEnsureWhiteContrast(CardoryColors.warning)
                 : CardoryColors.gray500,
           ),
         ),

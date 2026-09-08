@@ -7,6 +7,15 @@ enum SyncConflictChoice { keepLocal, keepRemote, manualMerge, cancel }
 
 enum SyncConflictSide { local, remote }
 
+/// 同步冲突/挂起的产生场景，用于界面呈现差异化的提示与选项后果。
+///
+/// - [firstSync]：本地已存在数据，但从未与云端成功同步过（无共同同步基线）。
+/// - [concurrent]：本地与云端都以某次成功同步为基线，两端各自发生了修改。
+/// - [unreadableRemote]：云端数据快照无法用本机保险库密钥解密（损坏或由使用
+///   不同保险库密码的设备上传），无法自动合并或「使用远端」，需用户手动决定
+///   （用本地覆盖云端 / 跳过）。
+enum SyncConflictKind { firstSync, concurrent, unreadableRemote }
+
 class SyncConflictItem {
   const SyncConflictItem({
     required this.id,
@@ -53,6 +62,7 @@ class SyncStatus {
     this.lastSyncedAt,
     this.requiresReload = false,
     this.conflicts = const [],
+    this.conflictKind,
     this.summary,
   });
 
@@ -62,6 +72,9 @@ class SyncStatus {
   final DateTime? lastSyncedAt;
   final bool requiresReload;
   final List<SyncConflictItem> conflicts;
+
+  /// 当前冲突的产生场景；仅当 [phase] 为 [SyncPhase.conflict] 时有意义。
+  final SyncConflictKind? conflictKind;
   final SyncResultSummary? summary;
 
   bool get isRunning =>
@@ -76,6 +89,7 @@ class SyncStatus {
     DateTime? lastSyncedAt,
     bool? requiresReload,
     List<SyncConflictItem>? conflicts,
+    SyncConflictKind? conflictKind,
     SyncResultSummary? summary,
     bool clearMessage = false,
   }) => SyncStatus(
@@ -85,6 +99,7 @@ class SyncStatus {
     lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
     requiresReload: requiresReload ?? this.requiresReload,
     conflicts: conflicts ?? this.conflicts,
+    conflictKind: conflictKind ?? this.conflictKind,
     summary: summary ?? this.summary,
   );
 
@@ -98,6 +113,9 @@ class SyncStatus {
     message: json['message'] as String?,
     lastSyncedAt: DateTime.tryParse(json['lastSyncedAt'] as String? ?? ''),
     requiresReload: json['requiresReload'] as bool? ?? false,
+    conflictKind: SyncConflictKind.values
+        .where((item) => item.name == json['conflictKind'])
+        .firstOrNull,
   );
 
   Map<String, dynamic> toJson() => {
@@ -107,6 +125,7 @@ class SyncStatus {
     'lastSyncedAt': lastSyncedAt?.toIso8601String(),
     'requiresReload': requiresReload,
     'conflicts': conflicts.map((item) => item.toJson()).toList(),
+    'conflictKind': conflictKind?.name,
     'summary': summary?.displayText,
   };
 
@@ -118,7 +137,8 @@ class SyncStatus {
       other.message == message &&
       other.lastSyncedAt == lastSyncedAt &&
       other.requiresReload == requiresReload &&
-      other.conflicts.length == conflicts.length;
+      other.conflicts.length == conflicts.length &&
+      other.conflictKind == conflictKind;
 
   @override
   int get hashCode => Object.hash(
@@ -128,5 +148,6 @@ class SyncStatus {
     lastSyncedAt,
     requiresReload,
     conflicts.length,
+    conflictKind,
   );
 }

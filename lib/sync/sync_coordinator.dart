@@ -15,6 +15,7 @@ import '../domain/cardory_models.dart';
 import 'attachment_manifest.dart';
 import 'sync_config_sync.dart';
 import 'sync_data_merger.dart';
+import 'sync_debug_log.dart';
 import 'sync_models.dart';
 import 'sync_provider.dart';
 
@@ -31,6 +32,7 @@ class _PendingSyncConflict {
     required this.snapshot,
     required this.remoteData,
     required this.conflicts,
+    required this.kind,
   });
 
   final List<int> local;
@@ -42,6 +44,7 @@ class _PendingSyncConflict {
   final String snapshot;
   final CardoryData remoteData;
   final List<SyncConflictItem> conflicts;
+  final SyncConflictKind kind;
 }
 
 class SyncCoordinator implements WorkspaceSyncService {
@@ -88,11 +91,15 @@ class SyncCoordinator implements WorkspaceSyncService {
     if (pending == null) return _lastKnownSettings;
     if (choice == SyncConflictChoice.cancel) {
       _pendingConflict = null;
+      // 状态复位到空闲，清空冲突上下文（冲突列表与场景信息已不再适用）。
       _setStatus(
-        _status.copyWith(
+        SyncStatus(
           phase: SyncPhase.idle,
-          message: '已取消冲突处理，本地数据未改变',
-          requiresReload: false,
+          providerId: pending.providerId,
+          message: pending.kind == SyncConflictKind.unreadableRemote
+              ? '已跳过该次同步：云端快照保持原样，本地数据未改变'
+              : '已取消冲突处理，本地数据未改变',
+          lastSyncedAt: pending.settings.lastSyncedAt,
         ),
       );
       return pending.settings;
@@ -106,8 +113,9 @@ class SyncCoordinator implements WorkspaceSyncService {
       final remoteManifest = await _readAttachmentManifest(provider);
       if (currentRemote?.revision != pending.remote.revision ||
           pending.remote.revision == null) {
+        // 云端已前进一步：保留冲突列表与场景信息，提示用户后由界面重新发起选择。
         _setStatus(
-          SyncStatus(
+          _status.copyWith(
             phase: SyncPhase.conflict,
             providerId: pending.providerId,
             message: '云端数据已变化，请重新确认覆盖方向',
@@ -116,6 +124,18 @@ class SyncCoordinator implements WorkspaceSyncService {
         );
         return pending.settings;
       }
+      // 云端快照无法解密时，唯一合法的写操作是「用本地覆盖云端」（keepLocal）。
+      // 其余选项需要读取云端内容（manualMerge / keepRemote），在该场景下不成立，
+      // 在协调器层直接拒绝，不依赖界面是否隐藏了对应按钮。
+      if (pending.kind == SyncConflictKind.unreadableRemote &&
+          choice != SyncConflictChoice.keepLocal) {
+        return _fail(
+          pending.settings,
+          '云端数据无法解密，无法读取其内容进行合并或使用；'
+          '请选择“用本地数据覆盖云端”或“跳过”。',
+        );
+      }
+
       if (choice == SyncConflictChoice.manualMerge) {
         final mergedData = mergeSyncData(
           pending.localData,
@@ -129,6 +149,10 @@ class SyncCoordinator implements WorkspaceSyncService {
         );
         final localResult = await repository.load();
         final attachmentStore = attachmentRepositoryFactory(localResult.path);
+        // 说明：这里把带锚点的 updated 一并写盘是有意为之——syncLocalHash
+        // 仍指向冲突发生时导出的 pending.localHash（而非 merged 数据的哈希）。
+        // 若随后的云端写入失败，本地库已是 merged 数据而锚点仍指向旧哈希，
+        // 下次同步会判定“本地有变更”走推送分支重新收敛，而不是误判已同步。
         await repository.save(mergedData, updated);
         final mergedBytes = await repository.exportContainer();
         final pushed = await _push(
@@ -154,6 +178,9 @@ class SyncCoordinator implements WorkspaceSyncService {
       }
 
       if (choice == SyncConflictChoice.keepRemote) {
+        // 使用云端数据意味着本地当前库即将被整体替换。先把本地数据留底，
+        // 供误操作或在别处找回原本地库使用。
+        final localBackup = await _saveConflictSnapshot(pending.local);
         final localResult = await repository.load();
         final attachmentStore = attachmentRepositoryFactory(localResult.path);
         final remoteHash = await _hash(pending.remote.bytes);
@@ -163,24 +190,33 @@ class SyncCoordinator implements WorkspaceSyncService {
           syncLocalHash: remoteHash,
           lastSyncedAt: syncedAt,
         );
-        final remoteData = await repository.importContainer(
-          pending.remote.bytes,
-          updated,
-        );
-        await _synchronizeAttachments(
-          provider,
-          remoteData,
-          attachmentStore,
-          remoteManifest: remoteManifest,
-        );
-        await repository.saveSettings(updated);
-        await _publishAttachmentManifest(provider, remoteData);
+        try {
+          final remoteData = await repository.importContainer(
+            pending.remote.bytes,
+            updated,
+          );
+          await _synchronizeAttachments(
+            provider,
+            remoteData,
+            attachmentStore,
+            remoteManifest: remoteManifest,
+          );
+          await repository.saveSettings(updated);
+          await _publishAttachmentManifest(provider, remoteData);
+        } catch (_) {
+          // 与下载分支一致：导入或附件准备中途失败时，回滚到冲突发生前的
+          // 本地库，避免出现“本地已被整体替换但附件/设置未完成”的半完成
+          // 状态。快照（localBackup）仍保留，可人工找回。
+          await repository.importContainer(pending.local, pending.settings);
+          await repository.saveSettings(pending.settings);
+          rethrow;
+        }
         _pendingConflict = null;
         _setStatus(
           SyncStatus(
             phase: SyncPhase.success,
             providerId: provider.id,
-            message: '已使用云端数据，本地已更新',
+            message: '已使用云端数据，本地已更新（覆盖前本地数据已备份：$localBackup）',
             lastSyncedAt: syncedAt,
             requiresReload: true,
           ),
@@ -188,9 +224,29 @@ class SyncCoordinator implements WorkspaceSyncService {
         return updated;
       }
 
+      // 「用本地覆盖云端」会以本机加密快照替换云端原有快照。若云端快照本身
+      // 无法解密（unreadableRemote），覆盖前必须确保云端原文件已成功留底——
+      // 否则云端原文件可能是唯一可被另一台设备读取的副本，覆盖即永久销毁。
+      final isUnreadableOverwrite =
+          pending.kind == SyncConflictKind.unreadableRemote;
+      String? remoteBackup;
+      if (isUnreadableOverwrite) {
+        remoteBackup = _snapshotFailed(pending.snapshot)
+            ? null
+            : pending.snapshot;
+        remoteBackup ??= await _saveConflictSnapshot(pending.remote.bytes);
+        if (_snapshotFailed(remoteBackup)) {
+          return _fail(
+            pending.settings,
+            '无法备份云端原文件，已取消“用本地数据覆盖云端”，以保护云端数据。'
+            '请检查磁盘空间后重试。',
+          );
+        }
+      }
+
       final localResult = await repository.load();
       final attachmentStore = attachmentRepositoryFactory(localResult.path);
-      final updated = await _push(
+      final pushed = await _push(
         provider,
         pending.local,
         pending.settings.copyWith(
@@ -203,8 +259,19 @@ class SyncCoordinator implements WorkspaceSyncService {
         remoteManifest: remoteManifest,
       );
       _pendingConflict = null;
-      return updated;
-    } catch (error) {
+      if (isUnreadableOverwrite) {
+        _setStatus(
+          SyncStatus(
+            phase: SyncPhase.success,
+            providerId: provider.id,
+            message: '已用本地数据覆盖云端（原云端快照已备份：$remoteBackup）',
+            lastSyncedAt: pushed.lastSyncedAt,
+          ),
+        );
+      }
+      return pushed;
+    } catch (error, stackTrace) {
+      logSync('解决冲突失败', error: error, stackTrace: stackTrace);
       return _fail(pending.settings, _messageFor(error));
     } finally {
       await provider?.dispose();
@@ -218,13 +285,16 @@ class SyncCoordinator implements WorkspaceSyncService {
     if (settings.syncProvider == SyncProviderType.none) {
       return _fail(settings, '请先选择同步方式');
     }
+    logSync('开始同步（同步方式=${settings.syncProvider.name}）');
     final providerId = settings.syncProvider.name;
     SyncProvider? provider;
     try {
       _setStatus(SyncStatus(phase: SyncPhase.checking, providerId: providerId));
       final activeProvider = await _createProvider(settings);
       provider = activeProvider;
+      logSync('同步提供者已初始化（${activeProvider.id}），执行连接检查');
       await activeProvider.checkConnection();
+      logSync('连接检查通过');
       final localResult = await repository.load();
       final attachmentStore = attachmentRepositoryFactory(localResult.path);
       final local = await repository.exportContainer();
@@ -244,8 +314,23 @@ class SyncCoordinator implements WorkspaceSyncService {
           settings.syncRevision != null &&
           remote.revision != settings.syncRevision;
       final localChanged = lastHash != null && localHash != lastHash;
+      if (remote != null) {
+        final head = remote.bytes
+            .take(4)
+            .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+            .join();
+        logSync(
+          '远端文档字节数=${remote.bytes.length}，首 4 字节 hex=$head'
+          '（疑似文本/HTML 时通常首字节为 0x3c）',
+        );
+      }
+      logSync(
+        '读取远端文档完成：远端=${remote == null ? '无' : 'rev=${remote.revision}'}'
+        '，本地有变更=$localChanged，远端有变更=$remoteChanged',
+      );
 
       if (remote == null) {
+        logSync('远端不存在数据文档，将执行首次上传');
         return await _push(
           activeProvider,
           local,
@@ -259,32 +344,41 @@ class SyncCoordinator implements WorkspaceSyncService {
       if (lastHash == null) {
         if (!_isEmpty(localResult.data)) {
           final snapshot = await _saveConflictSnapshot(remote.bytes);
-          final remoteData = await _inspectRemote(repository, remote.bytes);
+          final CardoryData remoteData;
+          try {
+            remoteData = await _inspectRemote(repository, remote.bytes);
+          } on CardorySnapshotUndecryptableException catch (error, stackTrace) {
+            logSync(
+              '首次同步发现云端快照无法解密，转入手动选择',
+              error: error,
+              stackTrace: stackTrace,
+            );
+            return _suspendForUndecryptableRemote(
+              settings: settings,
+              providerId: providerId,
+              local: local,
+              localHash: localHash,
+              localData: localResult.data,
+              remote: remote,
+              snapshot: snapshot,
+            );
+          }
           final conflicts = buildSyncConflictItems(
             localResult.data,
             remoteData,
           );
-          _pendingConflict = _PendingSyncConflict(
+          return _suspendForConflict(
+            settings: settings,
+            providerId: providerId,
             local: local,
             localHash: localHash,
             localData: localResult.data,
-            settings: settings,
             remote: remote,
-            providerId: providerId,
             snapshot: snapshot,
             remoteData: remoteData,
             conflicts: conflicts,
+            kind: SyncConflictKind.firstSync,
           );
-          _setStatus(
-            SyncStatus(
-              phase: SyncPhase.conflict,
-              providerId: providerId,
-              message: '首次同步发现本地数据，已暂停覆盖，请选择同步方向',
-              lastSyncedAt: settings.lastSyncedAt,
-              conflicts: conflicts,
-            ),
-          );
-          return settings;
         }
         final remoteHash = await _hash(remote.bytes);
         final syncedAt = DateTime.now().toUtc();
@@ -293,10 +387,26 @@ class SyncCoordinator implements WorkspaceSyncService {
           syncLocalHash: remoteHash,
           lastSyncedAt: syncedAt,
         );
-        final remoteData = await repository.importContainer(
-          remote.bytes,
-          updated,
-        );
+        final CardoryData remoteData;
+        try {
+          remoteData = await repository.importContainer(remote.bytes, updated);
+        } on CardorySnapshotUndecryptableException catch (error, stackTrace) {
+          logSync(
+            '首次同步（本地为空）时云端快照无法解密，转入手动选择',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          final snapshot = await _saveConflictSnapshot(remote.bytes);
+          return _suspendForUndecryptableRemote(
+            settings: settings,
+            providerId: providerId,
+            local: local,
+            localHash: localHash,
+            localData: localResult.data,
+            remote: remote,
+            snapshot: snapshot,
+          );
+        }
         var remainingDeletes = updated.pendingAttachmentDeletes;
         try {
           await _synchronizeAttachments(
@@ -338,31 +448,41 @@ class SyncCoordinator implements WorkspaceSyncService {
       }
       if (remoteChanged && localChanged) {
         final snapshot = await _saveConflictSnapshot(remote.bytes);
-        final remoteData = await _inspectRemote(repository, remote.bytes);
+        final CardoryData remoteData;
+        try {
+          remoteData = await _inspectRemote(repository, remote.bytes);
+        } on CardorySnapshotUndecryptableException catch (error, stackTrace) {
+          logSync(
+            '双向修改场景下云端快照无法解密，转入手动选择',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          return _suspendForUndecryptableRemote(
+            settings: settings,
+            providerId: providerId,
+            local: local,
+            localHash: localHash,
+            localData: localResult.data,
+            remote: remote,
+            snapshot: snapshot,
+          );
+        }
         final conflicts = buildSyncConflictItems(localResult.data, remoteData);
-        _pendingConflict = _PendingSyncConflict(
+        return _suspendForConflict(
+          settings: settings,
+          providerId: providerId,
           local: local,
           localHash: localHash,
           localData: localResult.data,
-          settings: settings,
           remote: remote,
-          providerId: providerId,
           snapshot: snapshot,
           remoteData: remoteData,
           conflicts: conflicts,
+          kind: SyncConflictKind.concurrent,
         );
-        _setStatus(
-          SyncStatus(
-            phase: SyncPhase.conflict,
-            providerId: providerId,
-            message: '检测到 ${conflicts.length} 项本地与远端差异，请选择处理方式',
-            lastSyncedAt: settings.lastSyncedAt,
-            conflicts: conflicts,
-          ),
-        );
-        throw SyncConflictException('本地与远端均有修改，未自动覆盖任何数据。远端副本已保留：$snapshot');
       }
       if (remoteChanged) {
+        logSync('远端有更新，开始下载并应用到本地');
         final remoteHash = await _hash(remote.bytes);
         final syncedAt = DateTime.now().toUtc();
         final updated = settings.copyWith(
@@ -370,10 +490,22 @@ class SyncCoordinator implements WorkspaceSyncService {
           syncLocalHash: remoteHash,
           lastSyncedAt: syncedAt,
         );
-        final remoteData = await repository.importContainer(
-          remote.bytes,
-          updated,
-        );
+        final CardoryData remoteData;
+        try {
+          remoteData = await repository.importContainer(remote.bytes, updated);
+        } on CardorySnapshotUndecryptableException catch (error, stackTrace) {
+          logSync('远端快照无法解密，转入手动选择', error: error, stackTrace: stackTrace);
+          final snapshot = await _saveConflictSnapshot(remote.bytes);
+          return _suspendForUndecryptableRemote(
+            settings: settings,
+            providerId: providerId,
+            local: local,
+            localHash: localHash,
+            localData: localResult.data,
+            remote: remote,
+            snapshot: snapshot,
+          );
+        }
         var remainingDeletes = updated.pendingAttachmentDeletes;
         try {
           await _synchronizeAttachments(
@@ -414,6 +546,7 @@ class SyncCoordinator implements WorkspaceSyncService {
         return withConfig.copyWith(pendingAttachmentDeletes: remainingDeletes);
       }
       if (localChanged) {
+        logSync('本地有更新，执行上传同步');
         return await _push(
           activeProvider,
           local,
@@ -425,6 +558,7 @@ class SyncCoordinator implements WorkspaceSyncService {
         );
       }
 
+      logSync('本地与远端均无数据变更，执行附件一致性校验');
       await _synchronizeAttachments(
         activeProvider,
         localResult.data,
@@ -453,17 +587,11 @@ class SyncCoordinator implements WorkspaceSyncService {
         ),
       );
       return await _configSync.sync(activeProvider, updated, _hash);
-    } on SyncConflictException {
-      _setStatus(
-        _status.copyWith(
-          phase: SyncPhase.conflict,
-          providerId: providerId,
-          message: _status.message ?? '检测到本地与远端均有更改，已暂停同步以避免覆盖数据。',
-          lastSyncedAt: settings.lastSyncedAt,
-        ),
-      );
-      return settings;
-    } catch (error) {
+    } catch (error, stackTrace) {
+      // 内容冲突已在同步主流程内挂起并返回，不再经过异常路径。这里捕获的
+      // SyncConflictException 仅剩 provider 层的 409/412（云端被其他设备抢先
+      // 修改导致写入被拒），如实提示用户重新同步以重新比对，而非弹冲突框。
+      logSync('同步执行失败', error: error, stackTrace: stackTrace);
       return _fail(settings, _messageFor(error));
     } finally {
       try {
@@ -484,6 +612,7 @@ class SyncCoordinator implements WorkspaceSyncService {
     AttachmentManifest? remoteManifest,
   }) async {
     _setStatus(SyncStatus(phase: SyncPhase.pushing, providerId: provider.id));
+    logSync('开始推送本地数据到远端');
     await _synchronizeAttachments(
       provider,
       data,
@@ -495,6 +624,7 @@ class SyncCoordinator implements WorkspaceSyncService {
       local,
       expectedRevision: settings.syncRevision,
     );
+    logSync('主数据文档写入成功（revision=${result.revision}）');
     final syncedAt = DateTime.now().toUtc();
     final committed = settings.copyWith(
       syncRevision: result.revision,
@@ -511,8 +641,11 @@ class SyncCoordinator implements WorkspaceSyncService {
       pendingAttachmentDeletes: remainingDeletes,
     );
     if (updated != committed) await repository.saveSettings(updated);
+    logSync('本地设置已保存，开始同步云端配置文档');
     final withConfig = await _configSync.sync(provider, updated, _hash);
+    logSync('云端配置文档同步完成，发布附件清单');
     await _publishAttachmentManifest(provider, data);
+    logSync('推送同步成功');
     _setStatus(
       SyncStatus(
         phase: SyncPhase.success,
@@ -595,6 +728,89 @@ class SyncCoordinator implements WorkspaceSyncService {
     return remaining;
   }
 
+  /// 云端快照无法解密（[CardorySnapshotUndecryptableException]）时统一挂起为
+  /// [SyncConflictKind.unreadableRemote]。云端内容不可读，因此没有冲突列表、
+  /// 没有可用的远端数据，只等用户手动决定「用本地覆盖云端」或「跳过」。
+  Future<AppSettings> _suspendForUndecryptableRemote({
+    required AppSettings settings,
+    required String providerId,
+    required List<int> local,
+    required String localHash,
+    required CardoryData localData,
+    required SyncDocument remote,
+    required String snapshot,
+  }) async {
+    return _suspendForConflict(
+      settings: settings,
+      providerId: providerId,
+      local: local,
+      localHash: localHash,
+      localData: localData,
+      remote: remote,
+      snapshot: snapshot,
+      remoteData: const CardoryData(projects: [], todos: []),
+      conflicts: const [],
+      kind: SyncConflictKind.unreadableRemote,
+    );
+  }
+
+  /// 统一挂起一次同步冲突：记录冲突上下文、进入冲突状态并返回未修改的配置。
+  ///
+  /// 首次同步发现本地数据（[SyncConflictKind.firstSync]）与自上次同步后的
+  /// 双向修改（[SyncConflictKind.concurrent]）都经由这里收敛，保证冲突场景
+  /// 语义、冲突列表与界面文案保持一致。冲突不通过异常上抛——配置原样返回，
+  /// 由界面依据状态相位决定如何提示与引导处理。
+  Future<AppSettings> _suspendForConflict({
+    required AppSettings settings,
+    required String providerId,
+    required List<int> local,
+    required String localHash,
+    required CardoryData localData,
+    required SyncDocument remote,
+    required String snapshot,
+    required CardoryData remoteData,
+    required List<SyncConflictItem> conflicts,
+    required SyncConflictKind kind,
+  }) async {
+    final message = switch (kind) {
+      SyncConflictKind.firstSync =>
+        '首次同步发现本地数据（${_countItems(localData)} 项），'
+            '本地与云端尚未同步过，已暂停覆盖，请选择保留方向',
+      SyncConflictKind.concurrent =>
+        '检测到 ${conflicts.length} 项本地与远端差异，已暂停自动覆盖，请选择处理方式',
+      SyncConflictKind.unreadableRemote =>
+        '云端数据无法解密：文件可能已损坏，或由使用不同保险库密码的设备上传。'
+            '本地数据未改变，已暂停自动同步，请手动选择处理方式',
+    };
+    logSync(message);
+    _pendingConflict = _PendingSyncConflict(
+      local: local,
+      localHash: localHash,
+      localData: localData,
+      settings: settings,
+      remote: remote,
+      providerId: providerId,
+      snapshot: snapshot,
+      remoteData: remoteData,
+      conflicts: conflicts,
+      kind: kind,
+    );
+    _setStatus(
+      SyncStatus(
+        phase: SyncPhase.conflict,
+        providerId: providerId,
+        message: message,
+        lastSyncedAt: settings.lastSyncedAt,
+        conflicts: conflicts,
+        conflictKind: kind,
+      ),
+    );
+    return settings;
+  }
+
+  int _countItems(CardoryData data) =>
+      data.projects.length + data.todos.length + data.assets.length;
+
   Future<CardoryData> _inspectRemote(
     SyncRepository repository,
     List<int> bytes,
@@ -632,7 +848,12 @@ class SyncCoordinator implements WorkspaceSyncService {
     }
   }
 
+  /// 快照留底是否失败：空路径或返回了「保存失败」说明未能落盘。
+  bool _snapshotFailed(String snapshot) =>
+      snapshot.isEmpty || snapshot.startsWith('保存失败');
+
   AppSettings _fail(AppSettings settings, String message) {
+    logSync('同步失败，界面提示：$message');
     _setStatus(
       SyncStatus(
         phase: SyncPhase.failure,
@@ -646,6 +867,8 @@ class SyncCoordinator implements WorkspaceSyncService {
 
   String _messageFor(Object error) => switch (error) {
     SyncProviderException value => value.message,
+    SyncConflictException value => value.message,
+    CardoryStorageException value => value.message,
     _ => '同步未完成，请稍后重试。',
   };
 
@@ -663,21 +886,36 @@ class SyncCoordinator implements WorkspaceSyncService {
       final doc = await provider.read(attachmentManifestKey);
       if (doc == null) return null;
       return AttachmentManifest.fromBytes(doc.bytes);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      // 读取失败时按“云端无清单”处理（退化到旧的一致性校验），但留下
+      // 完整日志，避免瞬断或异常被当作“老版本云端无清单”而难以排查。
+      logSync('读取云端附件清单失败（按缺失处理）', error: error, stackTrace: stackTrace);
       return null;
     }
   }
 
   /// 每次同步成功收敛后，把当前快照的附件集合以 manifest 幂等重写回云端，
   /// 保证云端始终有该快照引用的附件权威枚举（供恢复、完整性校验与孤儿清理）。
+  ///
+  /// 该写入是**尽力而为**：失败只记录日志，不把已成功的同步结果翻转成失败。
+  /// manifest 只描述附件归属，随后任何一次成功的同步（含无变化的 F 分支）都会
+  /// 以当时的快照重新覆盖它，因此这里失败不会留下不可自愈的云端状态。
   Future<void> _publishAttachmentManifest(
     SyncProvider provider,
     CardoryData data,
   ) async {
-    await provider.write(
-      attachmentManifestKey,
-      AttachmentManifest.build(_attachmentsOf(data)).toBytes(),
-    );
+    try {
+      await provider.write(
+        attachmentManifestKey,
+        AttachmentManifest.build(_attachmentsOf(data)).toBytes(),
+      );
+    } catch (error, stackTrace) {
+      logSync(
+        '发布云端附件清单失败（已降级处理，下次同步会重写）',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   void _setStatus(SyncStatus value) {

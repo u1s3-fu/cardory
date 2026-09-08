@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import '../domain/app_settings.dart';
 import '../domain/cardory_repository.dart';
+import 'sync_debug_log.dart';
 import 'sync_provider.dart';
 
 /// 云端配置文档同步服务。
@@ -77,8 +78,10 @@ class CloudConfigSync {
         cloudHash,
         cloudUpdatedAt,
       );
-    } catch (error) {
-      // 配置同步失败不应阻断数据同步主流程，忽略并返回原设置。
+    } catch (error, stackTrace) {
+      // 配置同步失败不应阻断数据同步主流程，忽略并返回原设置；
+      // 但必须留下记录，便于诊断被静默吞掉的云端配置读写异常。
+      logSync('云端配置文档同步失败（已忽略）', error: error, stackTrace: stackTrace);
       return settings;
     }
   }
