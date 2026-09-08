@@ -22,6 +22,7 @@ class S3SyncProvider implements SyncProvider, AttachmentSyncProvider {
     http.Client? client,
     DateTime Function()? clock,
   }) : endpoint = _validateEndpoint(endpoint),
+       // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头，无法用 this._credentials。
        _credentials = credentials,
        _client = client ?? http.Client(),
        _ownsClient = client == null,
@@ -323,4 +324,4 @@ class S3SyncProvider implements SyncProvider, AttachmentSyncProvider {
   }
 }
 
-const _documentKey = 'cardory-current-data.cardory';
+const _documentKey = 'cardory-snapshot-v2.db';

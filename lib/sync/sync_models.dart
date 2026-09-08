@@ -33,10 +33,7 @@ class SyncConflictException implements Exception {
 
 /// 同步提供者异常的可选机器可读错误码，供上层结构化判断，
 /// 避免依赖中文字面量做字符串匹配。
-enum SyncProviderErrorCode {
-  webDavCredentialsMissing,
-  s3CredentialsMissing,
-}
+enum SyncProviderErrorCode { webDavCredentialsMissing, s3CredentialsMissing }
 
 class SyncProviderException implements Exception {
   const SyncProviderException(this.message, {this.cause, this.code});

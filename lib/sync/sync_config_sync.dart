@@ -13,10 +13,11 @@ import 'sync_provider.dart';
 /// - 云端配置比本地更新 → 拉取云端配置应用到本地
 class CloudConfigSync {
   CloudConfigSync({required SyncRepository repository})
+    // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头，无法用 this._repository。
     : _repository = repository;
 
   /// 云端配置文档 key，与数据文档并列，保存可同步的配置子集。
-  static const configKey = 'cardory-current-config.json';
+  static const configKey = 'cardory-config-v2.json';
 
   final SyncRepository _repository;
 

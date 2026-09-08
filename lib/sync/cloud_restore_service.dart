@@ -8,13 +8,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../domain/attachment_repository.dart';
 import '../domain/cardory_models.dart';
 import '../domain/cardory_repository.dart';
+import 'attachment_manifest.dart';
 import 'sync_coordinator.dart' show SyncCoordinator;
 import 'sync_credentials.dart'
     show S3Credentials, SyncCredentials, WebDavCredentials;
 import 'sync_models.dart' show SyncDocument, SyncProviderException;
-import 'sync_provider.dart' show SyncProvider;
+import 'sync_provider.dart' show AttachmentSyncProvider, SyncProvider;
 import 'sync_provider_registry.dart' show createSyncProvider;
 
 /// 云端存储服务类型。
@@ -130,12 +132,26 @@ class CloudRestoreException implements Exception {
 /// 在内存中创建同步提供者（不持久化）、验证连接、读取云端备份，
 /// 并复用 [VaultRepository.restoreFromBackup] 执行恢复。
 class CloudRestoreService {
-  const CloudRestoreService({required this.vaultRepository});
+  const CloudRestoreService({
+    required this.vaultRepository,
+    this.attachmentRepositoryFactory,
+    this.providerFactory,
+  });
 
   /// 云端数据文档的固定 key，与同步模块保持一致。
-  static const documentKey = 'cardory-current-data.cardory';
+  static const documentKey = 'cardory-snapshot-v2.db';
 
   final VaultRepository vaultRepository;
+
+  /// 附件仓库工厂（与同步会话一致）。为空时恢复只重建数据库，不拉取附件。
+  final AttachmentRepositoryFactory? attachmentRepositoryFactory;
+
+  /// 同步提供者工厂。默认使用注册表的 [createSyncProvider]；测试可注入替身。
+  final SyncProvider Function(
+    AppSettings settings,
+    SyncCredentials credentials,
+  )?
+  providerFactory;
 
   /// 检测本地是否已配置 WebDAV / S3 云存储。
   ///
@@ -214,6 +230,11 @@ class CloudRestoreService {
   /// [cloudConfig] 为云端配置文档中的配置子集（可空）。
   /// 恢复成功后把云端配置与本次连接的 WebDAV / S3 配置合并回工作区设置，
   /// 便于后续继续同步并保持本地与云端配置一致。
+  ///
+  /// 数据库恢复后，会按恢复出的快照引用附件集合从云端拉取附件密文到
+  /// 本地附件目录（`installEncrypted` 逐一做完整性校验）。附件缺失或校验
+  /// 失败时抛出 [CloudRestoreException]——此时数据库已完成切换，可重试
+  /// 恢复，或进入应用后触发一次同步补齐。
   Future<CloudRestoreResult> restore(
     SyncDocument backup,
     String password, {
@@ -230,11 +251,82 @@ class CloudRestoreService {
       base = base.applySyncConfig(cloudConfig);
     }
     final mergedSettings = _mergeCloudConfig(base, config);
+    final attachments = _attachmentsOf(workspace.data);
+    final factory = attachmentRepositoryFactory;
+    if (attachments.isNotEmpty && factory != null) {
+      await _downloadAttachments(attachments, factory(workspace.path), config);
+    }
     return CloudRestoreResult(
       backup: backup,
       settings: mergedSettings,
       workspace: workspace,
     );
+  }
+
+  List<AttachmentData> _attachmentsOf(CardoryData data) => data.projects
+      .expand((project) => project.attachments)
+      .where((attachment) => attachment.storageKey.isNotEmpty)
+      .toList();
+
+  /// 按快照引用附件集合把云端密文拉取到本地附件目录（单向、只下载不上传）。
+  ///
+  /// 云端附件清单（manifest）缺失或格式不支持时（更老版本云端），退化为按
+  /// 快照引用逐一探测远端对象；读取到清单时，以清单为准做缺失判定。
+  /// [store] 的 `installEncrypted` 会校验摘要/长度，失败即视为附件不完整。
+  Future<void> _downloadAttachments(
+    List<AttachmentData> attachments,
+    AttachmentRepository store,
+    CloudRestoreConfig config,
+  ) async {
+    final provider = await _createProvider(config, null);
+    try {
+      if (provider is! AttachmentSyncProvider) {
+        throw const CloudRestoreException('当前云存储不支持恢复附件，请用支持的 WebDAV / S3 服务。');
+      }
+      final attachmentProvider = provider as AttachmentSyncProvider;
+      // 尽力而为读取清单：仅当确实读到清单时才做清单级缺失判定。
+      AttachmentManifest? manifest;
+      try {
+        final doc = await provider.read(attachmentManifestKey);
+        manifest = doc == null ? null : AttachmentManifest.fromBytes(doc.bytes);
+      } catch (_) {
+        manifest = null;
+      }
+      final missing = <String>[];
+      for (final attachment in attachments) {
+        if (await store.contains(attachment)) continue;
+        final key = attachmentFileKey(attachment.storageKey);
+        if (!await attachmentProvider.fileExists(key)) {
+          missing.add(
+            manifest != null && !manifest.contains(attachment.storageKey)
+                ? '${attachment.fileName}（不在云端附件清单中）'
+                : attachment.fileName,
+          );
+          continue;
+        }
+        final target = await store.createDownloadTarget(attachment);
+        await attachmentProvider.downloadFile(key, target);
+        await store.installEncrypted(attachment, target);
+      }
+      if (missing.isNotEmpty) {
+        throw CloudRestoreException(
+          '云端缺少附件：${missing.join('、')}，恢复不完整。'
+          '请确认该备份上传完整后重试，或进入应用后触发一次同步补齐。',
+        );
+      }
+    } on CloudRestoreException {
+      rethrow;
+    } on SocketException catch (error) {
+      throw CloudRestoreException('下载附件失败：网络不可用。', error);
+    } on TimeoutException catch (error) {
+      throw CloudRestoreException('下载附件失败：连接超时。', error);
+    } on SyncProviderException catch (error) {
+      throw CloudRestoreException('下载附件失败：${error.message}', error);
+    } catch (error) {
+      throw CloudRestoreException('下载附件失败：$error', error);
+    } finally {
+      await provider.dispose();
+    }
   }
 
   Future<SyncProvider> _createProvider(
@@ -244,7 +336,8 @@ class CloudRestoreService {
     final settings = config.toSettings(base: existingSettings);
     final credentials = config.toCredentials();
     try {
-      return createSyncProvider(settings, credentials);
+      final factory = providerFactory ?? createSyncProvider;
+      return factory(settings, credentials);
     } on SyncProviderException catch (error) {
       throw CloudRestoreException(error.message, error.cause);
     }

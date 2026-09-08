@@ -99,12 +99,12 @@ Future<void> testSyncConnection(
   SyncCredentials credentials,
 ) async {
   final provider = createSyncProvider(settings, credentials);
-    try {
-      if (provider is WebDavSyncProvider) {
-        await provider.checkConnectionStrict();
-      } else {
-        await provider.checkConnection();
-      }
+  try {
+    if (provider is WebDavSyncProvider) {
+      await provider.checkConnectionStrict();
+    } else {
+      await provider.checkConnection();
+    }
   } finally {
     await provider.dispose();
   }

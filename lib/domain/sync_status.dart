@@ -89,7 +89,11 @@ class SyncStatus {
   );
 
   factory SyncStatus.fromJson(Map<String, dynamic> json) => SyncStatus(
-    phase: SyncPhase.values.where((item) => item.name == json['phase']).firstOrNull ?? SyncPhase.idle,
+    phase:
+        SyncPhase.values
+            .where((item) => item.name == json['phase'])
+            .firstOrNull ??
+        SyncPhase.idle,
     providerId: json['providerId'] as String?,
     message: json['message'] as String?,
     lastSyncedAt: DateTime.tryParse(json['lastSyncedAt'] as String? ?? ''),

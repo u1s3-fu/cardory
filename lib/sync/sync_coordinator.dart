@@ -12,6 +12,7 @@ import '../domain/attachment_repository.dart';
 import '../domain/workspace_sync_service.dart';
 import '../domain/cardory_repository.dart';
 import '../domain/cardory_models.dart';
+import 'attachment_manifest.dart';
 import 'sync_config_sync.dart';
 import 'sync_data_merger.dart';
 import 'sync_models.dart';
@@ -53,7 +54,7 @@ class SyncCoordinator implements WorkspaceSyncService {
     this.providerInitializationTimeout = defaultProviderInitializationTimeout,
   });
 
-  static const documentKey = 'cardory-current-data.cardory';
+  static const documentKey = 'cardory-snapshot-v2.db';
 
   /// 云端配置文档 key（转发自 [CloudConfigSync]）。
   static const configKey = CloudConfigSync.configKey;
@@ -102,6 +103,7 @@ class SyncCoordinator implements WorkspaceSyncService {
       provider = await _createProvider(pending.settings);
       await provider.checkConnection();
       final currentRemote = await provider.read(documentKey);
+      final remoteManifest = await _readAttachmentManifest(provider);
       if (currentRemote?.revision != pending.remote.revision ||
           pending.remote.revision == null) {
         _setStatus(
@@ -136,6 +138,7 @@ class SyncCoordinator implements WorkspaceSyncService {
           await _hash(mergedBytes),
           mergedData,
           attachmentStore,
+          remoteManifest: remoteManifest,
         );
         _pendingConflict = null;
         _setStatus(
@@ -164,8 +167,14 @@ class SyncCoordinator implements WorkspaceSyncService {
           pending.remote.bytes,
           updated,
         );
-        await _synchronizeAttachments(provider, remoteData, attachmentStore);
+        await _synchronizeAttachments(
+          provider,
+          remoteData,
+          attachmentStore,
+          remoteManifest: remoteManifest,
+        );
         await repository.saveSettings(updated);
+        await _publishAttachmentManifest(provider, remoteData);
         _pendingConflict = null;
         _setStatus(
           SyncStatus(
@@ -191,6 +200,7 @@ class SyncCoordinator implements WorkspaceSyncService {
         pending.localHash,
         pending.localData,
         attachmentStore,
+        remoteManifest: remoteManifest,
       );
       _pendingConflict = null;
       return updated;
@@ -223,6 +233,11 @@ class SyncCoordinator implements WorkspaceSyncService {
         SyncStatus(phase: SyncPhase.pulling, providerId: activeProvider.id),
       );
       final remote = await activeProvider.read(documentKey);
+      // 附件清单读取是尽力而为的：清单缺失/格式不支持/网络不可用时返回
+      // null（更老版本云端无清单），只在确实读取到清单时做一致性校验。
+      final remoteManifest = remote == null
+          ? null
+          : await _readAttachmentManifest(activeProvider);
       final lastHash = settings.syncLocalHash;
       final remoteChanged =
           remote != null &&
@@ -240,6 +255,7 @@ class SyncCoordinator implements WorkspaceSyncService {
           attachmentStore,
         );
       }
+
       if (lastHash == null) {
         if (!_isEmpty(localResult.data)) {
           final snapshot = await _saveConflictSnapshot(remote.bytes);
@@ -287,6 +303,7 @@ class SyncCoordinator implements WorkspaceSyncService {
             activeProvider,
             remoteData,
             attachmentStore,
+            remoteManifest: remoteManifest,
           );
           remainingDeletes = await _deletePendingAttachments(
             activeProvider,
@@ -310,6 +327,8 @@ class SyncCoordinator implements WorkspaceSyncService {
             requiresReload: true,
           ),
         );
+        // 附件已就位，重写云端附件清单（幂等），保证其与本地快照引用一致。
+        await _publishAttachmentManifest(activeProvider, remoteData);
         final withConfig = await _configSync.sync(
           activeProvider,
           updated,
@@ -361,6 +380,7 @@ class SyncCoordinator implements WorkspaceSyncService {
             activeProvider,
             remoteData,
             attachmentStore,
+            remoteManifest: remoteManifest,
           );
           remainingDeletes = await _deletePendingAttachments(
             activeProvider,
@@ -384,6 +404,8 @@ class SyncCoordinator implements WorkspaceSyncService {
             requiresReload: true,
           ),
         );
+        // 附件已就位，重写云端附件清单（幂等），保证其与本地快照引用一致。
+        await _publishAttachmentManifest(activeProvider, remoteData);
         final withConfig = await _configSync.sync(
           activeProvider,
           updated,
@@ -399,6 +421,7 @@ class SyncCoordinator implements WorkspaceSyncService {
           localHash,
           localResult.data,
           attachmentStore,
+          remoteManifest: remoteManifest,
         );
       }
 
@@ -406,6 +429,7 @@ class SyncCoordinator implements WorkspaceSyncService {
         activeProvider,
         localResult.data,
         attachmentStore,
+        remoteManifest: remoteManifest,
       );
 
       final syncedAt = DateTime.now().toUtc();
@@ -419,6 +443,7 @@ class SyncCoordinator implements WorkspaceSyncService {
         pendingAttachmentDeletes: remainingDeletes,
       );
       await repository.saveSettings(updated);
+      await _publishAttachmentManifest(activeProvider, localResult.data);
       _setStatus(
         SyncStatus(
           phase: SyncPhase.success,
@@ -455,10 +480,16 @@ class SyncCoordinator implements WorkspaceSyncService {
     AppSettings settings,
     String localHash,
     CardoryData data,
-    AttachmentRepository attachmentStore,
-  ) async {
+    AttachmentRepository attachmentStore, {
+    AttachmentManifest? remoteManifest,
+  }) async {
     _setStatus(SyncStatus(phase: SyncPhase.pushing, providerId: provider.id));
-    await _synchronizeAttachments(provider, data, attachmentStore);
+    await _synchronizeAttachments(
+      provider,
+      data,
+      attachmentStore,
+      remoteManifest: remoteManifest,
+    );
     final result = await provider.write(
       documentKey,
       local,
@@ -481,6 +512,7 @@ class SyncCoordinator implements WorkspaceSyncService {
     );
     if (updated != committed) await repository.saveSettings(updated);
     final withConfig = await _configSync.sync(provider, updated, _hash);
+    await _publishAttachmentManifest(provider, data);
     _setStatus(
       SyncStatus(
         phase: SyncPhase.success,
@@ -495,22 +527,20 @@ class SyncCoordinator implements WorkspaceSyncService {
   Future<void> _synchronizeAttachments(
     SyncProvider provider,
     CardoryData data,
-    AttachmentRepository store,
-  ) async {
-    final attachments = data.projects
-        .expand((project) => project.attachments)
-        .where((attachment) => attachment.storageKey.isNotEmpty)
-        .toList();
+    AttachmentRepository store, {
+    AttachmentManifest? remoteManifest,
+  }) async {
+    final attachments = _attachmentsOf(data);
     if (attachments.isEmpty) return;
     if (provider is! AttachmentSyncProvider) {
       throw const SyncProviderException('当前同步方式不支持独立附件传输');
     }
     final attachmentProvider = provider as AttachmentSyncProvider;
     for (final attachment in attachments) {
-      final key = 'attachments/v1/${attachment.storageKey}';
+      final key = attachmentFileKey(attachment.storageKey);
       final localExists = await store.contains(attachment);
       final remoteExists = await attachmentProvider.fileExists(key);
-      // 存储键不可变且带版本号。在元数据容器提交成功之前，
+      // 存储键不可变且带版本号。在元数据快照提交成功之前，
       // 绝不覆盖已有对象。
       if (localExists && !remoteExists) {
         await attachmentProvider.uploadFile(
@@ -522,6 +552,16 @@ class SyncCoordinator implements WorkspaceSyncService {
         await attachmentProvider.downloadFile(key, target);
         await store.installEncrypted(attachment, target);
       } else if (!localExists) {
+        // 快照引用的附件在本地与云端都不存在。若云端清单明确不含该附件，
+        // 说明远端快照与附件集合不一致，fail-closed，绝不把损坏状态导入本地；
+        // 清单缺失（老版本云端）时维持原有错误提示。
+        if (remoteManifest != null &&
+            !remoteManifest.contains(attachment.storageKey)) {
+          throw SyncProviderException(
+            '远端快照引用的附件不在云端附件清单中：${attachment.fileName}，'
+            '已停止同步以保护数据一致性。',
+          );
+        }
         throw SyncProviderException('附件在本地和远端均不存在：${attachment.fileName}');
       }
     }
@@ -536,10 +576,9 @@ class SyncCoordinator implements WorkspaceSyncService {
     if (provider is! AttachmentSyncProvider) {
       throw const SyncProviderException('当前同步方式不支持独立附件传输');
     }
-    final activeKeys = data.projects
-        .expand((project) => project.attachments)
-        .map((attachment) => attachment.storageKey)
-        .toSet();
+    final activeKeys = _attachmentsOf(
+      data,
+    ).map((attachment) => attachment.storageKey).toSet();
     final remaining = <String>[];
     for (final storageKey in pendingDeletes) {
       if (activeKeys.contains(storageKey)) {
@@ -548,7 +587,7 @@ class SyncCoordinator implements WorkspaceSyncService {
         continue;
       }
       try {
-        await provider.delete('attachments/v1/$storageKey');
+        await provider.delete(attachmentFileKey(storageKey));
       } catch (_) {
         remaining.add(storageKey);
       }
@@ -563,8 +602,7 @@ class SyncCoordinator implements WorkspaceSyncService {
     if (repository is SyncContainerInspector) {
       return (repository as SyncContainerInspector).inspectContainer(bytes);
     }
-    // 旧实现无法在不写盘的情况下解密远端，只提供保守的通用冲突项。
-    return const CardoryData.empty();
+    throw const SyncProviderException('当前本地存储实现无法安全解析远端加密快照，已停止同步以避免覆盖数据。');
   }
 
   bool _isEmpty(CardoryData data) =>
@@ -610,6 +648,37 @@ class SyncCoordinator implements WorkspaceSyncService {
     SyncProviderException value => value.message,
     _ => '同步未完成，请稍后重试。',
   };
+
+  List<AttachmentData> _attachmentsOf(CardoryData data) => data.projects
+      .expand((project) => project.attachments)
+      .where((attachment) => attachment.storageKey.isNotEmpty)
+      .toList();
+
+  /// 读取云端附件清单。清单不存在、格式不支持或网络不可用时返回 null
+  /// （更老版本云端可能没有清单），由调用方决定是否跳过清单校验。
+  Future<AttachmentManifest?> _readAttachmentManifest(
+    SyncProvider provider,
+  ) async {
+    try {
+      final doc = await provider.read(attachmentManifestKey);
+      if (doc == null) return null;
+      return AttachmentManifest.fromBytes(doc.bytes);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 每次同步成功收敛后，把当前快照的附件集合以 manifest 幂等重写回云端，
+  /// 保证云端始终有该快照引用的附件权威枚举（供恢复、完整性校验与孤儿清理）。
+  Future<void> _publishAttachmentManifest(
+    SyncProvider provider,
+    CardoryData data,
+  ) async {
+    await provider.write(
+      attachmentManifestKey,
+      AttachmentManifest.build(_attachmentsOf(data)).toBytes(),
+    );
+  }
 
   void _setStatus(SyncStatus value) {
     _status = value;

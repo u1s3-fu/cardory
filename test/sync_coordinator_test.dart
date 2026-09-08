@@ -3,8 +3,9 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cardory/domain/attachment_repository.dart';
-import 'package:cardory/data/cardory_store.dart';
+import 'package:cardory/domain/cardory_repository.dart';
 import 'package:cardory/domain/cardory_models.dart';
+import 'package:cardory/sync/attachment_manifest.dart';
 import 'package:cardory/sync/sync_coordinator.dart';
 import 'package:cardory/sync/sync_models.dart';
 import 'package:cardory/sync/sync_provider.dart';
@@ -436,6 +437,58 @@ void main() {
       expect(resolved.syncProvider, SyncProviderType.webdav);
     },
   );
+
+  test('publishes the attachment manifest after a remote-empty push', () async {
+    final attachment = _projectAttachment();
+    final provider = _Provider();
+    final coordinator = SyncCoordinator(
+      repository: _Repository([1], data: _dataWithAttachment(attachment)),
+      providerFactory: (_) async => provider,
+      attachmentRepositoryFactory: (_) => _PresentAttachments(),
+    );
+
+    await coordinator.synchronize(
+      const AppSettings(syncProvider: SyncProviderType.directory),
+    );
+
+    expect(provider.publishedManifestKey, attachmentManifestKey);
+    expect(provider.publishedManifest, isNotNull);
+    final manifest = AttachmentManifest.fromBytes(provider.publishedManifest!);
+    expect(manifest.contains(attachment.storageKey), isTrue);
+  });
+
+  test('fails closed when a remote snapshot references an attachment that the '
+      'cloud manifest does not list', () async {
+    final attachment = _projectAttachment();
+    final repository = _Repository([
+      1,
+      2,
+      3,
+    ], data: _dataWithAttachment(attachment));
+    final provider = _Provider(
+      document: SyncDocument(bytes: Uint8List.fromList([4, 5]), revision: 'v2'),
+    );
+    provider.manifestDoc = SyncDocument(
+      bytes: Uint8List.fromList(AttachmentManifest.build(const []).toBytes()),
+    );
+    final localHash = await Sha256().hash([1, 2, 3]);
+    final coordinator = SyncCoordinator(
+      repository: repository,
+      providerFactory: (_) async => provider,
+      attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+    );
+
+    await coordinator.synchronize(
+      AppSettings(
+        syncProvider: SyncProviderType.directory,
+        syncRevision: 'v1',
+        syncLocalHash: base64Url.encode(localHash.bytes),
+      ),
+    );
+
+    expect(coordinator.status.phase, SyncPhase.failure);
+    expect(coordinator.status.message, contains('附件清单'));
+  });
 }
 
 AttachmentData _projectAttachment() => AttachmentData(
@@ -463,7 +516,7 @@ CardoryData _dataWithAttachment(AttachmentData attachment) => CardoryData(
   todos: const [],
 );
 
-class _Repository implements CardoryRepository {
+class _Repository implements CardoryRepository, SyncContainerInspector {
   _Repository(this.container, {CardoryData? data})
     : data = data ?? CardoryData.seed();
 
@@ -485,6 +538,9 @@ class _Repository implements CardoryRepository {
     String currentPassword,
     String newPassword,
   ) async {}
+
+  @override
+  Future<CardoryData> inspectContainer(List<int> bytes) async => data;
 
   @override
   Future<CardoryData> importContainer(
@@ -561,10 +617,6 @@ class _EmptyAttachments implements AttachmentRepository {
   ) => throw UnimplementedError();
 
   @override
-  Future<AttachmentData> migrateLegacy(AttachmentData attachment) async =>
-      attachment;
-
-  @override
   Future<bool> contains(AttachmentData attachment) async => false;
 }
 
@@ -605,6 +657,7 @@ class _Provider implements SyncProvider, AttachmentSyncProvider {
   final String? writeFailure;
   final Future<void>? connection;
   final bool remoteFilesExist;
+  SyncDocument? manifestDoc;
   List<int>? written;
   String? expectedRevision;
   int connectionChecks = 0;
@@ -613,6 +666,8 @@ class _Provider implements SyncProvider, AttachmentSyncProvider {
   final List<String> deleted = [];
   final List<(String, String)> uploaded = [];
   final List<(String, String)> downloaded = [];
+  String? publishedManifestKey;
+  List<int>? publishedManifest;
 
   @override
   String get displayName => '测试';
@@ -649,10 +704,13 @@ class _Provider implements SyncProvider, AttachmentSyncProvider {
   }
 
   @override
-  Future<SyncDocument?> read(String key) async =>
-      // 只有数据文档存在；配置文档等其余 key 视为云端缺失，
-      // 与真实同步后端一致（0.0.5 起协调器会读取配置文档 key）。
-      key == SyncCoordinator.documentKey ? document : null;
+  Future<SyncDocument?> read(String key) async {
+    // 只有数据文档存在；配置/附件清单等其余 key 视为云端缺失，
+    // 与真实同步后端一致。
+    if (key == SyncCoordinator.documentKey) return document;
+    if (key == attachmentManifestKey) return manifestDoc;
+    return null;
+  }
 
   @override
   Future<SyncWriteResult> write(
@@ -660,8 +718,12 @@ class _Provider implements SyncProvider, AttachmentSyncProvider {
     List<int> bytes, {
     String? expectedRevision,
   }) async {
-    // 仅数据文档写入计入数据断言；配置文档写入由 CloudConfigSync 发起。
+    // 仅数据文档写入计入数据断言；配置/附件清单写入由对应协调器发起。
     if (key != SyncCoordinator.documentKey) {
+      if (key == attachmentManifestKey) {
+        publishedManifestKey = key;
+        publishedManifest = List<int>.from(bytes);
+      }
       return SyncWriteResult(revision: expectedRevision ?? 'v1');
     }
     writeCount++;

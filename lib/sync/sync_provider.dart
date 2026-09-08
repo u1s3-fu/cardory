@@ -6,9 +6,8 @@
 import '../domain/cardory_models.dart';
 import 'sync_models.dart';
 
-typedef SyncProviderFactory = Future<SyncProvider> Function(
-  AppSettings settings,
-);
+typedef SyncProviderFactory =
+    Future<SyncProvider> Function(AppSettings settings);
 
 abstract interface class SyncProvider {
   String get id;

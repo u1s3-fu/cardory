@@ -22,9 +22,9 @@ Future<void> verifyWebDavConnection({
     ..headers['Depth'] = '0';
 
   try {
-    final response = await client.send(request).timeout(
-          const Duration(seconds: 15),
-        );
+    final response = await client
+        .send(request)
+        .timeout(const Duration(seconds: 15));
     if (response.statusCode != 207) {
       throw WebDavConnectionException(
         'WebDAV 连接验证失败，服务器返回 HTTP ${response.statusCode}',

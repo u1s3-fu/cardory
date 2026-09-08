@@ -170,7 +170,9 @@ class DirectorySyncProvider implements SyncProvider, AttachmentSyncProvider {
   Future<void> _recoverTemporary(File target) async {
     if (await target.exists()) return;
     final temporary = File('${target.path}.syncing');
-    if (await temporary.exists()) await _replaceFromTemporary(target, temporary);
+    if (await temporary.exists()) {
+      await _replaceFromTemporary(target, temporary);
+    }
   }
 
   String _revision(FileStat stat) =>
