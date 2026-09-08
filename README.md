@@ -1,8 +1,10 @@
 # 板记 Cardory
 
-Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 Flutter 本地优先跨平台应用。保险库正文和附件在写入磁盘前使用 AES-256-GCM 加密；应用设置另存为不含同步密钥的 JSON 文件。无需联网即可使用。
+Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 Flutter 本地优先跨平台应用。保险库正文和附件在写入磁盘前均经过加密：数据运行于 **SQLCipher 整库加密的 SQLite 数据库**，附件按文件独立加密保存。无需联网即可使用。
 
-![Version](https://img.shields.io/badge/version-0.0.7-blue) ![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.12.2-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-GPLv3-blue)
+![Version](https://img.shields.io/badge/version-0.1.0--beta.1-blue) ![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.12.2-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-GPLv3-blue)
+
+> ⚠️ **破坏性数据不兼容**：`0.1.0-beta.1` 起，数据运行时由 AES `.cardory` 加密容器切换为 SQLCipher 加密数据库。旧版本（≤ 0.0.7）的数据文件**不会被读取或自动迁移**，升级前请先在旧版本中自行备份数据与附件。
 
 ---
 
@@ -36,33 +38,33 @@ Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 F
 
 ### 数据同步
 
-- **目录同步**：将加密数据文件放置于任意本地目录或网盘同步目录中
+- **目录同步**：将加密快照文件放置于任意本地目录或网盘同步目录中
 - **WebDAV 同步**：连接 WebDAV 服务器（如 NextCloud、群晖 NAS 等）
 - **自建服务**：通过 HTTP API 对接私有同步服务
 - **S3 兼容存储**：连接 AWS S3、MinIO、Cloudflare R2 等支持 S3 API 的存储服务
-- **冲突检测**：基于 SHA-256 哈希 + 修订版本号的冲突检测机制，防止数据覆盖
+- **冲突检测**：数据库快照同步基于 SHA-256 摘要与修订版本（ETag/If-Match）做完整性校验，冲突时保留远端暂存副本并提示手动处理，防止过期快照覆盖新数据
 
 ---
 
 ## 数据安全
 
-Cardory 将安全放在首位；保险库正文和附件在写入磁盘前均经过加密处理，应用设置文件仅保存非密钥配置。
+Cardory 将安全放在首位；数据运行时是 SQLCipher 整库加密数据库，附件单独加密保存，应用不保存任何明文业务数据文件。
 
 ### 加密方案
 
-- **数据正文**：使用 **AES-256-GCM** 认证加密，同时提供机密性与完整性保护
-- **密钥体系**：随机生成 256 位数据密钥（DEK），由密码密钥（KEK）保护
-- **密钥派生**：密码通过 **PBKDF2-HMAC-SHA256** 加盐派生加密密钥，默认迭代 **210,000 次**，有效抵御暴力破解
-- **密码密钥槽**：仅使用密码加盐加密存储，解锁、改密与备份恢复解密都只需认证加密密码
+- **整库加密**：数据文件使用 **SQLCipher**（SQLite 的 AES-256 全库加密实现）加密，任何时刻数据库中都不存在明文业务表
+- **密钥生命周期**：保险库密码即数据库密钥源。应用仅在解锁会话期间于内存中持有打开后的数据库句柄，**锁定/退出即关闭连接并清除内存密钥**，密钥不落盘
+- **自动解锁**：密码经平台原生安全存储（iOS Keychain / Android Keystore / Windows DPAPI）保存时，仅用于解锁会话的自动填充；密码错误即清除已保存凭据并回落手动输入
+- **凭据隔离**：保险库密码与同步凭据分属不同的安全存储键，应用日志与云端对象不包含任何密码、Token 或敏感列明文
 
 ### 数据保护机制
 
-- **自动锁定**：应用切换至后台时可自动锁定保险箱（可配置开关），防止未经授权访问
-- **原子写入**：每次覆盖保存前生成 `.bak` 自动备份；使用临时文件写入，完成完整性校验后再替换正式文件
-- **损坏恢复**：数据文件损坏时自动尝试从 `.bak` 备份恢复
-- **安全存储**：密码与 Token 使用平台原生安全机制存储（iOS Keychain / Android Keystore / Windows DPAPI）
-- **独立附件加密**：附件按 1 MiB 分块使用 AES-256-GCM 独立加密，主保险库只保存文件元数据与密钥
+- **自动锁定**：应用切换至后台时可自动锁定保险箱（可配置开关），锁定时按 fail-closed 顺序停止会话、关闭数据库、清除已保存凭据与小组件摘要
+- **原子写入**：保险库创建、改密、恢复均以临时文件 + 原子替换完成；每次替换前自动生成 `.bak` 副本，损坏时回退
+- **快照导出**：同步与备份使用 `VACUUM INTO` 从当前库生成加密快照临时文件，校验通过后才上传或替换，运行中的数据库文件本身永不上传
+- **独立附件加密**：附件按 1 MiB 分块使用 AES-256-GCM 独立加密并登记存储键，主数据库只保存文件元数据
 - **流式附件传输**：附件选择、加密、同步和导出均采用流式读写，Cardory 不设置单文件或项目附件总容量上限
+- **云端附件清单**：同步成功后重写 `attachments/manifest.json`，记录快照引用附件的权威枚举，供新设备恢复时逐文件校验与补齐
 
 ---
 
@@ -70,21 +72,21 @@ Cardory 将安全放在首位；保险库正文和附件在写入磁盘前均经
 
 ### 模块边界
 
-项目按领域模型、应用用例、持久化、同步与展示模块组织。应用层通过仓储、凭据、附件和小组件等端口依赖具体实现；当前 `CardoryApp` 同时是 Flutter 根组件和组合根，负责把 `data/`、`sync/`、`services/` 的实现注入应用层。
+项目按领域模型、应用用例、持久化、同步与展示模块组织。应用层通过仓储等端口依赖具体实现；`CardoryApp` 是 Flutter 根组件兼组合根，负责创建保险库会话、解锁状态与路由门禁。
 
 ```
 ┌─────────────────────────────────────────────┐
 │              Presentation 展示层             │
-│  (根组件 / 页面 / 对话框 / 主题 / Widgets)    │
+│  (根组件 / 页面 / 门禁 / 对话框 / Widgets)   │
 ├─────────────────────────────────────────────┤
 │              Application 应用层              │
 │  (工作区控制 / 设置 / 同步 / 附件用例)        │
 ├─────────────────────────────────────────────┤
 │               Domain 领域层                  │
-│  (CardoryData / ProjectData / TodoData 等)   │
+│  (ProjectData / TodoData / AssetData 等)     │
 ├─────────────────────────────────────────────┤
 │      Infrastructure 基础设施层               │
-│  (Data / Sync / Services / 平台适配器)       │
+│  (SQLCipher 数据库 / Repository / Sync)      │
 └─────────────────────────────────────────────┘
 ```
 
@@ -93,35 +95,35 @@ Cardory 将安全放在首位；保险库正文和附件在写入磁盘前均经
 | 模块 | 目录 | 职责 |
 |------|------|------|
 | **入口** | `lib/main.dart` | 调用 `runCardoryApp()` 启动 Flutter 应用 |
-| **应用层** | `lib/application/` | 工作区状态、设置、同步、附件和小组件端口 |
-| **领域层** | `lib/domain/` | 核心业务模型：`CardoryData`、`ProjectData`、`TodoData`、`AssetData`、`AppSettings` |
-| **数据层** | `lib/data/` | AES-256-GCM 加密容器、文件仓储与附件加密存储 |
-| **展示层** | `lib/presentation/` | 组合根、页面、对话框、设计系统与复用组件 |
+| **应用层** | `lib/application/` | 工作区会话、同步与附件用例、设置读写端口 |
+| **领域层** | `lib/domain/` | 核心业务模型：`ProjectData`、`TodoData`、`AssetData` 等 |
+| **数据层** | `lib/data/` | SQLCipher 数据库（drift）、Repository 族、附件加密存储、运行时保险库服务 |
+| **展示层** | `lib/presentation/` | 组合根（`CardoryApp`）、页面、门禁、对话框与复用组件 |
+| **状态层** | `lib/providers/` | Riverpod session-scoped Provider 组装与销毁 |
+| **路由层** | `lib/routing/` | go_router 业务路由与解锁门禁 redirect |
 | **同步层** | `lib/sync/` | `SyncProvider`、协调器与目录、WebDAV、自建 API、S3 后端 |
-| **平台服务** | `lib/services/` | 原生桌面小组件等平台适配器 |
+| **平台服务** | `lib/services/` | 原生桌面小组件、更新检查等平台适配器 |
 
 ### 关键设计模式
 
-- **仓储模式**：应用层以按职责拆分的仓储端口访问保险库、工作区与同步数据，`CardoryStore` 提供基于文件的实现
+- **仓储模式**：Repository 族（项目 / 任务 / 资产 / 附件 / 时间记录 / 番茄钟 / 依赖 / 同步变更 / 设置）承载全部数据库写路径，每次业务写入都在同一 drift 事务内完成实体更新 + 时间戳 + tombstone + `sync_changes` 审计
 - **策略模式**：`SyncProvider` 抽象接口，目录、WebDAV、自建 HTTP API 与 S3 兼容存储各自实现
-- **门面模式**：`CardoryVaultGate` 作为统一入口，管理解锁、密码设置、备份恢复等全生命周期
-- **凭证分离**：`VaultCredentialStore` 与 `SyncCredentialStore` 分离保险库凭证与同步凭证的管理
+- **会话门禁**：数据库会话（`DatabaseSession`）在保险库解锁后建立、锁定/退出时关闭；`go_router` redirect 依据解锁状态控制页面可达性，未解锁仅能访问 `/vault`
+- **凭证分离**：`VaultCredentialStore` 与 `SyncCredentialStore` 分离保险库密码与同步凭据的管理与安全存储
 
 ### 数据流
 
 ```
-用户操作 → WorkspaceController
-               ↓
-      WorkspaceRepository / SyncRepository
-               ↓
-   CardoryStore + CardoryContainerCodec + AttachmentStore
-               ↓
-       加密保险库与附件密文
+UI 写入口 → WorkspaceController → Repository 单事务写入 SQLCipher
+                ↓ 提交后
+        数据库回读 → 投影缓存 → 通知 UI（drift Stream / Provider）
+                ↓ 异步
+       VACUUM INTO 生成加密快照 + 附件/备份 manifest → 同步后端
 ```
 
 ### 状态管理
 
-项目不依赖第三方状态管理库（如 Provider、Riverpod、Bloc 等），使用 Flutter 内置的 **StatefulWidget + setState** 进行状态管理。页面导航通过 `AppSection` 枚举 + `switch` 控制，数据通过构造函数和回调向下传递。设计上保持简洁，适合当前应用规模。
+应用使用 **Riverpod（flutter_riverpod）+ go_router** 组织运行时状态与导航。数据库会话与 Repository 由 `CardoryApp` 在解锁时建立、以 session-scoped Provider 注入；查询由数据库流驱动，命令只负责事务写入；`WorkspaceController` 保留为工作区投影缓存与既有页面写入口的过渡层，不再承担独立事实源。
 
 ---
 
@@ -140,8 +142,8 @@ Cardory 将安全放在首位；保险库正文和附件在写入磁盘前均经
 
 | 组件 | 版本 |
 |------|------|
-| **Flutter SDK** | stable（最新稳定版） |
-| **Dart SDK** | `3.12.2`（约束 `^3.9.2`） |
+| **Flutter SDK** | `3.44.9`（stable） |
+| **Dart SDK** | `3.12.2`（约束 `3.12.0`） |
 | **Java / Kotlin** | JVM 21（Android） |
 | **Swift** | 5.x（iOS/macOS） |
 
@@ -151,45 +153,53 @@ Cardory 将安全放在首位；保险库正文和附件在写入磁盘前均经
 
 | 依赖 | 版本 | 用途 |
 |------|------|------|
-| `path_provider` | `2.1.5` | 获取应用文档目录 |
-| `cryptography` | `2.9.0` | AES-256-GCM 加密与 PBKDF2 密钥派生 |
-| `http` | `1.6.0` | HTTP 客户端（同步服务） |
-| `crypto` | `3.0.7` | S3 请求摘要与签名辅助 |
-| `flutter_secure_storage` | `10.3.1` | 平台原生安全存储 |
-| `file_picker` | `10.3.0` | 文件选择（备份导入/导出） |
-| `path` | `1.9.1` | 路径操作 |
-| `home_widget` | `0.7.0` | Android / iOS 桌面小组件数据桥接 |
-| `webdav_client` | `1.2.2` | WebDAV 兼容性支持 |
+| `path_provider` | `^2.1.5` | 获取应用文档目录 |
+| `drift` | `^2.34.4` | SQLite 响应式 ORM（表结构 / 查询 / 事务） |
+| `sqlite3` | `^3.5.2` | 原生 SQLite 绑定（`hooks` 指向 SQLCipher 源码构建） |
+| `flutter_riverpod` | `^3.4.3` | session-scoped 状态管理与依赖注入 |
+| `go_router` | `^18.0.1` | 声明式路由与解锁门禁 redirect |
+| `uuid` | `^4.6.0` | 跨设备同步 ID 生成 |
+| `flutter_secure_storage` | `^10.3.1` | 平台原生安全存储（密码 / Token） |
+| `cryptography` | `^2.9.0` | 附件 AES-256-GCM 加密与摘要校验 |
+| `http` | `^1.6.0` | HTTP 客户端（自建服务同步） |
+| `crypto` | `^3.0.7` | S3 请求摘要与签名辅助 |
+| `webdav_client` | `^1.2.2` | WebDAV 兼容性支持 |
+| `package_info_plus` | `^10.2.1` | 本地版本读取（更新检查） |
+| `url_launcher` | `^6.3.2` | 打开更新页 / 仓库链接 |
+| `file_picker` | `^12.2.0` | 系统文件选择（附件导入等） |
+| `path` | `^1.9.1` | 路径操作 |
+| `home_widget` | `^0.9.4` | Android / iOS 桌面小组件数据桥接 |
 
 ### 开发依赖
 
 | 依赖 | 版本 | 用途 |
 |------|------|------|
-| `flutter_lints` | `5.0.0` | 代码规范检查 |
-| `flutter_launcher_icons` | `0.14.4` | 自动生成多平台应用图标 |
+| `build_runner` | `^2.10.4` | 代码生成驱动 |
+| `drift_dev` | `^2.34.4` | drift 表代码生成 |
+| `flutter_lints` | `^5.0.0` | 代码规范检查 |
+| `flutter_launcher_icons` | `^0.14.4` | 自动生成多平台应用图标 |
 
 ---
 
 ## 数据文件
 
-默认数据文件位于系统应用文档目录的 `Cardory/cardory-current-data.cardory`。同步设置单独保存在同目录的 `Cardory/cardory-current-settings.json`，该设置文件不保存同步密钥。
+默认数据位于系统应用文档目录的 `Cardory/` 下：
 
-附件密文保存在同一应用目录的 `attachments/v1/` 下；同步时对应远端的 `attachments/v1/` 对象目录。实际可用容量由本地磁盘和所选同步服务决定。
+- `cardory-runtime-v1.db` —— SQLCipher 加密的运行时数据库（唯一本地事实源），应用设置存入其中 `settings` 表
+- `cardory-runtime-v1.db.bak` —— 保险库改密 / 恢复前自动生成的备份副本
+- `attachments/v1/` —— 按文件独立加密的附件密文
 
-> 进行离线整机备份时，需要同时保存 `.cardory` 数据文件和 `attachments/v1/` 目录。仅有 `.cardory` 文件可以恢复附件元数据，但附件正文需要从同步服务或附件密文目录恢复。
+> 云同步对象与上述本地文件不同：数据同步上传**加密数据库快照** `cardory-snapshot-v2.db`（本地运行库的 `VACUUM INTO` 副本），配置同步对象为 `cardory-config-v2.json`，附件目录对应远端 `attachments/v1/`，并维护 `attachments/manifest.json` 附件清单。运行中的数据库文件（含 WAL 等附属文件）永不直接上传。
 
-- 每次覆盖保存前会生成 `cardory-current-data.cardory.bak` 自动备份
-- 写入过程使用同目录临时文件，完成格式与完整性检查后再替换正式文件
-- 密码修改走**串行原子写入**流程
-- 数据损坏时自动尝试从 `.bak` 备份恢复
+> 进行离线整机备份时，请先退出应用再复制 `cardory-runtime-v1.db` 与 `attachments/v1/` 目录；或借助云同步 / 云端恢复链路保留加密快照与附件密文。旧版本 `.cardory` 数据文件不受支持，也不会被读取。
 
-> **注意**：主保险库路径由应用管理；同步目录路径可在设置中配置为个人同步目录（如 OneDrive）。当前**不支持多设备同时编辑**，多个实例同时修改同一文件可能产生业务冲突。
+> **注意**：主保险库路径由应用管理；同步目录路径可在设置中配置为个人同步目录（如 OneDrive）。当前**不支持多设备同时编辑**，多个实例同时同步同一快照可能产生冲突，冲突以保留远端暂存副本的方式呈现并需手动解决。
 
 ---
 
 ## 平台网络权限
 
-同步功能（WebDAV / 自建服务 / S3 兼容存储）需要平台出站网络权限：
+同步功能（WebDAV / 自建服务 / S3 兼容存储）与更新检查需要平台出站网络权限：
 
 - **Android**：主清单已声明 `INTERNET` 权限
 - **macOS**：Debug / Release 沙盒已启用 `com.apple.security.network.client`
@@ -243,10 +253,15 @@ flutter build macos --release       # macOS
 ```
 lib/
 ├── main.dart                              # 最小启动入口
-├── application/                           # 应用用例与端口
-├── data/                                  # 加密容器、文件仓储与附件存储
-├── domain/                                # 领域模型与本地设置
-├── presentation/                          # Flutter 根组件、页面、对话框与组件
+├── application/                           # 应用用例与端口（工作区会话等）
+├── data/                                  # SQLCipher 数据库、仓储、附件存储、运行时服务
+│   ├── db/                                # drift 表定义与数据库会话（app_database.dart）
+│   ├── repositories/                      # Repository 族（单事务写入）
+│   └── runtime/                           # 保险库运行服务、快照应用、数据映射
+├── domain/                                # 领域模型与端口
+├── presentation/                          # Flutter 根组件、页面、门禁、对话框与组件
+├── providers/                             # Riverpod session-scoped Provider
+├── routing/                               # go_router 业务路由与门禁
 ├── services/                              # 平台服务（如桌面小组件）
 └── sync/                                  # 同步协调器、凭据与四种同步后端
     ├── directory_sync_provider.dart       # 本地目录同步

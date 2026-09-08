@@ -4,6 +4,42 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.1.0-beta.1] - 2026-09-08
+
+> ⚠️ **破坏性数据不兼容（本版本对应 0.1.0-beta.1）**
+>
+> 本版本把数据运行时从 AES-256-GCM `.cardory` 加密容器 + JSON 切换为 **SQLCipher 整库加密的 SQLite 数据库**（`Cardory/cardory-runtime-v1.db`），属于**不可自动升级**的数据不兼容版本：
+>
+> - 旧版本（≤ 0.0.7）的 `cardory-current-data.cardory` 数据文件与 `cardory-current-settings.json` **不会被读取、覆盖或自动迁移**；如需保留旧数据，请先在旧版本中自行备份；
+> - 云同步对象更换为加密数据库快照 `cardory-snapshot-v2.db` 与配置 `cardory-config-v2.json`，云端旧 `.cardory` 对象不再读取；
+> - 升级前请导出/备份旧版本数据与附件，以免卸载旧版本后无法找回。
+
+### 变更（Changed）
+
+- 数据保险库整包快照写入改为行级增量对齐（`DatabaseSnapshotApplier`）：UI 每次保存不再“物理全删 + 全量重插”，只写入与快照期望不一致的行并对消失的可见行做 tombstone，新增/变更/删除均在同一事务内追加完整 payload 的 `sync_changes` 审计；`createdAt` 得以保留、未变化的行不再刷新 `updatedAt`，快照之外的表（计时/番茄钟/依赖/同步日志）不再被触碰；对“同 id 先 tombstone 后又回到快照”（如远端带回此前本地删除的实体）的写入会自动清除 `deletedAt` 复活并按 update 记账，不再因主键冲突失败。
+- `WorkspaceController` 去双事实源：内存 `_data`/`_settings` 降级为“数据库投影缓存”，不再承担独立事实源——每次 UI 写入口提交 `repository.save()`（单事务行级对齐）成功后都会从数据库回读（`repository.load()`）刷新投影再通知 UI；保存失败仍原子回滚到上一个已提交投影，回读失败则保留与已提交内容一致的快照、不误回滚。
+- 附件同步引入云端附件清单（`attachments/manifest.json`，`AttachmentManifest`）：每次成功同步（推送/拉取/无变化收敛/冲突解决）后按当前快照附件集合幂等重写，云端始终保有「该快照引用附件」的权威枚举，供新设备/云端恢复逐文件抓取与完整性校验；清单读取为尽力而为（缺失/老版本云端返回 null 跳过校验），读取到清单时把它作为附件缺失判定的 fail-closed 校验——远端快照引用清单之外的附件会中止同步（导入侧沿用原有原子回滚），不再把远端不一致的附件引用静默导入为本地残缺数据；附件云端 key 生成收敛到 `attachmentFileKey`。
+- 云端恢复（WebDAV / S3 向导）在数据库快照恢复完成后，按快照引用附件集合把云端附件密文拉取到本地附件目录：`installEncrypted` 逐一做完整性校验（摘要/长度不符即失败）；云端附件清单读取为尽力而为，读到清单时以其为权威做缺失判定，缺失附件 fail-closed 报「云端缺少附件…恢复不完整」，提示重试或进入应用后触发一次同步补齐（数据库已切换，重试幂等）。`CloudRestoreService` 支持注入附件仓库工厂与同步提供者工厂（测试可控），vault 门禁「从云端恢复」入口已接线；新增 `test/cloud_restore_service_test.dart` 覆盖本地已存在跳过、远端下载安装、双端缺失 fail-closed、清单外引用提示四类路径。
+- 旧 LegacyJson 迁移适配器仅存的 DB→领域聚合读映射收编为 `SqlCipherDataMapper`（`lib/data/runtime/sqlcipher_data_mapper.dart`），LegacyJson 迁移写入口/服务随模块整体删除；保险库 `unlockWithPassword` / `restoreFromBackup` 把 SQLCipher 打开失败统一包装为 `CardoryStorageException`（「密码不正确或数据文件已损坏」文案），门禁据此清除已保存的自动解锁凭据并回落到手动输入界面，不再依赖旧容器异常类型。
+- 云上同步文档 key 更名以彻底隔离旧协议：数据快照改用 `cardory-snapshot-v2.db`、配置改用 `cardory-config-v2.json`（同步协调器、S3 provider、WebDAV/目录同步与云端恢复入口同步更新）；破坏性版本下云端旧 `.cardory` 文档不再读取，避免把旧容器字节误当新快照尝试解密。
+- vault 门禁「新建保险库」界面检测到旧版本 `.cardory` 数据文件（`cardory-current-data.cardory` / `cardory-current-settings.json`）时显示一次性提示条：说明本版本使用新的加密数据库格式，不会读取、覆盖或自动迁移旧文件，确认无用可自行删除。
+- 工作台迁入受保护业务路由：解锁成功后由 `/vault` 切换到受保护路由 `/today` 渲染工作台；`/calendar`、`/time`、`/gantt`、`/assets` 注册为受保护占位页（含返回工作台入口）；`go_router` redirect 依据保险库解锁状态生效并配合 `refreshListenable`，锁定/未解锁时一切业务路径回落 `/vault`；保险库页在锁定后通过递增 `vault-epoch` key 强制重建。新增 `test/routing/app_router_test.dart` 门禁用例。
+- 保险库会话/锁定/自动锁定/退出清理逻辑从 vault 门禁页上移到应用层（`CardoryApp`）：锁定按 fail-closed 顺序执行（停止会话 → 删除已保存密码凭据 → 清除小组件摘要 → 弹出导航栈并回 `/vault`）；`WidgetDataService` 新增 `clearWidgetData`，原生侧以 `HomeWidget.saveWidgetData(key, null)` 清空小组件缓存。新增 `test/routing/vault_session_lock_test.dart` 覆盖「自动解锁→暂停锁定→凭据与摘要被清除」与「重新解锁回到工作台」两条路径。
+- `VaultGate` 收敛为纯门禁页：移除其内置的自动锁定控制器、锁定逻辑与工作台内联渲染，解锁成功改为经 `onUnlocked` 回调交由应用层接管会话与跳转。
+- 破坏性版本号与发布材料更新：版本 bump 至 `0.1.0-beta.1+1`（tag 为 `v0.1.0-beta.1`，GitHub Release 自动标记 prerelease）；README 全面翻新为 SQLCipher 数据库架构（数据文件、加密方案、密钥生命周期、同步对象、依赖表与路由门禁），并置顶数据不兼容警告；GitHub Actions Release 流程新增 `quality-gate`（format + `flutter analyze --fatal-infos` + `flutter test`），构建依赖该门禁，版本号含 `-` 时自动标记 prerelease，Windows 安装程序版本参数改为仅取数字前缀；`docs/CARDORY_PHASE1_MIGRATION.md` 原渐进草案冲突章节改写为历史/实施说明口径，以实际破坏性实施为准。
+- 全仓库按当前 dart_style（Dart 3.12 / dart_style 3.1.9）做一次性格式化归一（65 个文件机械改写，无行为变化），使新增 CI 格式门禁与 README 发布检查可自洽通过。
+
+### 移除（Removed）
+
+- 移除附件旧迁移运行时路径：`AttachmentRepository.migrateLegacy` 接口与 `AttachmentStore.migrateLegacy` 实现、`WorkspaceController.applyLoadResult` 中的 `legacyFileBytes` 迁移分支及其测试——破坏性版本下附件一律以加密文件落盘并登记 `storageKey`，数据库不再产生 base64 内嵌附件，无需“打开即迁移”。
+- 移除旧容器运行时：`lib/data/cardory_store.dart`、`lib/data/cardory_container_codec.dart`、`lib/domain/cardory_container.dart`（CardoryStore 运行时、容器编解码器、容器模型与异常类型）及其测试 `test/cardory_store_test.dart`、`test/cardory_container_codec_test.dart`；`vault_gate` 等界面不再引用旧容器凭据错误类型。
+- 整体删除 LegacyJson 迁移模块 `lib/data/migration/`（legacy 导入 / 导出 / 迁移服务 / 迁移数据库接口 / 迁移模型 / `AppDatabaseLegacyMigrationAdapter`），并删除 `test/migration/legacy_migration_export_test.dart` 与 `test/app_database_legacy_migration_test.dart`。
+- 移除「恢复数据」旧 `.cardory` 本地文件导入入口：`SettingsPanel.onRestoreBackup` 与按钮、`HomePage._restoreBackupFromSettings`、`BackupPasswordDialog`、`WorkspaceController.restoreBackup`。云端恢复统一走保险库门禁的 WebDAV / S3 向导，不再提供本地容器文件导入。
+
+### 修复（Fixed）
+
+- 修复项目进度记录新增方法中 `recordedAt` 被当作可空写入导致类型不匹配、以及进度流查询误用未导入的 `drift.` 前缀导致的编译错误。
+
 ## [0.0.7] - 2026-09-07
 
 ### 修复（Fixed）
