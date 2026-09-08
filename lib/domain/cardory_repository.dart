@@ -42,10 +42,7 @@ abstract interface class VaultRepository {
   Future<CardoryAccessState> accessState();
   Future<CardoryLoadResult> setup(String password);
   Future<CardoryLoadResult> unlockWithPassword(String password);
-  Future<CardoryLoadResult> restoreFromBackup(
-    List<int> bytes,
-    String password,
-  );
+  Future<CardoryLoadResult> restoreFromBackup(List<int> bytes, String password);
   Future<void> changePassword(String currentPassword, String newPassword);
 }
 

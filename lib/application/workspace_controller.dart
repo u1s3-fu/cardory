@@ -16,6 +16,7 @@ class WorkspaceController implements WorkspaceObservable {
     required this.syncService,
     required this.attachmentRepositoryFactory,
     WidgetDataService widgetDataService = const NullWidgetDataService(),
+    // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头，无法用 this._widgetDataService。
   }) : _widgetDataService = widgetDataService {
     syncService.addListener(_notifySyncChanged);
   }
@@ -63,25 +64,9 @@ class WorkspaceController implements WorkspaceObservable {
 
   Future<void> applyLoadResult(CardoryLoadResult result) async {
     final attachments = attachmentRepositoryFactory(result.path);
-    var data = result.data;
-    var migrated = false;
-    final projects = <ProjectData>[];
-    for (final project in data.projects) {
-      final migratedAttachments = <AttachmentData>[];
-      for (final attachment in project.attachments) {
-        if (attachment.needsMigration) {
-          migratedAttachments.add(await attachments.migrateLegacy(attachment));
-          migrated = true;
-        } else {
-          migratedAttachments.add(attachment);
-        }
-      }
-      projects.add(project.copyWith(attachments: migratedAttachments));
-    }
-    if (migrated) {
-      data = data.copyWith(projects: projects);
-      await repository.save(data, result.settings);
-    }
+    // SQLCipher 保险库（破坏性版本）不存在旧版 base64 内嵌附件：附件一律以
+    // 加密文件落盘并登记 storageKey，因此这里不再有 legacyFileBytes 迁移分支。
+    final data = result.data;
 
     _attachmentRepository = attachments;
     await attachments.prune(
@@ -107,11 +92,31 @@ class WorkspaceController implements WorkspaceObservable {
     _notifyListeners();
     try {
       await repository.save(data, _settings);
+      // 数据库是唯一事实源：保存成功后再从库回读投影，刷新内存缓存，
+      // 避免内存快照与数据库分叉（例如其它行级写入已落库的字段）。
+      await _refreshFromRepository();
       _updateWidget();
     } catch (_) {
+      // 保存失败则原子回滚到上一个已提交的内存快照。
       _data = previous;
       _notifyListeners();
       rethrow;
+    }
+  }
+
+  /// 以数据库回读结果刷新内存投影（不触发附件迁移/清理等一次性逻辑）。
+  ///
+  /// 回读失败只说明投影刷新不可用——此时数据库已成功提交，保留刚保存的
+  /// 内存快照（与提交内容一致）比回滚到更旧的状态更安全，因此静默继续。
+  Future<void> _refreshFromRepository() async {
+    try {
+      final refreshed = await repository.load();
+      _data = refreshed.data;
+      _settings = refreshed.settings;
+      _dataPath = refreshed.path;
+      _notifyListeners();
+    } catch (_) {
+      // 见上方注释：静默保留已提交的本地投影。
     }
   }
 
@@ -152,18 +157,6 @@ class WorkspaceController implements WorkspaceObservable {
 
   Future<void> changePassword(String currentPassword, String newPassword) =>
       vaultRepository.changePassword(currentPassword, newPassword);
-
-  Future<CardoryLoadResult> restoreBackup(
-    List<int> bytes,
-    String password,
-  ) async {
-    final result = await vaultRepository.restoreFromBackup(
-      bytes,
-      password,
-    );
-    await applyLoadResult(result);
-    return result;
-  }
 
   Future<void> addProject(ProjectData project) async {
     try {
@@ -258,21 +251,15 @@ class WorkspaceController implements WorkspaceObservable {
   Future<void> deleteAssetTag(String tagId) async {
     await saveData(
       _data.copyWith(
-        assetTags: _data.assetTags
-            .where((item) => item.id != tagId)
-            .toList(),
-        assets: _data.assets
-            .map((asset) {
-              if (!asset.tagIds.contains(tagId)) return asset;
-              final remaining = asset.tagIds
-                  .where((id) => id != tagId)
-                  .toList();
-              return asset.copyWith(
-                tagIds: remaining,
-                clearTagIds: remaining.isEmpty,
-              );
-            })
-            .toList(),
+        assetTags: _data.assetTags.where((item) => item.id != tagId).toList(),
+        assets: _data.assets.map((asset) {
+          if (!asset.tagIds.contains(tagId)) return asset;
+          final remaining = asset.tagIds.where((id) => id != tagId).toList();
+          return asset.copyWith(
+            tagIds: remaining,
+            clearTagIds: remaining.isEmpty,
+          );
+        }).toList(),
       ),
     );
   }
@@ -283,15 +270,13 @@ class WorkspaceController implements WorkspaceObservable {
   ) async {
     await saveData(
       _data.copyWith(
-        assets: _data.assets
-            .map((asset) {
-              if (!assetIds.contains(asset.id)) return asset;
-              return asset.copyWith(
-                tagIds: tagIds.toList(),
-                clearTagIds: tagIds.isEmpty,
-              );
-            })
-            .toList(),
+        assets: _data.assets.map((asset) {
+          if (!assetIds.contains(asset.id)) return asset;
+          return asset.copyWith(
+            tagIds: tagIds.toList(),
+            clearTagIds: tagIds.isEmpty,
+          );
+        }).toList(),
       ),
     );
   }

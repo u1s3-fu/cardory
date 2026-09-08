@@ -29,7 +29,11 @@ class WorkspaceSettingsService {
     SyncCredentialUpdate credentials = const SyncCredentialUpdate(),
   }) async {
     final previous = await credentialStore.read();
-    final replacement = _replacementCredentials(previous, settings, credentials);
+    final replacement = _replacementCredentials(
+      previous,
+      settings,
+      credentials,
+    );
     await credentialStore.write(replacement);
     try {
       await repository.saveSettings(settings);
@@ -55,6 +59,7 @@ class WorkspaceSettingsService {
           : previous.selfHostedToken,
     ),
     SyncProviderType.s3 => SyncCredentials(s3: update.s3 ?? previous.s3),
-    SyncProviderType.none || SyncProviderType.directory => const SyncCredentials(),
+    SyncProviderType.none ||
+    SyncProviderType.directory => const SyncCredentials(),
   };
 }

@@ -28,8 +28,8 @@ enum ProjectPriority {
 
   final String label;
 
-  static ProjectPriority fromName(String name) => ProjectPriority.values
-      .firstWhere(
+  static ProjectPriority fromName(String name) =>
+      ProjectPriority.values.firstWhere(
         (item) => item.name == name,
         orElse: () => ProjectPriority.p2,
       );

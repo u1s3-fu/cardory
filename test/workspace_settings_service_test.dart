@@ -7,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('restores credentials when saving settings fails', () async {
     final credentials = _MemoryCredentials(
-      const SyncCredentials(webDav: WebDavCredentials(password: 'old-password')),
+      const SyncCredentials(
+        webDav: WebDavCredentials(password: 'old-password'),
+      ),
     );
     final service = WorkspaceSettingsService(
       repository: _FailingSettingsRepository(),

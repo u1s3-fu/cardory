@@ -72,11 +72,8 @@ class AttachmentCategory {
         createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
       );
 
-  AttachmentCategory copyWith({String? name}) => AttachmentCategory(
-    id: id,
-    name: name ?? this.name,
-    createdAt: createdAt,
-  );
+  AttachmentCategory copyWith({String? name}) =>
+      AttachmentCategory(id: id, name: name ?? this.name, createdAt: createdAt);
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -184,7 +181,9 @@ class AttachmentData {
     kind: kind ?? this.kind,
     note: note ?? this.note,
     createdAt: createdAt ?? this.createdAt,
-    categoryIds: clearCategoryIds ? const [] : (categoryIds ?? this.categoryIds),
+    categoryIds: clearCategoryIds
+        ? const []
+        : (categoryIds ?? this.categoryIds),
     legacyFileBytes: legacyFileBytes ?? this.legacyFileBytes,
   );
 
@@ -221,11 +220,7 @@ DateTime _readAttachmentCreatedAt(Map<String, dynamic> json) {
 
 /// 资产标签。
 class AssetTag {
-  const AssetTag({
-    required this.id,
-    required this.name,
-    this.createdAt,
-  });
+  const AssetTag({required this.id, required this.name, this.createdAt});
 
   final String id;
   final String name;
@@ -237,11 +232,8 @@ class AssetTag {
     createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
   );
 
-  AssetTag copyWith({String? name}) => AssetTag(
-    id: id,
-    name: name ?? this.name,
-    createdAt: createdAt,
-  );
+  AssetTag copyWith({String? name}) =>
+      AssetTag(id: id, name: name ?? this.name, createdAt: createdAt);
 
   Map<String, dynamic> toJson() => {
     'id': id,

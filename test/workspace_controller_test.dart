@@ -4,7 +4,7 @@ import 'package:cardory/domain/attachment_repository.dart';
 import 'package:cardory/domain/widget_data_service.dart';
 import 'package:cardory/application/workspace_controller.dart';
 import 'package:cardory/application/workspace_settings_service.dart';
-import 'package:cardory/data/cardory_store.dart';
+import 'package:cardory/domain/cardory_repository.dart';
 import 'package:cardory/domain/cardory_models.dart';
 import 'package:cardory/sync/sync_credentials.dart';
 import 'package:cardory/sync/sync_models.dart';
@@ -224,10 +224,6 @@ class _MemoryAttachments implements AttachmentRepository {
       deleted.add(attachment);
 
   @override
-  Future<AttachmentData> migrateLegacy(AttachmentData attachment) async =>
-      attachment;
-
-  @override
   Future<bool> contains(AttachmentData attachment) async => false;
 
   @override
@@ -260,9 +256,13 @@ class _MemoryAttachments implements AttachmentRepository {
 
 class _RecordingWidgetService implements WidgetDataService {
   CardoryData? lastData;
+  int clearCount = 0;
 
   @override
   Future<void> updateWidgetData(CardoryData data) async => lastData = data;
+
+  @override
+  Future<void> clearWidgetData() async => clearCount++;
 }
 
 class _Credentials implements SyncCredentialStore {

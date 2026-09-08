@@ -95,11 +95,12 @@ class AppSettings {
     s3Region: json['s3Region'] as String? ?? 'us-east-1',
     s3Bucket: json['s3Bucket'] as String? ?? '',
     s3Prefix: json['s3Prefix'] as String? ?? 'cardory',
-    pendingAttachmentDeletes: ((json['pendingAttachmentDeletes'] as List?) ?? [])
-        .whereType<String>()
-        .where((key) => key.isNotEmpty)
-        .toSet()
-        .toList(),
+    pendingAttachmentDeletes:
+        ((json['pendingAttachmentDeletes'] as List?) ?? [])
+            .whereType<String>()
+            .where((key) => key.isNotEmpty)
+            .toSet()
+            .toList(),
     syncRevision: json['syncRevision'] as String?,
     syncLocalHash: json['syncLocalHash'] as String?,
     lastSyncedAt: DateTime.tryParse(json['lastSyncedAt'] as String? ?? ''),
@@ -243,8 +244,9 @@ class AppSettings {
     syncRevision: clearSyncState ? null : syncRevision ?? this.syncRevision,
     syncLocalHash: clearSyncState ? null : syncLocalHash ?? this.syncLocalHash,
     lastSyncedAt: clearSyncState ? null : lastSyncedAt ?? this.lastSyncedAt,
-    configSyncHash:
-        clearSyncState ? null : configSyncHash ?? this.configSyncHash,
+    configSyncHash: clearSyncState
+        ? null
+        : configSyncHash ?? this.configSyncHash,
     lastConfigUpdatedAt: clearSyncState
         ? null
         : lastConfigUpdatedAt ?? this.lastConfigUpdatedAt,

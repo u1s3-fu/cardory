@@ -19,8 +19,6 @@ abstract interface class AttachmentRepository {
     DateTime? createdAt,
   });
 
-  Future<AttachmentData> migrateLegacy(AttachmentData attachment);
-
   Future<void> exportFile(AttachmentData attachment, String targetPath);
 
   /// 读取附件的解密内容。file_picker 12 的 saveFile 需要直接提供字节。
@@ -32,7 +30,10 @@ abstract interface class AttachmentRepository {
 
   String encryptedPath(AttachmentData attachment);
 
-  Future<void> installEncrypted(AttachmentData attachment, String downloadedPath);
+  Future<void> installEncrypted(
+    AttachmentData attachment,
+    String downloadedPath,
+  );
 
   Future<String> createDownloadTarget(AttachmentData attachment);
 

@@ -23,6 +23,7 @@ class AttachmentStorageException implements Exception {
 
 class AttachmentStore implements AttachmentRepository {
   AttachmentStore({required Directory rootDirectory, Random? random})
+    // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头，无法用 this._rootDirectory。
     : _rootDirectory = rootDirectory,
       _random = random ?? Random.secure();
 
@@ -78,37 +79,6 @@ class AttachmentStore implements AttachmentRepository {
       if (await temporary.exists()) await temporary.delete();
       if (error is AttachmentStorageException) rethrow;
       throw AttachmentStorageException('无法加密保存附件：$fileName', error);
-    }
-  }
-
-  @override
-  Future<AttachmentData> migrateLegacy(AttachmentData attachment) async {
-    final legacy = attachment.legacyFileBytes;
-    if (legacy == null) return attachment;
-    final temporarySource = File(
-      path.join(
-        _rootDirectory.path,
-        '.legacy-${attachment.id}-${DateTime.now().microsecondsSinceEpoch}',
-      ),
-    );
-    try {
-      await temporarySource.parent.create(recursive: true);
-      await temporarySource.writeAsBytes(base64Decode(legacy), flush: true);
-      return await importFile(
-        sourcePath: temporarySource.path,
-        id: attachment.id,
-        fileName: attachment.fileName,
-        mimeType: attachment.mimeType,
-        note: attachment.note,
-        createdAt: attachment.createdAt,
-      );
-    } on FormatException catch (error) {
-      throw AttachmentStorageException(
-        '旧附件 ${attachment.fileName} 的内容格式无效。',
-        error,
-      );
-    } finally {
-      if (await temporarySource.exists()) await temporarySource.delete();
     }
   }
 

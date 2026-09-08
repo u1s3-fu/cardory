@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:cardory/data/attachment_store.dart';
-import 'package:cardory/domain/cardory_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -113,27 +111,4 @@ void main() {
     expect(await store.contains(active), isTrue);
     expect(await File(orphanPath).exists(), isFalse);
   });
-
-  test(
-    'migrates legacy base64 content without retaining it in metadata',
-    () async {
-      final legacy = AttachmentData(
-        id: 'legacy-1',
-        fileName: 'legacy.txt',
-        createdAt: DateTime.utc(2026, 8, 19),
-        legacyFileBytes: base64Encode(utf8.encode('legacy content')),
-      );
-
-      final migrated = await store.migrateLegacy(legacy);
-
-      expect(migrated.needsMigration, isFalse);
-      expect(migrated.legacyFileBytes, isNull);
-      expect(migrated.toJson(), isNot(contains('fileBytes')));
-      final output = File(
-        '${directory.path}${Platform.pathSeparator}legacy.txt',
-      );
-      await store.exportFile(migrated, output.path);
-      expect(await output.readAsString(), 'legacy content');
-    },
-  );
 }
