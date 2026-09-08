@@ -16,6 +16,7 @@ migrate_working_dir/
 # Dart runtime cache / workspace data
 .dart-appdata/
 .codebuddy/
+.zcode/
 
 # Flutter project metadata (auto-generated)
 .metadata
