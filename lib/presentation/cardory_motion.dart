@@ -51,27 +51,23 @@ class CardoryPageTransitionsBuilder extends PageTransitionsBuilder {
     Widget child,
   ) {
     // 新页面：从右 6% 进入。
-    final slide = Tween<Offset>(
-      begin: const Offset(0.06, 0),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: animation,
-        curve: CardoryMotion.outCubic,
-        reverseCurve: CardoryMotion.inCubic,
-      ),
-    );
+    final slide = Tween<Offset>(begin: const Offset(0.06, 0), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: CardoryMotion.outCubic,
+            reverseCurve: CardoryMotion.inCubic,
+          ),
+        );
     // 旧页面：被新页面覆盖时轻微下沉，形成层级关系。
-    final secondarySlide = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(0, 0.02),
-    ).animate(
-      CurvedAnimation(
-        parent: secondaryAnimation,
-        curve: CardoryMotion.outCubic,
-        reverseCurve: CardoryMotion.inCubic,
-      ),
-    );
+    final secondarySlide =
+        Tween<Offset>(begin: Offset.zero, end: const Offset(0, 0.02)).animate(
+          CurvedAnimation(
+            parent: secondaryAnimation,
+            curve: CardoryMotion.outCubic,
+            reverseCurve: CardoryMotion.inCubic,
+          ),
+        );
     // 新页面：柔和淡入。
     final fade = CurvedAnimation(
       parent: animation,

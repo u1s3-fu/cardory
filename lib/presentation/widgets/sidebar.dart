@@ -34,9 +34,7 @@ class Sidebar extends StatelessWidget {
     padding: EdgeInsets.fromLTRB(10, expanded ? 12 : 6, 10, 12),
     decoration: BoxDecoration(
       color: CardoryColors.white.withValues(alpha: 0.72),
-      border: Border(
-        right: BorderSide(color: CardoryColors.gray200),
-      ),
+      border: Border(right: BorderSide(color: CardoryColors.gray200)),
     ),
     child: Column(
       children: [
@@ -49,7 +47,10 @@ class Sidebar extends StatelessWidget {
                   minimumSize: const Size(40, 44),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                constraints: const BoxConstraints.tightFor(width: 40, height: 44),
+                constraints: const BoxConstraints.tightFor(
+                  width: 40,
+                  height: 44,
+                ),
                 padding: EdgeInsets.zero,
                 onPressed: onToggleExpanded,
                 icon: Icon(
@@ -204,8 +205,9 @@ class _SidebarItemState extends State<SidebarItem>
                         color: widget.selected
                             ? CardoryColors.gray900
                             : CardoryColors.gray600,
-                        fontWeight:
-                            widget.selected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: widget.selected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                       ),
                     ),
                   ),

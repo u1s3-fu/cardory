@@ -29,7 +29,9 @@ class PanelHeader extends StatelessWidget {
     builder: (context, constraints) {
       final titleRow = Row(
         children: [
-          Expanded(child: SectionTitle(title: title, subtitle: subtitle)),
+          Expanded(
+            child: SectionTitle(title: title, subtitle: subtitle),
+          ),
           primaryAction,
         ],
       );
@@ -45,7 +47,9 @@ class PanelHeader extends StatelessWidget {
       }
       return Row(
         children: [
-          Expanded(child: SectionTitle(title: title, subtitle: subtitle)),
+          Expanded(
+            child: SectionTitle(title: title, subtitle: subtitle),
+          ),
           ...actions,
           const SizedBox(width: 8),
           primaryAction,

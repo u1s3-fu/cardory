@@ -133,10 +133,7 @@ class AttachmentRow extends StatelessWidget {
                 const SizedBox(height: 5),
                 Text(
                   attachment.note,
-                  style: TextStyle(
-                    color: CardoryColors.gray500,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: CardoryColors.gray500, fontSize: 12),
                 ),
               ],
             ],

@@ -247,7 +247,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
       ),
       credentials: WebDavCredentials(password: sync?.webDavPassword ?? ''),
       selfHostedToken: sync?.selfHostedToken ?? '',
-      s3: sync != null && sync.s3AccessKey.isNotEmpty && sync.s3SecretKey.isNotEmpty
+      s3:
+          sync != null &&
+              sync.s3AccessKey.isNotEmpty &&
+              sync.s3SecretKey.isNotEmpty
           ? S3Credentials(
               accessKey: sync.s3AccessKey,
               secretKey: sync.s3SecretKey,

@@ -30,7 +30,8 @@ class ProjectAttachmentsPanel extends StatefulWidget {
   final Future<void> Function(
     List<AttachmentData> attachments,
     List<AttachmentCategory> categories,
-  ) onChanged;
+  )
+  onChanged;
   final AttachmentRepository? repository;
   final bool renameOnUpload;
   final bool keepExtensionOnRename;
@@ -54,8 +55,9 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
         .toList();
   }
 
-  List<AttachmentData> get _selectedAttachments =>
-      widget.attachments.where((item) => _selectedIds.contains(item.id)).toList();
+  List<AttachmentData> get _selectedAttachments => widget.attachments
+      .where((item) => _selectedIds.contains(item.id))
+      .toList();
 
   Future<void> _pickFiles() async {
     final repository = widget.repository;
@@ -95,9 +97,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
           }
         }
       }
-      await _change(
-        attachments: [...widget.attachments, ...imported],
-      );
+      await _change(attachments: [...widget.attachments, ...imported]);
     } catch (error) {
       debugPrint('Failed to import project attachments: $error');
       if (!handedToWorkspace) {
@@ -113,15 +113,14 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     }
   }
 
-  Future<Map<String, String>?> _promptBatchRename(
-    List<AttachmentData> files,
-  ) => showDialog<Map<String, String>>(
-    context: context,
-    builder: (_) => BatchRenameDialog(
-      files: files,
-      keepExtension: widget.keepExtensionOnRename,
-    ),
-  );
+  Future<Map<String, String>?> _promptBatchRename(List<AttachmentData> files) =>
+      showDialog<Map<String, String>>(
+        context: context,
+        builder: (_) => BatchRenameDialog(
+          files: files,
+          keepExtension: widget.keepExtensionOnRename,
+        ),
+      );
 
   Future<void> _export(AttachmentData attachment) async {
     final repository = widget.repository;
@@ -153,9 +152,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     if (selected.isEmpty) return;
     String? directory;
     try {
-      directory = await FilePicker.getDirectoryPath(
-        dialogTitle: '选择导出目录',
-      );
+      directory = await FilePicker.getDirectoryPath(dialogTitle: '选择导出目录');
     } catch (_) {
       directory = null;
     }
@@ -176,9 +173,9 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
         exported++;
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已导出 $exported 个附件。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('已导出 $exported 个附件。')));
       }
     } catch (error) {
       debugPrint('Failed to batch export project attachments: $error');
@@ -203,7 +200,8 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     await _change(
       attachments: widget.attachments
           .map(
-            (item) => item.id == attachment.id ? item.copyWith(note: note) : item,
+            (item) =>
+                item.id == attachment.id ? item.copyWith(note: note) : item,
           )
           .toList(),
     );
@@ -228,7 +226,9 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     await _change(
       attachments: widget.attachments
           .map(
-            (item) => item.id == attachment.id ? item.copyWith(fileName: newName) : item,
+            (item) => item.id == attachment.id
+                ? item.copyWith(fileName: newName)
+                : item,
           )
           .toList(),
     );
@@ -377,9 +377,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
 
   void _showError(String message) {
     // 先清除排队中的提示（如父级先弹出的通用错误），避免具体错误被延迟展示。
-    ScaffoldMessenger.of(
-      context,
-    )
+    ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
@@ -398,7 +396,8 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
         children: [
           PanelHeader(
             title: '项目附件',
-            subtitle: '${widget.attachments.length} 个文件 · '
+            subtitle:
+                '${widget.attachments.length} 个文件 · '
                 '${widget.categories.length} 个分类',
             actions: [
               IconButton(
@@ -417,9 +416,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
                   _selectedIds.isEmpty
                       ? Icons.checklist_rounded
                       : Icons.close_rounded,
-                  color: _selectedIds.isEmpty
-                      ? null
-                      : CardoryColors.primary,
+                  color: _selectedIds.isEmpty ? null : CardoryColors.primary,
                 ),
               ),
               SegmentedButton<bool>(
@@ -440,9 +437,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
                     ? null
                     : (value) => setState(() => _grouped = value.first),
                 showSelectedIcon: false,
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                ),
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
               ),
             ],
             primaryAction: FilledButton.tonalIcon(
@@ -526,43 +521,39 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
   Widget _buildList(
     List<AttachmentData> filtered,
     Map<String, String> categoryById,
-  ) =>
-      ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: filtered.length,
-        itemBuilder: (context, index) => Column(
-          key: ValueKey('attachment-${filtered[index].id}'),
-          children: [
-            _buildRow(filtered[index], categoryById),
-            if (index < filtered.length - 1) const Divider(height: 20),
-          ],
-        ),
-      );
+  ) => ListView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: filtered.length,
+    itemBuilder: (context, index) => Column(
+      key: ValueKey('attachment-${filtered[index].id}'),
+      children: [
+        _buildRow(filtered[index], categoryById),
+        if (index < filtered.length - 1) const Divider(height: 20),
+      ],
+    ),
+  );
 
   Widget _buildGrouped(
     List<AttachmentData> filtered,
     Map<String, String> categoryById,
-  ) =>
-      GroupedExpansionList<AttachmentData>(
-        items: filtered,
-        groupKeysOf: (attachment) => attachment.categoryIds,
-        groupOrder: [for (final category in widget.categories) category.id],
-        groupTitleOf: (key) => categoryById[key] ?? key,
-        rowBuilder: (context, attachment) =>
-            _buildRow(attachment, categoryById),
-        uncategorizedTitle: '未分类',
-        countLabel: '个文件',
-        groupIcon: Icons.label_outline_rounded,
-        uncategorizedIcon: Icons.folder_off_outlined,
-        rowSeparator: const Divider(height: 20),
-      );
+  ) => GroupedExpansionList<AttachmentData>(
+    items: filtered,
+    groupKeysOf: (attachment) => attachment.categoryIds,
+    groupOrder: [for (final category in widget.categories) category.id],
+    groupTitleOf: (key) => categoryById[key] ?? key,
+    rowBuilder: (context, attachment) => _buildRow(attachment, categoryById),
+    uncategorizedTitle: '未分类',
+    countLabel: '个文件',
+    groupIcon: Icons.label_outline_rounded,
+    uncategorizedIcon: Icons.folder_off_outlined,
+    rowSeparator: const Divider(height: 20),
+  );
 
   Widget _buildRow(
     AttachmentData attachment,
     Map<String, String> categoryById,
-  ) =>
-      AttachmentRow(
+  ) => AttachmentRow(
     attachment: attachment,
     categoryNamesById: categoryById,
     selected: _selectedIds.contains(attachment.id),

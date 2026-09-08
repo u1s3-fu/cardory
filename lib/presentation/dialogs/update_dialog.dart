@@ -116,7 +116,10 @@ Future<void> showUpdateDialog(
 
 /// 在系统浏览器中打开链接；失败时提示。
 Future<void> _launchUrl(BuildContext context, String url) async {
-  final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  final ok = await launchUrl(
+    Uri.parse(url),
+    mode: LaunchMode.externalApplication,
+  );
   if (!ok && context.mounted) {
     ScaffoldMessenger.of(
       context,

@@ -86,10 +86,7 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
     }
   }
 
-  Future<void> _assignTags(
-    Set<String> assetIds,
-    Set<String> initialIds,
-  ) async {
+  Future<void> _assignTags(Set<String> assetIds, Set<String> initialIds) async {
     final selected = await showDialog<Set<String>>(
       context: context,
       builder: (_) => AssetTagAssignDialog(
@@ -105,9 +102,9 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
     } catch (error) {
       debugPrint('Failed to update asset tags: $error');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('标签更新失败，请稍后重试。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('标签更新失败，请稍后重试。')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -132,7 +129,8 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
         children: [
           PanelHeader(
             title: '项目资产',
-            subtitle: '软件与硬件资产均归属当前项目 · '
+            subtitle:
+                '软件与硬件资产均归属当前项目 · '
                 '${widget.assetTags.length} 个标签',
             actions: [
               IconButton(
@@ -151,9 +149,7 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
                   _selectedIds.isEmpty
                       ? Icons.checklist_rounded
                       : Icons.close_rounded,
-                  color: _selectedIds.isEmpty
-                      ? null
-                      : CardoryColors.primary,
+                  color: _selectedIds.isEmpty ? null : CardoryColors.primary,
                 ),
               ),
               SegmentedButton<bool>(
@@ -262,10 +258,7 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
         ),
       );
 
-  Widget _buildGrouped(
-    List<AssetData> filtered,
-    Map<String, String> tagById,
-  ) =>
+  Widget _buildGrouped(List<AssetData> filtered, Map<String, String> tagById) =>
       GroupedExpansionList<AssetData>(
         items: filtered,
         groupKeysOf: (asset) => asset.tagIds,

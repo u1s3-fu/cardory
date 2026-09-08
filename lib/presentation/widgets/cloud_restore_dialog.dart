@@ -34,7 +34,8 @@ class CloudRestoreDialog extends StatefulWidget {
     String password,
     AppSettings settings,
     SyncCredentials credentials,
-  )? onRestored;
+  )?
+  onRestored;
 
   /// 展示恢复向导。
   ///
@@ -47,7 +48,8 @@ class CloudRestoreDialog extends StatefulWidget {
       String password,
       AppSettings settings,
       SyncCredentials credentials,
-    )? onRestored,
+    )?
+    onRestored,
   }) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -134,10 +136,13 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
     }
     if (settings.s3Endpoint.trim().isNotEmpty) {
       _s3Endpoint.text = settings.s3Endpoint;
-      _s3Region.text = settings.s3Region.isEmpty ? 'us-east-1' : settings.s3Region;
+      _s3Region.text = settings.s3Region.isEmpty
+          ? 'us-east-1'
+          : settings.s3Region;
       _s3Bucket.text = settings.s3Bucket;
-      _s3Prefix.text =
-          settings.s3Prefix.isEmpty ? 'cardory' : settings.s3Prefix;
+      _s3Prefix.text = settings.s3Prefix.isEmpty
+          ? 'cardory'
+          : settings.s3Prefix;
     }
   }
 
@@ -250,9 +255,7 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
               _buildHeader(),
               const SizedBox(height: 16),
               Flexible(
-                child: SingleChildScrollView(
-                  child: _buildStepBody(theme),
-                ),
+                child: SingleChildScrollView(child: _buildStepBody(theme)),
               ),
               const SizedBox(height: 16),
               _buildActions(theme),
@@ -266,8 +269,10 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.cloud_sync_outlined,
-            color: Theme.of(context).colorScheme.primary),
+        Icon(
+          Icons.cloud_sync_outlined,
+          color: Theme.of(context).colorScheme.primary,
+        ),
         const SizedBox(width: 12),
         const Expanded(
           child: Text(
@@ -330,9 +335,8 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
           title: 'WebDAV',
           subtitle: '兼容 WebDAV 的云盘或自建服务器',
           selected: _serviceType == CloudRestoreServiceType.webDav,
-          onTap: () => setState(
-            () => _serviceType = CloudRestoreServiceType.webDav,
-          ),
+          onTap: () =>
+              setState(() => _serviceType = CloudRestoreServiceType.webDav),
         ),
         const SizedBox(height: 12),
         _ServiceCard(
@@ -340,9 +344,8 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
           title: 'S3 兼容存储',
           subtitle: 'Amazon S3 或兼容 S3 协议的对象存储',
           selected: _serviceType == CloudRestoreServiceType.s3,
-          onTap: () => setState(
-            () => _serviceType = CloudRestoreServiceType.s3,
-          ),
+          onTap: () =>
+              setState(() => _serviceType = CloudRestoreServiceType.s3),
         ),
       ],
     );
@@ -439,11 +442,7 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            Icons.inbox_outlined,
-            size: 48,
-            color: CardoryColors.gray400,
-          ),
+          Icon(Icons.inbox_outlined, size: 48, color: CardoryColors.gray400),
           const SizedBox(height: 12),
           Text(
             '云端没有可恢复的备份数据。',
@@ -452,11 +451,13 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
-            onPressed: _busy ? null : () => setState(() {
-              _connected = false;
-              _backup = null;
-              _error = null;
-            }),
+            onPressed: _busy
+                ? null
+                : () => setState(() {
+                    _connected = false;
+                    _backup = null;
+                    _error = null;
+                  }),
             icon: const Icon(Icons.refresh),
             label: const Text('重新连接'),
           ),
@@ -500,10 +501,7 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          '恢复将覆盖当前设备上的本地数据，请确认备份内容后继续。',
-          style: theme.textTheme.bodySmall,
-        ),
+        Text('恢复将覆盖当前设备上的本地数据，请确认备份内容后继续。', style: theme.textTheme.bodySmall),
       ],
     );
   }
@@ -525,17 +523,16 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
       children: [
         if (_step > _stepSelect)
           TextButton(
-            onPressed:
-                _busy || (_connected && _step == _stepBackup)
-                    ? null
-                    : () => setState(() {
-                      _step = _step - 1;
-                      _error = null;
-                      if (_step == _stepConfigure) {
-                        _connected = false;
-                        _backup = null;
-                      }
-                    }),
+            onPressed: _busy || (_connected && _step == _stepBackup)
+                ? null
+                : () => setState(() {
+                    _step = _step - 1;
+                    _error = null;
+                    if (_step == _stepConfigure) {
+                      _connected = false;
+                      _backup = null;
+                    }
+                  }),
             child: const Text('上一步'),
           ),
         const SizedBox(width: 8),
@@ -544,16 +541,14 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
             onPressed: _serviceType == null || _busy
                 ? null
                 : () => setState(() {
-                  _step = _stepConfigure;
-                  _error = null;
-                }),
+                    _step = _stepConfigure;
+                    _error = null;
+                  }),
             child: const Text('下一步'),
           )
         else if (_step == _stepConfigure)
           FilledButton(
-            onPressed: _busy
-                ? null
-                : () => _connect(),
+            onPressed: _busy ? null : () => _connect(),
             child: _busy
                 ? const SizedBox(
                     width: 18,
@@ -615,7 +610,10 @@ class _ServiceCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icon, color: selected ? primary : theme.colorScheme.onSurfaceVariant),
+            Icon(
+              icon,
+              color: selected ? primary : theme.colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -623,15 +621,11 @@ class _ServiceCard extends StatelessWidget {
                 children: [
                   Text(title, style: theme.textTheme.titleMedium),
                   const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall,
-                  ),
+                  Text(subtitle, style: theme.textTheme.bodySmall),
                 ],
               ),
             ),
-            if (selected)
-              Icon(Icons.check_circle, color: primary),
+            if (selected) Icon(Icons.check_circle, color: primary),
           ],
         ),
       ),

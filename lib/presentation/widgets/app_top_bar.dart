@@ -29,11 +29,7 @@ class AppTopBar extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: CardoryColors.white.withValues(alpha: 0.85),
-        border: Border(
-          bottom: BorderSide(
-            color: CardoryColors.gray200,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: CardoryColors.gray200)),
         // 扁平化：不使用阴影。
       ),
       child: Row(

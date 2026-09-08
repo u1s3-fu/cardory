@@ -39,8 +39,9 @@ class _CategoryManagerDialogState extends State<CategoryManagerDialog> {
   final TextEditingController _newCategory = TextEditingController();
   final Set<String> _removedIds = {};
 
-  int _countFor(String categoryId) =>
-      _attachments.where((item) => item.categoryIds.contains(categoryId)).length;
+  int _countFor(String categoryId) => _attachments
+      .where((item) => item.categoryIds.contains(categoryId))
+      .length;
 
   void _addCategory() {
     final name = _newCategory.text.trim();
@@ -94,7 +95,10 @@ class _CategoryManagerDialogState extends State<CategoryManagerDialog> {
     });
   }
 
-  AttachmentData _withoutCategory(AttachmentData attachment, String categoryId) {
+  AttachmentData _withoutCategory(
+    AttachmentData attachment,
+    String categoryId,
+  ) {
     final remaining = attachment.categoryIds
         .where((id) => id != categoryId)
         .toList();
@@ -133,10 +137,7 @@ class _CategoryManagerDialogState extends State<CategoryManagerDialog> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _addCategory,
-                  child: const Text('添加'),
-                ),
+                FilledButton(onPressed: _addCategory, child: const Text('添加')),
               ],
             ),
             const SizedBox(height: 8),
@@ -169,14 +170,12 @@ class _CategoryManagerDialogState extends State<CategoryManagerDialog> {
                                   ),
                                   IconButton(
                                     tooltip: '重命名分类',
-                                    onPressed: () =>
-                                        _renameCategory(category),
+                                    onPressed: () => _renameCategory(category),
                                     icon: const Icon(Icons.edit_outlined),
                                   ),
                                   IconButton(
                                     tooltip: '删除分类',
-                                    onPressed: () =>
-                                        _deleteCategory(category),
+                                    onPressed: () => _deleteCategory(category),
                                     icon: const Icon(Icons.delete_outline),
                                   ),
                                 ],
@@ -240,7 +239,10 @@ class _CategoryAssignDialogState extends State<CategoryAssignDialog> {
                 children: [
                   Text(
                     '可选择一个或多个分类，保存后将覆盖所选附件的现有分类。',
-                    style: TextStyle(color: CardoryColors.gray500, fontSize: 12),
+                    style: TextStyle(
+                      color: CardoryColors.gray500,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   for (final category in widget.categories)
@@ -378,4 +380,3 @@ class _BatchRenameDialogState extends State<BatchRenameDialog> {
     );
   }
 }
-

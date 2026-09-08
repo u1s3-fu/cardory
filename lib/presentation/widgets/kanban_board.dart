@@ -140,11 +140,7 @@ class KanbanColumn extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (projects.isEmpty)
-            EmptyCard(
-              text: '暂无项目',
-              actionLabel: '新建项目',
-              onAction: onAddProject,
-            )
+            EmptyCard(text: '暂无项目', actionLabel: '新建项目', onAction: onAddProject)
           else
             ListView.builder(
               shrinkWrap: true,
@@ -220,9 +216,7 @@ class _ProjectCardState extends State<ProjectCard> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: _hovered
-                    ? CardoryColors.gray300
-                    : CardoryColors.gray200,
+                color: _hovered ? CardoryColors.gray300 : CardoryColors.gray200,
               ),
               // 扁平化：hover 时以边框加深替代阴影浮起。
               boxShadow: const [

@@ -52,8 +52,11 @@ class PriorityBadge extends StatelessWidget {
   final bool onDark;
 
   @override
-  Widget build(BuildContext context) =>
-      _BadgeContainer(label: priority.label, color: priority.color, onDark: onDark);
+  Widget build(BuildContext context) => _BadgeContainer(
+    label: priority.label,
+    color: priority.color,
+    onDark: onDark,
+  );
 }
 
 class StageBadge extends StatelessWidget {

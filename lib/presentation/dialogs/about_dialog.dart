@@ -146,9 +146,9 @@ Future<void> _launchUrl(BuildContext context, String url) async {
     mode: LaunchMode.externalApplication,
   );
   if (!ok && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('无法打开链接：$url')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('无法打开链接：$url')));
   }
 }
 

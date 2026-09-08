@@ -44,11 +44,7 @@ class SectionNavigation extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
         color: CardoryColors.white.withValues(alpha: 0.72),
-        border: Border(
-          bottom: BorderSide(
-            color: CardoryColors.gray200,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: CardoryColors.gray200)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,

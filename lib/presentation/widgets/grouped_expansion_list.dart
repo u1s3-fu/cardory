@@ -143,10 +143,7 @@ class _GroupedExpansionListState<T> extends State<GroupedExpansionList<T>> {
           key == null ? widget.uncategorizedIcon : widget.groupIcon,
           color: CardoryColors.primary,
         ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Text('${items.length} ${widget.countLabel}'),
         children: [
           for (var index = 0; index < items.length; index++) ...[

@@ -89,8 +89,7 @@ Future<bool> showConfirmDialog(
           style: confirmColor == null
               ? null
               : FilledButton.styleFrom(
-                  backgroundColor:
-                      cardoryEnsureWhiteContrast(confirmColor),
+                  backgroundColor: cardoryEnsureWhiteContrast(confirmColor),
                   foregroundColor: CardoryColors.white,
                 ),
           onPressed: () => Navigator.pop(dialogContext, true),

@@ -38,7 +38,10 @@ class _PasswordTextFieldState extends State<PasswordTextField> {
     onChanged: widget.onChanged,
     onSubmitted: widget.onSubmitted,
     decoration: widget.decoration.copyWith(
-      suffixIconConstraints: const BoxConstraints.tightFor(width: 40, height: 40),
+      suffixIconConstraints: const BoxConstraints.tightFor(
+        width: 40,
+        height: 40,
+      ),
       suffixIcon: SizedBox(
         width: 40,
         height: 40,

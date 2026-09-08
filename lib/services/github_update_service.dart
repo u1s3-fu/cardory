@@ -60,7 +60,8 @@ class GithubReleaseInfo {
   final List<GithubReleaseAsset> assets;
 
   /// 去掉 `v` 前缀后的版本号，如 `0.0.5`。
-  String get version => tagName.startsWith('v') ? tagName.substring(1) : tagName;
+  String get version =>
+      tagName.startsWith('v') ? tagName.substring(1) : tagName;
 
   factory GithubReleaseInfo.fromJson(Map<String, dynamic> json) =>
       GithubReleaseInfo(
@@ -165,7 +166,8 @@ GithubReleaseAsset? preferredAssetForCurrentPlatform(
 
 /// 基于 GitHub Releases 的更新检查服务。
 class GithubUpdateService {
-  GithubUpdateService({http.Client? client}) : _client = client ?? http.Client();
+  GithubUpdateService({http.Client? client})
+    : _client = client ?? http.Client();
 
   /// GitHub 仓库（所有者/仓库名）。
   static const String repository = 'u1s3-fu/cardory';

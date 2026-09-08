@@ -397,15 +397,15 @@ ThemeData buildCardoryTheme(
           (states) => states.contains(WidgetState.selected)
               ? CardoryColors.white
               : states.contains(WidgetState.disabled)
-                  ? CardoryColors.gray400
-                  : CardoryColors.gray600,
+              ? CardoryColors.gray400
+              : CardoryColors.gray600,
         ),
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
               ? primary
               : states.contains(WidgetState.disabled)
-                  ? CardoryColors.gray100
-                  : CardoryColors.white,
+              ? CardoryColors.gray100
+              : CardoryColors.white,
         ),
         overlayColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.hovered)
@@ -466,8 +466,8 @@ ThemeData buildCardoryTheme(
         (states) => states.contains(WidgetState.selected)
             ? primary
             : states.contains(WidgetState.disabled)
-                ? CardoryColors.gray100
-                : CardoryColors.white,
+            ? CardoryColors.gray100
+            : CardoryColors.white,
       ),
       side: BorderSide(color: CardoryColors.gray300, width: 1.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
@@ -542,6 +542,5 @@ class CardoryScrollBehavior extends MaterialScrollBehavior {
     BuildContext context,
     Widget child,
     ScrollableDetails details,
-  ) =>
-      child;
+  ) => child;
 }

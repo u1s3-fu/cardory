@@ -52,9 +52,7 @@ class _AssetDialogState extends State<AssetDialog> {
     text: widget.asset?.password ?? '',
   );
   late final _note = TextEditingController(text: widget.asset?.note ?? '');
-  late final Set<String> _selectedTagIds = {
-    ...?widget.asset?.tagIds,
-  };
+  late final Set<String> _selectedTagIds = {...?widget.asset?.tagIds};
   String? _error;
 
   @override

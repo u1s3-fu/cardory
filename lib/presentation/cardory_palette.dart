@@ -149,11 +149,7 @@ Color cardoryEnsureContrast(
 
 /// 将 [color] 加深到与白色对比度 ≥ [minRatio]（默认 4.5:1，图形可用 3:1）。
 Color cardoryEnsureWhiteContrast(Color color, {double minRatio = 4.5}) =>
-    cardoryEnsureContrast(
-      color,
-      const Color(0xFFFFFFFF),
-      minRatio: minRatio,
-    );
+    cardoryEnsureContrast(color, const Color(0xFFFFFFFF), minRatio: minRatio);
 
 /// 由背景色与强调色推导一套完整调色板。
 ///

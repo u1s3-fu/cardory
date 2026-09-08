@@ -122,10 +122,7 @@ class _AssetTagManagerDialogState extends State<AssetTagManagerDialog> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _addTag,
-                  child: const Text('添加'),
-                ),
+                FilledButton(onPressed: _addTag, child: const Text('添加')),
               ],
             ),
             const SizedBox(height: 8),
@@ -228,7 +225,10 @@ class _AssetTagAssignDialogState extends State<AssetTagAssignDialog> {
                 children: [
                   Text(
                     '可选择一个或多个标签，保存后将覆盖所选资产的现有标签。',
-                    style: TextStyle(color: CardoryColors.gray500, fontSize: 12),
+                    style: TextStyle(
+                      color: CardoryColors.gray500,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   for (final tag in widget.assetTags)

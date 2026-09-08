@@ -6,11 +6,7 @@ import '../cardory_theme.dart';
 
 /// 多选状态下的批量操作条：展示选中数量与操作按钮。
 class BatchActionBar extends StatelessWidget {
-  const BatchActionBar({
-    super.key,
-    required this.count,
-    required this.actions,
-  });
+  const BatchActionBar({super.key, required this.count, required this.actions});
 
   final int count;
   final List<Widget> actions;

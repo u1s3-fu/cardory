@@ -38,10 +38,8 @@ class AssetDetailDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Chip(label: Text(isSoftware ? '软件资产' : '硬件资产')),
-              if (tagNames.isNotEmpty) _AssetDetailRow(
-                label: '标签',
-                value: tagNames.join('、'),
-              ),
+              if (tagNames.isNotEmpty)
+                _AssetDetailRow(label: '标签', value: tagNames.join('、')),
               const SizedBox(height: 12),
               if (isSoftware) ...[
                 _AssetDetailRow(label: '版本', value: asset.version),
