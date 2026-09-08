@@ -1,0 +1,69 @@
+# Cardory 项目的 Git 忽略规则。
+# 忽略编译产物、IDE/编辑器配置、平台自动生成的临时文件以及本地敏感配置。
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# Dart runtime cache / workspace data
+.dart-appdata/
+.codebuddy/
+
+# Flutter project metadata (auto-generated)
+.metadata
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Visual Studio Code related
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+.vs/
+/windows/out/
+**/windows/flutter/ephemeral/
+**/ephemeral/
+**/GeneratedPluginRegistrant.*
+key.properties
+*.jks
+*.keystore
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android build artifacts
+/android/build/
+/android/app/build/
+
+# 与软件构建无关的文档与素材：本地保留，不再推送到 GitHub（2026-09-08）
+/CONTEXT.md
+/docs/
+/assets/branding/app_icon_productivity.png
+/assets/branding/README.md
+/tools/
