@@ -1,6 +1,3 @@
-import 'dart:typed_data';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -306,37 +303,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _restoreBackupFromSettings() async {
-    try {
-      final file = await FilePicker.pickFile(
-        type: FileType.custom,
-        allowedExtensions: const ['cardory'],
-      );
-      if (file == null || !mounted) return;
-      final Uint8List bytes;
-      try {
-        bytes = await file.readAsBytes();
-      } catch (_) {
-        throw const CardoryStorageException('无法读取所选备份文件。');
-      }
-      if (!mounted) return;
-      final password = await showDialog<String>(
-        context: context,
-        builder: (_) => BackupPasswordDialog(fileName: file.name),
-      );
-      if (password == null || !mounted) return;
-      final result = await _controller.restoreBackup(bytes, password);
-      await widget.vaultCredentialStore.writePassword(password);
-      if (!mounted) return;
-      widget.onSettingsChanged(result.settings);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('数据已从备份恢复。')));
-    } catch (error) {
-      _showError(error, message: '恢复数据失败，请检查备份文件和密码。');
-    }
-  }
-
   Future<void> _addProject() async {
     final project = await showDialog<ProjectData>(
       context: context,
@@ -603,7 +569,6 @@ class _HomePageState extends State<HomePage> {
           onSync: _sync,
           onOpenSettings: _openSettings,
           onChangePassword: _changePassword,
-          onRestoreBackup: _restoreBackupFromSettings,
           onShowAbout: () => showAboutCardoryDialog(
             context,
             onCheckForUpdate: () => _checkForUpdate(manual: true),
@@ -774,7 +739,10 @@ class _HomePageState extends State<HomePage> {
 /// 订阅工作区控制器并在数据变化时重建子树的最小包装，
 /// 用于 Navigator 路由内容（路由不会随页面 setState 重建）。
 class _WorkspaceBoundBuilder extends StatefulWidget {
-  const _WorkspaceBoundBuilder({required this.controller, required this.builder});
+  const _WorkspaceBoundBuilder({
+    required this.controller,
+    required this.builder,
+  });
 
   final WorkspaceController controller;
   final WidgetBuilder builder;

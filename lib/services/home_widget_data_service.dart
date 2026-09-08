@@ -38,6 +38,22 @@ class HomeWidgetDataService implements WidgetDataService {
     }
   }
 
+  @override
+  Future<void> clearWidgetData() async {
+    try {
+      await HomeWidget.setAppGroupId(_iosAppGroupId);
+      // data 传 null 时 home_widget 会移除平台侧对应 key，
+      // 原生小组件将回退到「打开应用以同步待办」占位，不残留敏感摘要。
+      await HomeWidget.saveWidgetData<void>(_dataKey, null);
+      await HomeWidget.updateWidget(
+        androidName: _androidWidgetName,
+        iOSName: _iosWidgetName,
+      );
+    } catch (_) {
+      // 小组件清理失败不影响锁定主流程（应用侧已不再展示数据）
+    }
+  }
+
   // ----  helper  -------------------------------------------------------
 
   /// 优先级名称到中文标签的映射（与 iOS WidgetTodo.priorityLabel 结构一致）。
@@ -70,7 +86,9 @@ class HomeWidgetDataService implements WidgetDataService {
           : DateTime(t.endDate!.year, t.endDate!.month, t.endDate!.day);
       final isOverdue = dueDate != null && dueDate.isBefore(today);
       final isDueSoon =
-          dueDate != null && !isOverdue && dueDate.difference(today).inDays <= 1;
+          dueDate != null &&
+          !isOverdue &&
+          dueDate.difference(today).inDays <= 1;
       return {
         'id': t.id,
         'title': t.title,

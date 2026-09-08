@@ -4,7 +4,6 @@ import 'package:cardory/main.dart';
 import 'package:cardory/domain/attachment_repository.dart';
 import 'package:cardory/domain/cardory_repository.dart';
 import 'package:cardory/data/attachment_store.dart';
-import 'package:cardory/data/cardory_store.dart';
 import 'package:cardory/domain/cardory_models.dart';
 import 'package:cardory/presentation/widgets/sidebar.dart';
 import 'package:cardory/sync/sync_coordinator.dart';
@@ -293,7 +292,6 @@ void main() {
     var syncCount = 0;
     SettingsCategoryType? openedCategory;
     var passwordChangeCount = 0;
-    var restoreCount = 0;
     var aboutCount = 0;
     await tester.pumpWidget(
       MaterialApp(
@@ -311,7 +309,6 @@ void main() {
               onSync: () => syncCount++,
               onOpenSettings: (category) => openedCategory = category,
               onChangePassword: () => passwordChangeCount++,
-              onRestoreBackup: () => restoreCount++,
               onShowAbout: () => aboutCount++,
             ),
           ),
@@ -326,7 +323,7 @@ void main() {
     expect(find.text('同步方式：同步目录'), findsOneWidget);
     expect(find.text('网络不可用'), findsOneWidget);
     expect(find.text('修改密码'), findsOneWidget);
-    expect(find.text('恢复数据'), findsOneWidget);
+    expect(find.text('恢复数据'), findsNothing);
     expect(find.text('关于'), findsOneWidget);
 
     await tester.tap(find.text('安全'));
@@ -338,16 +335,12 @@ void main() {
     await tester.ensureVisible(find.text('修改密码'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('修改密码'));
-    await tester.ensureVisible(find.text('恢复数据'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('恢复数据'));
     await tester.ensureVisible(find.text('关于'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('关于'));
 
     expect(syncCount, 1);
     expect(passwordChangeCount, 1);
-    expect(restoreCount, 1);
     expect(aboutCount, 1);
   });
 
@@ -728,35 +721,6 @@ void main() {
     expect(result?.newPassword, 'replacement password');
   });
 
-  testWidgets('setup screen exposes the manual backup restore form', (
-    WidgetTester tester,
-  ) async {
-    final repository = _SetupRepository();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CardoryVaultGate(
-          vaultRepository: repository,
-          workspaceRepository: repository,
-          controllerFactory: controllerFactory(repository),
-          credentialStore: _CredentialStore(null),
-          vaultCredentialStore: _MemoryVaultCredentialStore(),
-          providerFactory: _noopFactory,
-          attachmentRepositoryFactory: AttachmentStore.forDataFile,
-          autoLockEnabled: true,
-          onSettingsChanged: (_) {},
-        ),
-      ),
-    );
-    await pumpUiFrames(tester);
-
-    await tester.tap(find.byKey(const Key('open-backup-restore')));
-    await pumpUiFrames(tester);
-
-    expect(find.text('从备份恢复'), findsOneWidget);
-    expect(find.byKey(const Key('pick-cardory-backup')), findsOneWidget);
-    expect(find.byKey(const Key('restore-password')), findsOneWidget);
-  });
-
   testWidgets('settings dialog keeps stored password out of text controller', (
     WidgetTester tester,
   ) async {
@@ -1114,21 +1078,6 @@ class _MemoryRepository implements CardoryRepository {
   }
 }
 
-class _SetupRepository extends _MemoryRepository {
-  _SetupRepository();
-
-  @override
-  Future<CardoryAccessState> accessState() async =>
-      CardoryAccessState.setupRequired;
-
-  @override
-  Future<CardoryLoadResult> setup(String password) async => CardoryLoadResult(
-    data: data,
-    settings: settings,
-    path: 'memory/cardory-data.json',
-  );
-}
-
 class _FailingRepository implements CardoryRepository {
   @override
   Future<CardoryAccessState> accessState() async => CardoryAccessState.unlocked;
@@ -1216,10 +1165,6 @@ class _MemoryAttachmentRepository implements AttachmentRepository {
     _attachments[attachment.storageKey] = attachment;
     return attachment;
   }
-
-  @override
-  Future<AttachmentData> migrateLegacy(AttachmentData attachment) async =>
-      attachment;
 
   @override
   Future<void> exportFile(AttachmentData attachment, String targetPath) async {}

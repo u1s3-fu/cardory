@@ -26,7 +26,6 @@ class SettingsPanel extends StatelessWidget {
     required this.onSync,
     required this.onOpenSettings,
     required this.onChangePassword,
-    required this.onRestoreBackup,
     required this.onShowAbout,
   });
 
@@ -35,7 +34,6 @@ class SettingsPanel extends StatelessWidget {
   final VoidCallback onSync;
   final ValueChanged<SettingsCategoryType> onOpenSettings;
   final VoidCallback onChangePassword;
-  final VoidCallback onRestoreBackup;
   final VoidCallback onShowAbout;
 
   @override
@@ -113,12 +111,6 @@ class SettingsPanel extends StatelessWidget {
               onPressed: onChangePassword,
               icon: const Icon(Icons.password_rounded),
               label: const Text('修改密码'),
-            ),
-            OutlinedButton.icon(
-              key: const Key('restore-data-backup'),
-              onPressed: onRestoreBackup,
-              icon: const Icon(Icons.restore_rounded),
-              label: const Text('恢复数据'),
             ),
           ],
         ),

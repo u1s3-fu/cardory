@@ -1,27 +1,29 @@
-// Cardory 应用入口。
-//
-// 以项目看板和待办为核心的跨平台进度管理工具。数据通过 AES-256-GCM
-// 加密容器持久化，支持目录同步 / WebDAV / 自建服务 / S3 兼容存储同步。
-// 启动时注入 [CardoryStore] 和 [SecureSyncCredentialStore] 作为实现。
+// 启动时通过 Riverpod 注入持久化与凭据实现；构造参数仍保留给测试和嵌入方。
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../application/workspace_controller_factory.dart';
+import '../data/attachment_store.dart';
 import '../domain/attachment_repository.dart';
+import '../domain/cardory_models.dart';
+import '../domain/cardory_repository.dart';
 import '../domain/sync_credentials.dart';
 import '../domain/widget_data_service.dart';
-import '../data/attachment_store.dart';
-import '../data/cardory_store.dart';
-import '../domain/cardory_models.dart';
+import '../providers/app_providers.dart';
+import '../routing/app_router.dart';
 import '../services/github_update_service.dart';
 import '../services/home_widget_data_service.dart';
+import '../sync/sync_coordinator.dart';
 import '../sync/sync_credentials.dart'
     show SecureSyncCredentialStore, SecureVaultCredentialStore;
-import '../sync/sync_coordinator.dart';
 import '../sync/sync_provider_registry.dart';
 import 'cardory_theme.dart';
 import 'model_colors.dart';
+import 'pages/home_page.dart';
 import 'pages/vault_gate.dart';
+import 'vault_auto_lock_controller.dart';
 
 // 以下 re-export 作为统一入口，供 main.dart 与 widget 测试
 // （test/widget_test.dart 经 package:cardory/main.dart）消费公共类型，
@@ -67,11 +69,14 @@ class CardoryApp extends StatefulWidget {
   }) : credentialStore = credentialStore ?? SecureSyncCredentialStore(),
        vaultCredentialStore =
            vaultCredentialStore ?? SecureVaultCredentialStore(),
+       // ignore: prefer_initializing_formals
        _providerFactory = providerFactory,
        _widgetDataService = widgetDataService ?? const HomeWidgetDataService(),
        _attachmentRepositoryFactory =
            attachmentRepositoryFactory ?? AttachmentStore.forDataFile,
+       // ignore: prefer_initializing_formals
        _connectionTester = connectionTester,
+       // ignore: prefer_initializing_formals
        _updateService = updateService;
 
   final VaultRepository vaultRepository;
@@ -116,15 +121,114 @@ class CardoryApp extends StatefulWidget {
   State<CardoryApp> createState() => _CardoryAppState();
 }
 
+/// 应用级会话状态。
+///
+/// 门禁解锁后由本 State 持有工作台会话（已加载结果、自动锁定与锁定清理），
+/// 并把工作台作为受保护路由 [workbenchRoutePath] 承载；锁定 / 应用进入后台时
+/// 统一在这里关闭数据库会话、清除已保存密码与桌面小组件摘要并回到门禁页。
 class _CardoryAppState extends State<CardoryApp> {
   AppSettings _settings = const AppSettings();
 
-  void _applySettings(AppSettings settings) =>
-      setState(() => _settings = settings);
+  /// 门禁路由的构建代际：锁定后自增，强制门禁页重建并重新检测保险库状态。
+  int _vaultEpoch = 0;
+
+  /// 当前保险库是否已解锁（redirect 门禁依据）。
+  bool _unlocked = false;
+
+  /// 解锁成功携带的加载结果，供工作台路由以无重复加载方式初始化。
+  CardoryLoadResult? _latestResult;
+
+  /// 通知 go_router 重新评估 redirect（状态切换的兜底门禁）。
+  final ValueNotifier<bool> _vaultUnlockedNotifier = ValueNotifier<bool>(false);
+
+  /// 负责清理业务页残留导航栈（详情页等 Navigator.push 的页面）。
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  VaultAutoLockController? _autoLock;
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = createAppRouter(
+      navigatorKey: _navigatorKey,
+      vaultGateBuilder: _buildVaultGate,
+      workbenchBuilder: _buildWorkbench,
+      isVaultUnlocked: () => _unlocked,
+      refreshListenable: _vaultUnlockedNotifier,
+      vaultPageEpoch: () => _vaultEpoch,
+    );
+  }
+
+  @override
+  void dispose() {
+    _disarmAutoLock();
+    _vaultUnlockedNotifier.dispose();
+    _router.dispose();
+    super.dispose();
+  }
+
+  void _applySettings(AppSettings settings) {
+    setState(() => _settings = settings);
+    // 自动锁定开关可能在设置中变化：按当前会话重新装配。
+    _armAutoLockIfNeeded();
+  }
+
+  /// 门禁解锁 / 自动解锁成功回调：切换受保护工作台路由。
+  void _handleUnlocked(CardoryLoadResult result) {
+    setState(() {
+      _unlocked = true;
+      _latestResult = result;
+    });
+    _vaultUnlockedNotifier.value = true;
+    _armAutoLockIfNeeded();
+    _router.go(workbenchRoutePath);
+  }
+
+  /// 自动锁定：应用进入后台且开启自动锁定时触发。
+  Future<void> _handleAutoLock() async => _lockSession();
+
+  /// 统一锁定流程（fail-closed）：
+  /// 关闭数据库会话 → 删除已保存密码 → 清除桌面小组件摘要 → 回到门禁页。
+  Future<void> _lockSession() async {
+    if (!_unlocked) return;
+    _disarmAutoLock();
+    try {
+      await widget.vaultSession?.lock();
+    } catch (_) {
+      // 会话关闭失败也不能让凭据与小组件摘要继续暴露。
+    }
+    await widget.vaultCredentialStore.deletePassword();
+    await widget.widgetDataService.clearWidgetData();
+    if (!mounted) return;
+    setState(() {
+      _unlocked = false;
+      _latestResult = null;
+      _vaultEpoch += 1;
+    });
+    _vaultUnlockedNotifier.value = false;
+    // 清掉业务页残留导航栈（详情页等），并让门禁页以新代际重建重新检测。
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    _router.go(vaultRoutePath);
+  }
+
+  void _armAutoLockIfNeeded() {
+    if (!_unlocked || !_settings.autoLockEnabled) {
+      _disarmAutoLock();
+      return;
+    }
+    if (_autoLock != null) return;
+    _autoLock = VaultAutoLockController(onLock: _handleAutoLock)..start();
+  }
+
+  void _disarmAutoLock() {
+    _autoLock?.stop();
+    _autoLock = null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: '板记 Cardory',
       debugShowCheckedModeBanner: false,
       theme: buildCardoryTheme(
@@ -133,34 +237,52 @@ class _CardoryAppState extends State<CardoryApp> {
       ),
       // 扁平化：桌面端隐藏滚动条（保留滚轮/键盘/触控板滚动）。
       scrollBehavior: const CardoryScrollBehavior(),
-      home: CardoryVaultGate(
-        vaultRepository: widget.vaultRepository,
-        workspaceRepository: widget.workspaceRepository,
-        controllerFactory: widget.controllerFactory,
-        vaultSession: widget.vaultSession,
-        credentialStore: widget.credentialStore,
-        vaultCredentialStore: widget.vaultCredentialStore,
-        providerFactory: widget.providerFactory,
-        autoLockEnabled: _settings.autoLockEnabled,
-        onSettingsChanged: _applySettings,
-        widgetDataService: widget.widgetDataService,
-        attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
-        connectionTester: widget.connectionTester,
-        updateService: widget.updateService,
-      ),
+      routerConfig: _router,
     );
   }
+
+  Widget _buildVaultGate(BuildContext context) => CardoryVaultGate(
+    vaultRepository: widget.vaultRepository,
+    workspaceRepository: widget.workspaceRepository,
+    credentialStore: widget.credentialStore,
+    vaultCredentialStore: widget.vaultCredentialStore,
+    attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
+    onSettingsChanged: _applySettings,
+    onUnlocked: _handleUnlocked,
+  );
+
+  Widget _buildWorkbench(BuildContext context) => HomePage(
+    controllerFactory: widget.controllerFactory,
+    vaultRepository: widget.vaultRepository,
+    credentialStore: widget.credentialStore,
+    vaultCredentialStore: widget.vaultCredentialStore,
+    onSettingsChanged: _applySettings,
+    initialResult: _latestResult,
+    attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
+    connectionTester: widget.connectionTester,
+    updateService: widget.updateService,
+  );
 }
 
 void runCardoryApp() {
-  final store = CardoryStore();
   runApp(
-    CardoryApp(
-      vaultRepository: store,
-      workspaceRepository: store,
-      syncRepository: store,
-      vaultSession: store,
-      credentialStore: SecureSyncCredentialStore(),
+    ProviderScope(
+      child: Consumer(
+        builder: (context, ref, child) => CardoryApp(
+          vaultRepository: ref.watch(vaultRepositoryProvider),
+          workspaceRepository: ref.watch(workspaceRepositoryProvider),
+          syncRepository: ref.watch(syncRepositoryProvider),
+          vaultSession: ref.watch(vaultSessionRepositoryProvider),
+          credentialStore: ref.watch(syncCredentialStoreProvider),
+          vaultCredentialStore: ref.watch(vaultCredentialStoreProvider),
+          providerFactory: ref.watch(syncProviderFactoryProvider),
+          widgetDataService: ref.watch(widgetDataServiceProvider),
+          attachmentRepositoryFactory: ref.watch(
+            attachmentRepositoryFactoryProvider,
+          ),
+          connectionTester: ref.watch(syncConnectionTesterProvider),
+        ),
+      ),
     ),
   );
 }

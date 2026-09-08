@@ -1,58 +1,45 @@
-import 'dart:typed_data';
+import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../../domain/attachment_repository.dart';
+import '../../domain/cardory_models.dart';
 import '../../domain/cardory_repository.dart';
 import '../../domain/sync_credentials.dart';
-import '../../domain/widget_data_service.dart';
-import '../../services/github_update_service.dart';
 import '../../sync/cloud_restore_service.dart';
-import '../../application/workspace_controller_factory.dart';
-import '../../domain/cardory_container.dart';
-import '../../domain/cardory_models.dart';
-import '../../sync/sync_provider.dart';
 import '../cardory_logo.dart';
 import '../cardory_theme.dart';
-import '../vault_auto_lock_controller.dart';
 import '../widgets/cloud_restore_dialog.dart';
 import '../widgets/password_text_field.dart';
-import 'home_page.dart';
 
+/// 保险库门禁页：承担创建 / 解锁 / 云端恢复与错误重试。
+///
+/// 门禁页自身不渲染工作台：解锁成功后通过 [CardoryVaultGate.onUnlocked]
+/// 把加载结果交还给应用层，由受保护路由 [workbenchRoutePath] 接管会话；
+/// 应用进入后台的自动锁定也已上移到应用层统一处理。
 class CardoryVaultGate extends StatefulWidget {
   const CardoryVaultGate({
     super.key,
     required this.vaultRepository,
     required this.workspaceRepository,
-    required this.controllerFactory,
-    this.vaultSession,
     required this.credentialStore,
     required this.vaultCredentialStore,
-    required this.providerFactory,
-    required this.autoLockEnabled,
-    required this.onSettingsChanged,
-    this.widgetDataService,
     required this.attachmentRepositoryFactory,
-    this.connectionTester,
-    this.updateService,
+    required this.onSettingsChanged,
+    required this.onUnlocked,
   });
 
   final VaultRepository vaultRepository;
   final WorkspaceRepository workspaceRepository;
-  final VaultSessionRepository? vaultSession;
   final SyncCredentialStore credentialStore;
   final VaultCredentialStore vaultCredentialStore;
-  final SyncProviderFactory providerFactory;
-  final WorkspaceControllerFactory controllerFactory;
-  final bool autoLockEnabled;
-  final WidgetDataService? widgetDataService;
   final AttachmentRepositoryFactory attachmentRepositoryFactory;
-  final Future<void> Function(AppSettings, SyncCredentials)? connectionTester;
   final ValueChanged<AppSettings> onSettingsChanged;
 
-  /// 更新检查服务；测试可注入假实现，null 时由 HomePage 使用默认 GitHub 服务。
-  final GithubUpdateService? updateService;
+  /// 解锁 / 自动解锁成功回调，携带加载结果。
+  final void Function(CardoryLoadResult result) onUnlocked;
 
   @override
   State<CardoryVaultGate> createState() => _CardoryVaultGateState();
@@ -62,45 +49,41 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
   final _password = TextEditingController();
   final _confirmation = TextEditingController();
   CardoryAccessState? _accessState;
-  CardoryLoadResult? _result;
   String? _error;
   bool _busy = false;
-  bool _restoreFromBackup = false;
-  List<int>? _restoreBytes;
-  String? _restoreFileName;
-  late final VaultAutoLockController _autoLockController;
+  bool _legacyDataDetected = false;
 
   @override
   void initState() {
     super.initState();
-    _autoLockController = VaultAutoLockController(onLock: _lockVault)
-      ..setEnabled(widget.autoLockEnabled)
-      ..start();
+    _detectLegacyData();
     _inspect();
   }
 
-  Future<void> _lockVault() async {
-    await widget.vaultSession?.lock();
-    await widget.vaultCredentialStore.deletePassword();
-    if (!mounted) return;
-    setState(() {
-      _result = null;
-      _accessState = CardoryAccessState.locked;
-      _password.clear();
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant CardoryVaultGate oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.autoLockEnabled != widget.autoLockEnabled) {
-      _autoLockController.setEnabled(widget.autoLockEnabled);
+  /// 检测旧版本（.cardory）数据文件。本版本不读取也不覆盖旧文件，
+  /// 仅在「新建保险库」界面提示一次，让旧用户知晓旧数据不会被迁移。
+  Future<void> _detectLegacyData() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final root = Directory(p.join(directory.path, 'Cardory'));
+      final legacyData = File(
+        p.join(root.path, 'cardory-current-data.cardory'),
+      );
+      final legacySettings = File(
+        p.join(root.path, 'cardory-current-settings.json'),
+      );
+      final found =
+          (await legacyData.exists()) || (await legacySettings.exists());
+      if (mounted && found) {
+        setState(() => _legacyDataDetected = true);
+      }
+    } catch (_) {
+      // 目录不可访问时静默跳过，不影响保险库主流程。
     }
   }
 
   @override
   void dispose() {
-    _autoLockController.stop();
     _password.dispose();
     _confirmation.dispose();
     super.dispose();
@@ -112,8 +95,9 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
       final state = await widget.vaultRepository.accessState();
       if (!mounted) return;
       if (state == CardoryAccessState.unlocked) {
+        // 保险库已由外部会话打开：加载数据后把结果交给应用层进入工作台。
         final result = await widget.workspaceRepository.load();
-        if (mounted) setState(() => _result = result);
+        if (mounted) widget.onUnlocked(result);
       } else if (state == CardoryAccessState.locked) {
         final password = await widget.vaultCredentialStore.readPassword();
         if (password != null) {
@@ -121,16 +105,12 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
             final result = await widget.vaultRepository.unlockWithPassword(
               password,
             );
-            if (mounted) setState(() => _result = result);
+            if (mounted) widget.onUnlocked(result);
             return;
-          } on CardoryStorageException catch (error) {
-            final cause = error.cause;
-            if (cause is CardoryContainerException &&
-                cause.error == CardoryContainerError.invalidCredential) {
-              await widget.vaultCredentialStore.deletePassword();
-            } else {
-              rethrow;
-            }
+          } on CardoryStorageException {
+            // 已保存的密码无法解锁（密码错误或数据文件已损坏）：
+            // 清除凭据，回落到手动输入界面，避免反复自动解锁失败。
+            await widget.vaultCredentialStore.deletePassword();
           }
         }
         if (mounted) setState(() => _accessState = state);
@@ -163,71 +143,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
           : await widget.vaultRepository.unlockWithPassword(_password.text);
       await widget.vaultCredentialStore.writePassword(_password.text);
       if (!mounted) return;
-      setState(() {
-        _result = result;
-        _busy = false;
-      });
-    } catch (error) {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _error = error.toString();
-        });
-      }
-    }
-  }
-
-  Future<void> _pickRestoreBackup() async {
-    try {
-      final file = await FilePicker.pickFile(
-        type: FileType.custom,
-        allowedExtensions: const ['cardory'],
-      );
-      if (file == null || !mounted) return;
-      final Uint8List bytes;
-      try {
-        bytes = await file.readAsBytes();
-      } catch (_) {
-        if (mounted) setState(() => _error = '无法读取所选备份文件。');
-        return;
-      }
-      setState(() {
-        _restoreBytes = bytes;
-        _restoreFileName = file.name;
-        _error = null;
-      });
-    } catch (error) {
-      if (mounted) setState(() => _error = '选择备份文件失败：$error');
-    }
-  }
-
-  Future<void> _restoreBackup() async {
-    if (_busy) return;
-    final bytes = _restoreBytes;
-    if (bytes == null) {
-      setState(() => _error = '请先选择 .cardory 备份文件。');
-      return;
-    }
-    if (_password.text.length < 8) {
-      setState(() => _error = '密码至少需要 8 个字符。');
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final result = await widget.vaultRepository.restoreFromBackup(
-        bytes,
-        _password.text,
-      );
-      await widget.vaultCredentialStore.writePassword(_password.text);
-      if (!mounted) return;
-      setState(() {
-        _result = result;
-        _restoreFromBackup = false;
-        _busy = false;
-      });
+      widget.onUnlocked(result);
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -244,6 +160,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
     setState(() => _error = null);
     final service = CloudRestoreService(
       vaultRepository: widget.vaultRepository,
+      attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
     );
     final ok = await CloudRestoreDialog.show(
       context,
@@ -264,81 +181,9 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
     }
   }
 
-  Widget _buildRestoreForm(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      const Icon(Icons.restore_rounded, size: 48),
-      const SizedBox(height: 16),
-      const Text(
-        '从备份恢复',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-      ),
-      const SizedBox(height: 20),
-      OutlinedButton.icon(
-        key: const Key('pick-cardory-backup'),
-        onPressed: _busy ? null : _pickRestoreBackup,
-        icon: const Icon(Icons.folder_open_rounded),
-        label: Text(_restoreFileName ?? '选择 .cardory 备份'),
-      ),
-      const SizedBox(height: 12),
-      PasswordTextField(
-        fieldKey: const Key('restore-password'),
-        controller: _password,
-        autofocus: true,
-        onSubmitted: (_) => _restoreBackup(),
-        decoration: const InputDecoration(
-          labelText: '备份密码',
-          helperText: '输入创建此备份时使用的密码',
-          prefixIcon: Icon(Icons.password_rounded),
-        ),
-      ),
-      if (_error != null) ...[
-        const SizedBox(height: 12),
-        Text(
-          _error!,
-          style: TextStyle(
-            color: cardoryEnsureWhiteContrast(CardoryColors.error),
-          ),
-        ),
-      ],
-      const SizedBox(height: 20),
-      FilledButton.icon(
-        key: const Key('restore-cardory-backup'),
-        onPressed: _busy ? null : _restoreBackup,
-        icon: const Icon(Icons.restore_rounded),
-        label: Text(_busy ? '恢复中…' : '用备份密码恢复'),
-      ),
-      const SizedBox(height: 8),
-      TextButton(
-        onPressed: _busy
-            ? null
-            : () => setState(() {
-                _restoreFromBackup = false;
-                _error = null;
-              }),
-        child: const Text('返回'),
-      ),
-    ],
-  );
-
   @override
   Widget build(BuildContext context) {
-    if (_result != null) {
-      return HomePage(
-        controllerFactory: widget.controllerFactory,
-        vaultRepository: widget.vaultRepository,
-        credentialStore: widget.credentialStore,
-        vaultCredentialStore: widget.vaultCredentialStore,
-        onSettingsChanged: widget.onSettingsChanged,
-        initialResult: _result,
-        attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
-        connectionTester: widget.connectionTester,
-        updateService: widget.updateService,
-      );
-    }
-    if (_accessState == null && _result == null) {
+    if (_accessState == null) {
       if (_error != null) {
         return Scaffold(
           body: Center(
@@ -392,94 +237,109 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(28),
-                child: _restoreFromBackup
-                    ? _buildRestoreForm(context)
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const CardoryLogo(size: 56),
-                          const SizedBox(height: 16),
-                          Text(
-                            setup ? '保护你的 Cardory 数据' : '解锁 Cardory',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              letterSpacing: -0.3,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            setup ? '设置密码后，所有项目和待办都会加密保存。' : '输入密码以打开加密数据。',
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 20),
-                          PasswordTextField(
-                            controller: _password,
-                            autofocus: true,
-                            onSubmitted: (_) => _submit(),
-                            decoration: const InputDecoration(
-                              labelText: '密码',
-                              prefixIcon: Icon(Icons.password),
-                            ),
-                          ),
-                          if (setup) ...[
-                            const SizedBox(height: 12),
-                            PasswordTextField(
-                              controller: _confirmation,
-                              onSubmitted: (_) => _submit(),
-                              decoration: const InputDecoration(
-                                labelText: '确认密码',
-                                prefixIcon: Icon(Icons.password),
-                              ),
-                            ),
-                          ],
-                          if (_error != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              _error!,
-                              style: TextStyle(
-                                color: cardoryEnsureWhiteContrast(
-                                  CardoryColors.error,
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 20),
-                          FilledButton(
-                            onPressed: _busy ? null : _submit,
-                            child: Text(
-                              _busy
-                                  ? '处理中…'
-                                  : setup
-                                  ? '创建加密保险库'
-                                  : '解锁',
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            key: const Key('open-backup-restore'),
-                            onPressed: _busy
-                                ? null
-                                : () => setState(() {
-                                    _restoreFromBackup = true;
-                                    _error = null;
-                                  }),
-                            icon: const Icon(Icons.restore_rounded),
-                            label: const Text('从备份恢复'),
-                          ),
-                          if (setup) ...[
-                            const SizedBox(height: 8),
-                            TextButton.icon(
-                              key: const Key('open-cloud-restore'),
-                              onPressed: _busy ? null : _restoreFromCloud,
-                              icon: const Icon(Icons.cloud_download_outlined),
-                              label: const Text('从云端恢复'),
-                            ),
-                          ],
-                        ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const CardoryLogo(size: 56),
+                    const SizedBox(height: 16),
+                    Text(
+                      setup ? '保护你的 Cardory 数据' : '解锁 Cardory',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        letterSpacing: -0.3,
+                        fontWeight: FontWeight.w700,
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      setup ? '设置密码后，所有项目和待办都会加密保存。' : '输入密码以打开加密数据。',
+                      textAlign: TextAlign.center,
+                    ),
+                    if (setup && _legacyDataDetected) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              size: 20,
+                              color: Colors.amber.shade900,
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                '检测到旧版本数据文件（.cardory）。本版本使用新的加密数据库格式，'
+                                '不会读取或覆盖旧文件，也不提供自动迁移；确认无用后请自行删除。',
+                                style: TextStyle(fontSize: 12.5, height: 1.45),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    PasswordTextField(
+                      controller: _password,
+                      autofocus: true,
+                      onSubmitted: (_) => _submit(),
+                      decoration: const InputDecoration(
+                        labelText: '密码',
+                        prefixIcon: Icon(Icons.password),
+                      ),
+                    ),
+                    if (setup) ...[
+                      const SizedBox(height: 12),
+                      PasswordTextField(
+                        controller: _confirmation,
+                        onSubmitted: (_) => _submit(),
+                        decoration: const InputDecoration(
+                          labelText: '确认密码',
+                          prefixIcon: Icon(Icons.password),
+                        ),
+                      ),
+                    ],
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        style: TextStyle(
+                          color: cardoryEnsureWhiteContrast(
+                            CardoryColors.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: _busy ? null : _submit,
+                      child: Text(
+                        _busy
+                            ? '处理中…'
+                            : setup
+                            ? '创建加密保险库'
+                            : '解锁',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (setup) ...[
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        key: const Key('open-cloud-restore'),
+                        onPressed: _busy ? null : _restoreFromCloud,
+                        icon: const Icon(Icons.cloud_download_outlined),
+                        label: const Text('从云端恢复'),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
