@@ -36,11 +36,7 @@ void initSyncDebugLog(String directoryPath) {
 ///
 /// [message] 为阶段说明；[error] 与 [stackTrace] 为失败详情（可选）。
 /// 日志同时输出到控制台与调试日志文件。
-void logSync(
-  String message, {
-  Object? error,
-  StackTrace? stackTrace,
-}) {
+void logSync(String message, {Object? error, StackTrace? stackTrace}) {
   final buffer = StringBuffer()
     ..write(_timestamp())
     ..write(' ')
