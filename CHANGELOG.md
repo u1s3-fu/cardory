@@ -4,6 +4,8 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [0.1.0-beta.2] - 2026-09-13
+
 ### 变更（Changed）
 
 - 同步冲突流程重构：`SyncStatus` 新增 `SyncConflictKind`（`firstSync` 首次同步发现本地数据 / `concurrent` 自上次同步后双向修改），冲突状态携带场景信息并纳入序列化与状态比较，界面据此呈现差异化提示（`lib/domain/sync_status.dart`）。
@@ -30,6 +32,13 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 - `sync_coordinator_test`：首次同步冲突断言 `conflictKind == firstSync`，双向修改冲突断言 `conflictKind == concurrent`。
 - `sync_coordinator_test`：新增「keepRemote 附件同步失败回滚到冲突前本地库（数据/锚点不受污染、冲突上下文保留）」与「manifest 发布失败不翻转已成功下载（保持 success 与 requiresReload）」两条用例。
 - `sync_coordinator_test`：新增「云端快照无法解密」四类用例——下载路径挂起为 `unreadableRemote` 且本地/锚点不变、协调器拒绝该场景的「手动合并/使用远端」、显式选择覆盖后用本地数据重写云端并提示已备份、首次同步（本地有数据）遇到无法解密快照时挂起且「跳过」不改变任何一侧。
+
+### 验证（Verification）
+
+- `dart format`：无差异；`flutter analyze`：0 问题；`flutter test`：157 项全部通过。
+- Windows release 构建：通过（`build/windows/x64/runner/Release/cardory.exe`）。
+- Android release 构建（x64）：通过（`app-release.apk`，约 27.6MB）。
+- macOS 构建与 Android arm64 由 tag 触发的 CI 自动验证。
 
 ## [0.1.0-beta.1] - 2026-09-08
 
