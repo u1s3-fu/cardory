@@ -4,6 +4,10 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### 变更（Changed）
+
+- README 版本徽章与开发环境表同步更新：版本 `0.1.0-beta.2`、Flutter `3.47.4`（CI 已固定）、Dart `3.13.3`。
+
 ## [0.1.0-beta.2] - 2026-09-13
 
 ### 变更（Changed）

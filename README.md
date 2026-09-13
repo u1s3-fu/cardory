@@ -2,7 +2,7 @@
 
 Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 Flutter 本地优先跨平台应用。保险库正文和附件在写入磁盘前均经过加密：数据运行于 **SQLCipher 整库加密的 SQLite 数据库**，附件按文件独立加密保存。无需联网即可使用。
 
-![Version](https://img.shields.io/badge/version-0.1.0--beta.1-blue) ![Flutter](https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.12.2-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-GPLv3-blue)
+![Version](https://img.shields.io/badge/version-0.1.0--beta.2-blue) ![Flutter](https://img.shields.io/badge/Flutter-3.47.4-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.13.3-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-GPLv3-blue)
 
 > ⚠️ **破坏性数据不兼容**：`0.1.0-beta.1` 起，数据运行时由 AES `.cardory` 加密容器切换为 SQLCipher 加密数据库。旧版本（≤ 0.0.7）的数据文件**不会被读取或自动迁移**，升级前请先在旧版本中自行备份数据与附件。
 
@@ -142,8 +142,8 @@ UI 写入口 → WorkspaceController → Repository 单事务写入 SQLCipher
 
 | 组件 | 版本 |
 |------|------|
-| **Flutter SDK** | `3.44.9`（stable） |
-| **Dart SDK** | `3.12.2`（约束 `3.12.0`） |
+| **Flutter SDK** | `3.47.4`（stable，CI 已固定该版本） |
+| **Dart SDK** | `3.13.3`（约束 `3.12.0`） |
 | **Java / Kotlin** | JVM 21（Android） |
 | **Swift** | 5.x（iOS/macOS） |
 
