@@ -6,6 +6,8 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ### 变更（Changed）
 
+- 核心界面写入口迁移到 Repository 行级单事务写入（阶段 B 第一步）：项目增删改、待办/子待办增删改与完成切换、资产与标签管理、看板重排全部经新增的 `RowLevelWorkspaceStore` 接口落库（生产实现 `DriftRowLevelWorkspaceStore` 组合各实体 Repository，多行差异对齐包在单个外层事务内，行级 updatedAt/tombstone 与 sync_changes 审计同事务提交），界面写入不再构建整包 `CardoryData` 快照；`database_snapshot_applier.dart` 仅保留给同步导入路径使用。
+- `WorkspaceController` 写入后统一从数据库回读投影并刷新桌面小组件摘要；行级写入存储未注入时业务写入直接抛错，防止界面悄悄退化回整包快照写入。`TaskRepository.create` 支持可选 `createdAt`/`completedAt` 并接受可空 `projectId`，新增 `setDone`；`AttachmentRecordRepository.create` 支持可选 `createdAt`。
 - README 依赖表去除 `^` 前缀，改列 `pubspec.lock` 实际解析版本，并同步校正 `path_provider`（2.1.6）、`build_runner`（2.15.1）、`drift_dev`（2.34.6）三处版本号。
 - README 版本徽章与开发环境表同步更新：版本 `0.1.0-beta.2`、Flutter `3.47.4`（CI 已固定）、Dart `3.13.3`。
 

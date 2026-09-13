@@ -11,16 +11,23 @@ import 'package:cardory/sync/sync_models.dart';
 import 'package:cardory/sync/sync_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/in_memory_row_level_workspace_store.dart';
+
 void main() {
   late _MemoryRepository repository;
   late _MemoryAttachments attachments;
   late _RecordingWidgetService widgetService;
+  late InMemoryRowLevelWorkspaceStore rowLevelStore;
   late WorkspaceController controller;
 
   setUp(() {
     repository = _MemoryRepository(_workspaceData());
     attachments = _MemoryAttachments();
     widgetService = _RecordingWidgetService();
+    rowLevelStore = InMemoryRowLevelWorkspaceStore(
+      () => repository.data,
+      (data) => repository.data = data,
+    );
     controller = WorkspaceController(
       repository: repository,
       vaultRepository: repository,
@@ -35,6 +42,7 @@ void main() {
         attachmentRepositoryFactory: (_) => attachments,
       ),
       attachmentRepositoryFactory: (_) => attachments,
+      rowLevelStore: rowLevelStore,
       widgetDataService: widgetService,
     );
   });
@@ -71,7 +79,7 @@ void main() {
     'failed mutation restores state and removes newly added files',
     () async {
       await controller.initialize(await repository.load());
-      repository.failNextSave = true;
+      rowLevelStore.failNextWrite = true;
       final attachment = _attachment('new-attachment');
       final project = ProjectData(
         id: 'new-project',
@@ -89,6 +97,40 @@ void main() {
       expect(attachments.deleted, [attachment]);
     },
   );
+
+  test('row-level write failure surfaces without snapshot fallback', () async {
+    await controller.initialize(await repository.load());
+    final controllerWithoutStore = WorkspaceController(
+      repository: repository,
+      vaultRepository: repository,
+      settingsService: WorkspaceSettingsService(
+        repository: repository,
+        credentialStore: _Credentials(),
+      ),
+      syncService: SyncCoordinator(
+        repository: repository,
+        providerFactory: (_) async =>
+            throw const SyncUnavailableException('not used'),
+        attachmentRepositoryFactory: (_) => attachments,
+      ),
+      attachmentRepositoryFactory: (_) => attachments,
+    );
+    addTearDown(controllerWithoutStore.dispose);
+
+    await expectLater(
+      controllerWithoutStore.addTodo(
+        const TodoData(
+          id: 'todo-x',
+          title: '待办',
+          projectId: '',
+          projectTitle: '',
+          priority: ProjectPriority.p2,
+          done: false,
+        ),
+      ),
+      throwsStateError,
+    );
+  });
 
   test(
     'project edit deletes removed attachments and queues remote cleanup',

@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../application/row_level_workspace_store.dart';
 import '../application/workspace_controller_factory.dart';
 import '../data/attachment_store.dart';
+import '../data/repositories/drift_row_level_workspace_store.dart';
 import '../data/runtime/sqlcipher_vault_store.dart';
 import '../domain/attachment_repository.dart';
 import '../domain/cardory_models.dart';
@@ -54,6 +56,15 @@ final widgetDataServiceProvider = Provider<WidgetDataService>(
 final attachmentRepositoryFactoryProvider =
     Provider<AttachmentRepositoryFactory>((ref) => AttachmentStore.forDataFile);
 
+/// 行级写入存储的惰性构建器：保险库解锁后控制器创建时才调用；
+/// 数据库会话未开启（如测试注入假仓库）时返回 null。
+final rowLevelStoreBuilderProvider = Provider<RowLevelWorkspaceStoreBuilder>(
+  (ref) => () {
+    final database = ref.watch(sqlCipherVaultStoreProvider).database;
+    return database == null ? null : DriftRowLevelWorkspaceStore(database);
+  },
+);
+
 typedef SyncConnectionTester =
     Future<void> Function(AppSettings settings, SyncCredentials credentials);
 
@@ -75,6 +86,7 @@ final workspaceControllerFactoryProvider = Provider<WorkspaceControllerFactory>(
       ),
     ),
     attachmentRepositoryFactory: ref.watch(attachmentRepositoryFactoryProvider),
+    rowLevelStoreBuilder: ref.watch(rowLevelStoreBuilderProvider),
     widgetDataService: ref.watch(widgetDataServiceProvider),
   ),
 );

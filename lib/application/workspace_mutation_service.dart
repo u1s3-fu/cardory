@@ -26,8 +26,11 @@ class AssetEditResult {
   final AssetData recorded;
 }
 
-/// 纯粹的工作区状态变换。持久化与外部副作用保留在
-/// [WorkspaceController] 中，使这些规则可独立测试。
+/// 纯粹的工作区状态变换。
+///
+/// 生产写入走 [RowLevelWorkspaceStore] 的行级 Repository 实现；本类的
+/// 整包快照变换仅供内存行级实现（测试）复用，另外独立提供资产活动
+/// 记录这类与存储无关的领域规则。
 class WorkspaceMutationService {
   const WorkspaceMutationService();
 
@@ -119,17 +122,7 @@ class WorkspaceMutationService {
     AssetData original,
     AssetData updated,
   ) {
-    final changed = _changedAssetFields(original, updated);
-    final recorded = updated.copyWith(
-      activities: [
-        AssetActivity(
-          kind: AssetActivityKind.updated,
-          message: '更新${changed.join('、')}',
-          timestamp: DateTime.now(),
-        ),
-        ...updated.activities,
-      ],
-    );
+    final recorded = recordAssetUpdate(original, updated);
     return AssetEditResult(
       data: data.copyWith(
         assets: data.assets
@@ -139,6 +132,19 @@ class WorkspaceMutationService {
       recorded: recorded,
     );
   }
+
+  /// 为资产更新补充一条活动记录（记录发生变化的字段）。
+  AssetData recordAssetUpdate(AssetData original, AssetData updated) =>
+      updated.copyWith(
+        activities: [
+          AssetActivity(
+            kind: AssetActivityKind.updated,
+            message: '更新${_changedAssetFields(original, updated).join('、')}',
+            timestamp: DateTime.now(),
+          ),
+          ...updated.activities,
+        ],
+      );
 
   CardoryData deleteAsset(CardoryData data, AssetData asset) => data.copyWith(
     assets: data.assets.where((item) => item.id != asset.id).toList(),

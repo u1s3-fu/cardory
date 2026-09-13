@@ -43,7 +43,7 @@ class TaskRepository {
 
   Future<Task> create({
     required String title,
-    required String projectId,
+    String? projectId,
     String? parentTaskId,
     String notes = '',
     String status = 'todo',
@@ -53,6 +53,8 @@ class TaskRepository {
     int? startAt,
     int? dueAt,
     int? estimateMinutes,
+    int? createdAt,
+    int? completedAt,
   }) async {
     if (parentTaskId != null) {
       await _assertValidParent(parentTaskId, projectId);
@@ -74,8 +76,9 @@ class TaskRepository {
               startAt: Value(startAt),
               dueAt: Value(dueAt),
               estimateMinutes: Value(estimateMinutes),
+              completedAt: Value(completedAt),
               sortOrder: Value(sortOrder),
-              createdAt: now,
+              createdAt: createdAt ?? now,
               updatedAt: now,
             ),
           );
@@ -125,6 +128,38 @@ class TaskRepository {
         entityId: task.id,
         operation: 'update',
         payload: rowPayload(task, updatedAt: now),
+        deviceId: _deviceId,
+        createdAt: now,
+      );
+    });
+  }
+
+  /// 切换任务完成状态：done 时记录 completedAt，撤销时清空（幂等）。
+  Future<void> setDone(String id, {required bool done}) async {
+    final now = _clock();
+    await _db.transaction(() async {
+      final current =
+          await (_db.select(_db.tasks)
+                ..where((row) => row.id.equals(id) & row.deletedAt.isNull()))
+              .getSingleOrNull();
+      if (current == null) return;
+      final updated = current.copyWith(
+        status: done ? 'done' : 'todo',
+        completedAt: Value(done ? now : null),
+      );
+      await (_db.update(_db.tasks)..where((row) => row.id.equals(id))).write(
+        TasksCompanion(
+          status: Value(updated.status),
+          completedAt: Value(updated.completedAt),
+          updatedAt: Value(now),
+        ),
+      );
+      await recordSyncChange(
+        _db,
+        entityType: 'task',
+        entityId: id,
+        operation: 'update',
+        payload: rowPayload(updated, updatedAt: now),
         deviceId: _deviceId,
         createdAt: now,
       );
@@ -321,7 +356,7 @@ class TaskRepository {
   }
 
   /// 父任务必须存在、未删除、属于同一项目，且只能作为顶层任务。
-  Future<void> _assertValidParent(String parentId, String projectId) async {
+  Future<void> _assertValidParent(String parentId, String? projectId) async {
     final parent = await (_db.select(
       _db.tasks,
     )..where((row) => row.id.equals(parentId))).getSingleOrNull();

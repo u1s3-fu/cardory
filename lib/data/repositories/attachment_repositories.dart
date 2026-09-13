@@ -191,6 +191,7 @@ class AttachmentRecordRepository {
     String encryptionKey = '',
     List<String> categoryIds = const [],
     String? id,
+    int? createdAt,
   }) async {
     final now = _clock();
     final attachmentId = id ?? repositoryUuid.v4();
@@ -212,7 +213,7 @@ class AttachmentRecordRepository {
               isLocalOnly: Value(isLocalOnly),
               encryptionKey: Value(encryptionKey),
               categoryIdsJson: Value(jsonEncode(categoryIds)),
-              createdAt: now,
+              createdAt: createdAt ?? now,
               updatedAt: now,
             ),
           );

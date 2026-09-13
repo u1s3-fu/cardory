@@ -15,6 +15,8 @@ import 'package:flutter/services.dart'
     show MethodChannel, MissingPluginException;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/in_memory_row_level_workspace_store.dart';
+
 Future<void> pumpUiFrames(WidgetTester tester) async {
   for (var index = 0; index < 20; index++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -547,6 +549,10 @@ void main() {
         ],
         todos: const [],
       );
+    final rowLevelStore = InMemoryRowLevelWorkspaceStore(
+      () => repository.data,
+      (data) => repository.data = data,
+    );
     await tester.pumpWidget(
       CardoryApp(
         vaultRepository: repository,
@@ -554,6 +560,7 @@ void main() {
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
         attachmentRepositoryFactory: attachmentRepositoryFactory,
+        rowLevelStoreBuilder: () => rowLevelStore,
       ),
     );
     await pumpUiFrames(tester);
@@ -564,7 +571,7 @@ void main() {
     await pumpUiFrames(tester);
     expect(find.text('must-stay.txt'), findsOneWidget);
 
-    repository.failNextSave = true;
+    rowLevelStore.failNextWrite = true;
     await tester.tap(find.byTooltip('更多附件操作'));
     await pumpUiFrames(tester);
     await tester.tap(find.text('删除附件'));

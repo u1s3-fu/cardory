@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../application/workspace_controller_factory.dart';
+import '../application/row_level_workspace_store.dart';
 import '../data/attachment_store.dart';
 import '../domain/attachment_repository.dart';
 import '../domain/cardory_models.dart';
@@ -69,6 +70,7 @@ class CardoryApp extends StatefulWidget {
     SyncProviderFactory? providerFactory,
     WidgetDataService? widgetDataService,
     AttachmentRepositoryFactory? attachmentRepositoryFactory,
+    RowLevelWorkspaceStoreBuilder? rowLevelStoreBuilder,
     Future<void> Function(AppSettings, SyncCredentials)? connectionTester,
     GithubUpdateService? updateService,
   }) : credentialStore = credentialStore ?? SecureSyncCredentialStore(),
@@ -79,6 +81,8 @@ class CardoryApp extends StatefulWidget {
        _widgetDataService = widgetDataService ?? const HomeWidgetDataService(),
        _attachmentRepositoryFactory =
            attachmentRepositoryFactory ?? AttachmentStore.forDataFile,
+       // ignore: prefer_initializing_formals
+       _rowLevelStoreBuilder = rowLevelStoreBuilder,
        // ignore: prefer_initializing_formals
        _connectionTester = connectionTester,
        // ignore: prefer_initializing_formals
@@ -93,6 +97,7 @@ class CardoryApp extends StatefulWidget {
   final SyncProviderFactory? _providerFactory;
   final WidgetDataService _widgetDataService;
   final AttachmentRepositoryFactory _attachmentRepositoryFactory;
+  final RowLevelWorkspaceStoreBuilder? _rowLevelStoreBuilder;
   final Future<void> Function(AppSettings, SyncCredentials)? _connectionTester;
   final GithubUpdateService? _updateService;
 
@@ -111,6 +116,7 @@ class CardoryApp extends StatefulWidget {
           attachmentRepositoryFactory: attachmentRepositoryFactory,
         ),
         attachmentRepositoryFactory: attachmentRepositoryFactory,
+        rowLevelStoreBuilder: _rowLevelStoreBuilder,
         widgetDataService: widgetDataService,
       );
 
@@ -297,6 +303,7 @@ void runCardoryApp() {
           attachmentRepositoryFactory: ref.watch(
             attachmentRepositoryFactoryProvider,
           ),
+          rowLevelStoreBuilder: ref.watch(rowLevelStoreBuilderProvider),
           connectionTester: ref.watch(syncConnectionTesterProvider),
         ),
       ),

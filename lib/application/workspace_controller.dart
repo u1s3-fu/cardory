@@ -4,10 +4,15 @@ import '../domain/cardory_repository.dart';
 import '../domain/sync_status.dart';
 import '../domain/widget_data_service.dart';
 import '../domain/workspace_sync_service.dart';
+import 'row_level_workspace_store.dart';
 import 'workspace_mutation_service.dart';
 import 'workspace_settings_service.dart';
 
 /// 独立于界面组件管理工作区状态与业务事务。
+///
+/// 读取侧：内存中的 [CardoryData] 是数据库的投影，写入成功后从数据库回读；
+/// 写入侧：全部业务写入经 [RowLevelWorkspaceStore] 以行级单事务提交，
+/// 不再构建整包 CardoryData 快照（快照写入仅保留给同步导入路径）。
 class WorkspaceController implements WorkspaceObservable {
   WorkspaceController({
     required this.repository,
@@ -15,6 +20,7 @@ class WorkspaceController implements WorkspaceObservable {
     required this.settingsService,
     required this.syncService,
     required this.attachmentRepositoryFactory,
+    this.rowLevelStore,
     WidgetDataService widgetDataService = const NullWidgetDataService(),
     // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头，无法用 this._widgetDataService。
   }) : _widgetDataService = widgetDataService {
@@ -26,6 +32,7 @@ class WorkspaceController implements WorkspaceObservable {
   final WorkspaceSettingsService settingsService;
   final WorkspaceSyncService syncService;
   final AttachmentRepositoryFactory attachmentRepositoryFactory;
+  final RowLevelWorkspaceStore? rowLevelStore;
   final WidgetDataService _widgetDataService;
   static const _mutations = WorkspaceMutationService();
   final _listeners = <WorkspaceListener>{};
@@ -37,6 +44,16 @@ class WorkspaceController implements WorkspaceObservable {
   bool _loading = true;
   bool _recoveredFromBackup = false;
   AttachmentRepository? _attachmentRepository;
+
+  /// 行级写入存储；未注入时任何业务写入都会抛错，防止界面悄悄退化回
+  /// 整包快照写入。
+  RowLevelWorkspaceStore get _rowLevel {
+    final store = rowLevelStore;
+    if (store == null) {
+      throw StateError('行级写入存储未注入，无法执行业务写入。');
+    }
+    return store;
+  }
 
   CardoryData get data => _data;
   AppSettings get settings => _settings;
@@ -86,27 +103,9 @@ class WorkspaceController implements WorkspaceObservable {
     _updateWidget();
   }
 
-  Future<void> saveData(CardoryData data) async {
-    final previous = _data;
-    _data = data;
-    _notifyListeners();
-    try {
-      await repository.save(data, _settings);
-      // 数据库是唯一事实源：保存成功后再从库回读投影，刷新内存缓存，
-      // 避免内存快照与数据库分叉（例如其它行级写入已落库的字段）。
-      await _refreshFromRepository();
-      _updateWidget();
-    } catch (_) {
-      // 保存失败则原子回滚到上一个已提交的内存快照。
-      _data = previous;
-      _notifyListeners();
-      rethrow;
-    }
-  }
-
   /// 以数据库回读结果刷新内存投影（不触发附件迁移/清理等一次性逻辑）。
   ///
-  /// 回读失败只说明投影刷新不可用——此时数据库已成功提交，保留刚保存的
+  /// 回读失败只说明投影刷新不可用——此时数据库已成功提交，保留刚写入的
   /// 内存快照（与提交内容一致）比回滚到更旧的状态更安全，因此静默继续。
   Future<void> _refreshFromRepository() async {
     try {
@@ -118,6 +117,12 @@ class WorkspaceController implements WorkspaceObservable {
     } catch (_) {
       // 见上方注释：静默保留已提交的本地投影。
     }
+  }
+
+  /// 行级写入成功后的统一收尾：回读投影 + 刷新桌面小组件摘要。
+  Future<void> _afterWrite() async {
+    await _refreshFromRepository();
+    _updateWidget();
   }
 
   Future<void> applySettings(
@@ -158,13 +163,16 @@ class WorkspaceController implements WorkspaceObservable {
   Future<void> changePassword(String currentPassword, String newPassword) =>
       vaultRepository.changePassword(currentPassword, newPassword);
 
+  // ---- 项目 ----
+
   Future<void> addProject(ProjectData project) async {
     try {
-      await saveData(_mutations.addProject(_data, project));
+      await _rowLevel.addProject(project);
     } catch (_) {
       await _deleteAttachments(project.attachments);
       rethrow;
     }
+    await _afterWrite();
   }
 
   Future<void> editProject(ProjectData project) async {
@@ -172,137 +180,158 @@ class WorkspaceController implements WorkspaceObservable {
       (item) => item.id == project.id,
       orElse: () => throw StateError('项目不存在：${project.id}'),
     );
-    final result = _mutations.editProject(_data, original, project);
+    final removed = original.attachments
+        .where((item) => !project.attachments.any((a) => a.id == item.id))
+        .toList();
+    final added = project.attachments
+        .where((item) => !original.attachments.any((a) => a.id == item.id))
+        .toList();
+    final restoreSettings = await _queueAttachmentDeletes(
+      removed.map((item) => item.storageKey),
+    );
     try {
-      await _saveDataWithAttachmentDeletes(
-        result.data,
-        result.removedAttachments,
-      );
-      await _deleteAttachments(result.removedAttachments);
+      await _rowLevel.updateProject(original, project);
+      await _deleteAttachments(removed);
     } catch (_) {
-      await _deleteAttachments(result.addedAttachments);
+      await restoreSettings();
+      await _deleteAttachments(added);
       rethrow;
     }
+    await _afterWrite();
   }
 
   Future<void> deleteProject(String projectId) async {
-    final result = _mutations.deleteProject(_data, projectId);
-    await _saveDataWithAttachmentDeletes(result.data, result.attachments);
-    await _deleteAttachments(result.attachments);
+    final attachments = _data.projects
+        .where((project) => project.id == projectId)
+        .expand((project) => project.attachments)
+        .toList();
+    final restoreSettings = await _queueAttachmentDeletes(
+      attachments.map((item) => item.storageKey),
+    );
+    try {
+      await _rowLevel.deleteProject(projectId);
+    } catch (_) {
+      await restoreSettings();
+      rethrow;
+    }
+    await _deleteAttachments(attachments);
+    await _afterWrite();
   }
 
-  Future<void> addTodo(TodoData todo) =>
-      saveData(_mutations.addTodo(_data, todo));
+  /// 看板拖拽排序：按传入顺序写入项目阶段与 sortOrder。
+  Future<void> reorderProjects(List<ProjectData> orderedProjects) async {
+    await _rowLevel.reorderProjects(orderedProjects);
+    await _afterWrite();
+  }
 
-  Future<void> updateTodo(TodoData todo) =>
-      saveData(_mutations.updateTodo(_data, todo));
+  // ---- 待办与子待办 ----
 
-  Future<void> deleteTodo(String todoId) =>
-      saveData(_mutations.deleteTodo(_data, todoId));
+  Future<void> addTodo(TodoData todo) async {
+    await _rowLevel.addTodo(todo);
+    await _afterWrite();
+  }
+
+  Future<void> updateTodo(TodoData todo) async {
+    final original = _data.todos.firstWhere(
+      (item) => item.id == todo.id,
+      orElse: () => throw StateError('待办不存在：${todo.id}'),
+    );
+    await _rowLevel.updateTodo(original, todo);
+    await _afterWrite();
+  }
+
+  Future<void> deleteTodo(String todoId) async {
+    await _rowLevel.deleteTodo(todoId);
+    await _afterWrite();
+  }
 
   Future<TodoData> toggleTodo(TodoData todo) async {
     final updated = _mutations.toggleTodo(todo);
-    await updateTodo(updated);
+    await _rowLevel.setTodoDone(todo.id, done: updated.done);
+    await _afterWrite();
     return updated;
   }
 
   Future<TodoData> toggleSubTodo(TodoData todo, SubTodoData subTodo) async {
     final updated = _mutations.toggleSubTodo(todo, subTodo);
-    await updateTodo(updated);
+    final toggled = updated.subTodos.firstWhere(
+      (item) => item.id == subTodo.id,
+    );
+    await _rowLevel.setSubTodoDone(subTodo.id, done: toggled.done);
+    await _afterWrite();
     return updated;
   }
 
-  Future<void> addSubTodo(TodoData todo, SubTodoData subTodo) =>
-      updateTodo(todo.copyWith(subTodos: [...todo.subTodos, subTodo]));
+  Future<void> addSubTodo(TodoData todo, SubTodoData subTodo) async {
+    await _rowLevel.addSubTodo(todo, subTodo);
+    await _afterWrite();
+  }
+
+  // ---- 资产与标签 ----
 
   Future<AssetData> addAsset(AssetData asset) async {
     final recorded = _mutations.recordNewAsset(asset);
-    await saveData(_data.copyWith(assets: [..._data.assets, recorded]));
+    await _rowLevel.addAsset(recorded);
+    await _afterWrite();
     return recorded;
   }
 
   Future<AssetData> editAsset(AssetData original, AssetData updated) async {
-    final result = _mutations.editAsset(_data, original, updated);
-    await saveData(result.data);
-    return result.recorded;
+    final recorded = _mutations.recordAssetUpdate(original, updated);
+    await _rowLevel.editAsset(original, recorded);
+    await _afterWrite();
+    return recorded;
   }
 
   Future<void> deleteAsset(AssetData asset) async {
-    await saveData(_mutations.deleteAsset(_data, asset));
+    await _rowLevel.deleteAsset(asset.id);
+    await _afterWrite();
   }
 
   Future<AssetTag> addAssetTag(AssetTag tag) async {
-    await saveData(_data.copyWith(assetTags: [..._data.assetTags, tag]));
+    await _rowLevel.addAssetTag(tag);
+    await _afterWrite();
     return tag;
   }
 
   Future<AssetTag> updateAssetTag(AssetTag tag) async {
-    await saveData(
-      _data.copyWith(
-        assetTags: [
-          for (final item in _data.assetTags)
-            if (item.id == tag.id) tag else item,
-        ],
-      ),
-    );
+    await _rowLevel.updateAssetTag(tag);
+    await _afterWrite();
     return tag;
   }
 
   Future<void> deleteAssetTag(String tagId) async {
-    await saveData(
-      _data.copyWith(
-        assetTags: _data.assetTags.where((item) => item.id != tagId).toList(),
-        assets: _data.assets.map((asset) {
-          if (!asset.tagIds.contains(tagId)) return asset;
-          final remaining = asset.tagIds.where((id) => id != tagId).toList();
-          return asset.copyWith(
-            tagIds: remaining,
-            clearTagIds: remaining.isEmpty,
-          );
-        }).toList(),
-      ),
-    );
+    await _rowLevel.deleteAssetTag(tagId);
+    await _afterWrite();
   }
 
   Future<void> updateAssetsTags(
     Set<String> assetIds,
     Set<String> tagIds,
   ) async {
-    await saveData(
-      _data.copyWith(
-        assets: _data.assets.map((asset) {
-          if (!assetIds.contains(asset.id)) return asset;
-          return asset.copyWith(
-            tagIds: tagIds.toList(),
-            clearTagIds: tagIds.isEmpty,
-          );
-        }).toList(),
-      ),
-    );
+    await _rowLevel.updateAssetsTags(assetIds, tagIds);
+    await _afterWrite();
   }
 
-  Future<void> _saveDataWithAttachmentDeletes(
-    CardoryData data,
-    Iterable<AttachmentData> attachments,
-  ) async {
-    final keys = attachments
-        .map((attachment) => attachment.storageKey)
-        .where((key) => key.isNotEmpty)
-        .toSet();
-    if (keys.isEmpty) return saveData(data);
+  // ---- 附件文件清理 ----
 
+  /// 把待删除的附件存储键写入设置队列（同步侧据其清理云端残留），
+  /// 返回失败回滚用的恢复函数。
+  Future<Future<void> Function()> _queueAttachmentDeletes(
+    Iterable<String> keys,
+  ) async {
+    final storageKeys = keys.where((key) => key.isNotEmpty).toSet();
+    if (storageKeys.isEmpty) return () async {};
     final previousSettings = _settings;
-    final updatedSettings = _settings.copyWith(
+    final updatedSettings = previousSettings.copyWith(
       pendingAttachmentDeletes: {
-        ..._settings.pendingAttachmentDeletes,
-        ...keys,
+        ...previousSettings.pendingAttachmentDeletes,
+        ...storageKeys,
       }.toList(),
     );
     await repository.saveSettings(updatedSettings);
     _settings = updatedSettings;
-    try {
-      await saveData(data);
-    } catch (_) {
+    return () async {
       _settings = previousSettings;
       try {
         await repository.saveSettings(previousSettings);
@@ -311,8 +340,7 @@ class WorkspaceController implements WorkspaceObservable {
         // 同步绝不会删除仍被元数据引用的键。
       }
       _notifyListeners();
-      rethrow;
-    }
+    };
   }
 
   Future<void> _deleteAttachments(Iterable<AttachmentData> attachments) async {
