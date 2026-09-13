@@ -8,6 +8,9 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ### 变更（Changed）
 
+- 适配 Flutter 3.47.4 stable：同步协调器 6 处 try 块内的 `return future` 改为 `return await future`，修复新分析器的 `unawaited_return_in_try_block` 警告；CI 质量门禁与构建 job 固定 Flutter 版本为 3.47.4（`subosito/flutter-action` 增加 `flutter-version`），避免 stable 通道漂移导致发版门禁失败——v0.1.0-beta.2 首次 tag 触发的 CI 即因 stable 漂移在 analyze 阶段失败，本次以固定版本重跑。
+- build_runner 自动升级 `analysis_options.yaml`：分析器排除 `build/` 与各平台目录，减少无关分析开销。
+
 - 同步冲突流程重构：`SyncStatus` 新增 `SyncConflictKind`（`firstSync` 首次同步发现本地数据 / `concurrent` 自上次同步后双向修改），冲突状态携带场景信息并纳入序列化与状态比较，界面据此呈现差异化提示（`lib/domain/sync_status.dart`）。
 - 同步协调器把「首次同步发现本地数据」与「双向修改」两条冲突路径收敛为统一挂起方法 `_suspendForConflict`：同一套「远端快照留底 → 只读解析对比 → 记录冲突上下文 → 进入冲突状态」流程，冲突消息携带本地数据项数 / 差异条目数；内容冲突不再以异常作为控制流上抛，`synchronize` 全部以状态与返回值表达结果。
 - 冲突解决（`resolveConflict`）加固：选择「使用远端」前先把当前本地库自动备份到冲突快照目录，成功提示附备份路径，首次同步误选覆盖也能找回本地数据；覆盖执行前云端修订号再变时保留冲突列表与场景信息提示用户重新选择（不再退回无内容的冲突框）；取消冲突处理时状态干净复位、清除冲突上下文。

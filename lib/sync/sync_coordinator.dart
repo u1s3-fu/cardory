@@ -353,7 +353,7 @@ class SyncCoordinator implements WorkspaceSyncService {
               error: error,
               stackTrace: stackTrace,
             );
-            return _suspendForUndecryptableRemote(
+            return await _suspendForUndecryptableRemote(
               settings: settings,
               providerId: providerId,
               local: local,
@@ -367,7 +367,7 @@ class SyncCoordinator implements WorkspaceSyncService {
             localResult.data,
             remoteData,
           );
-          return _suspendForConflict(
+          return await _suspendForConflict(
             settings: settings,
             providerId: providerId,
             local: local,
@@ -397,7 +397,7 @@ class SyncCoordinator implements WorkspaceSyncService {
             stackTrace: stackTrace,
           );
           final snapshot = await _saveConflictSnapshot(remote.bytes);
-          return _suspendForUndecryptableRemote(
+          return await _suspendForUndecryptableRemote(
             settings: settings,
             providerId: providerId,
             local: local,
@@ -457,7 +457,7 @@ class SyncCoordinator implements WorkspaceSyncService {
             error: error,
             stackTrace: stackTrace,
           );
-          return _suspendForUndecryptableRemote(
+          return await _suspendForUndecryptableRemote(
             settings: settings,
             providerId: providerId,
             local: local,
@@ -468,7 +468,7 @@ class SyncCoordinator implements WorkspaceSyncService {
           );
         }
         final conflicts = buildSyncConflictItems(localResult.data, remoteData);
-        return _suspendForConflict(
+        return await _suspendForConflict(
           settings: settings,
           providerId: providerId,
           local: local,
@@ -496,7 +496,7 @@ class SyncCoordinator implements WorkspaceSyncService {
         } on CardorySnapshotUndecryptableException catch (error, stackTrace) {
           logSync('远端快照无法解密，转入手动选择', error: error, stackTrace: stackTrace);
           final snapshot = await _saveConflictSnapshot(remote.bytes);
-          return _suspendForUndecryptableRemote(
+          return await _suspendForUndecryptableRemote(
             settings: settings,
             providerId: providerId,
             local: local,
@@ -740,7 +740,7 @@ class SyncCoordinator implements WorkspaceSyncService {
     required SyncDocument remote,
     required String snapshot,
   }) async {
-    return _suspendForConflict(
+    return await _suspendForConflict(
       settings: settings,
       providerId: providerId,
       local: local,
