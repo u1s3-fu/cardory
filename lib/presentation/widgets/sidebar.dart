@@ -20,6 +20,7 @@ class Sidebar extends StatelessWidget {
   static const _items = [
     (AppSection.home, Icons.space_dashboard_outlined, '看板'),
     (AppSection.todos, Icons.check_circle_outline_rounded, '待办'),
+    (AppSection.calendar, Icons.calendar_month_outlined, '日历'),
     (AppSection.projects, Icons.folder_outlined, '项目'),
     (AppSection.settings, Icons.settings_outlined, '设置'),
   ];

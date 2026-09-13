@@ -9,15 +9,16 @@ const vaultRoutePath = '/vault';
 /// 解锁后的工作台主页（今日视图 / 工作台 Shell）。
 const workbenchRoutePath = '/today';
 
-/// 工作台分区子路由：待办列表、项目列表、项目详情与设置。
+/// 工作台分区子路由：待办列表、日历、项目列表、项目详情与设置。
 const todosRoutePath = '/todos';
+const calendarRoutePath = '/calendar';
 const projectsRoutePath = '/projects';
 const settingsRoutePath = '/settings';
 
 /// 业务路由规划（破坏性版本阶段 §6）：
-/// - /vault、/today、/todos、/projects、/projects/:projectId、/settings 已落地；
+/// - /vault、/today、/todos、/calendar、/projects、/projects/:projectId、
+///   /settings 已落地（分区与日历为工作台 Shell 子路由）；
 /// - 以下模块暂以「受保护占位页」挂载，页面就绪后替换占位 builder。
-const calendarRoutePath = '/calendar';
 const timeRoutePath = '/time';
 const ganttRoutePath = '/gantt';
 const assetsRoutePath = '/assets';
@@ -27,12 +28,6 @@ const assetsRoutePath = '/assets';
 /// 由 [createAppRouter] 统一展开为受门禁保护的路由。
 const placeholderRoutes =
     <({String path, String title, IconData icon, String description})>[
-      (
-        path: calendarRoutePath,
-        title: '日历',
-        icon: Icons.calendar_month_outlined,
-        description: '以日历视图安排任务，即将在后续版本开放。',
-      ),
       (
         path: timeRoutePath,
         title: '时间与番茄钟',
@@ -80,6 +75,10 @@ class WorkbenchSettings extends WorkbenchLocation {
   const WorkbenchSettings();
 }
 
+class WorkbenchCalendar extends WorkbenchLocation {
+  const WorkbenchCalendar();
+}
+
 /// 工作台 Shell 构建器：包住路由子内容（顶部栏 / 侧栏 / 底部导航由 Shell 提供）。
 typedef WorkbenchShellBuilder =
     Widget Function(BuildContext context, Widget child);
@@ -92,8 +91,8 @@ typedef WorkbenchContentBuilder =
 ///
 /// 门禁语义：
 /// - [vaultRoutePath] 始终可达，承担保险库创建 / 解锁；
-/// - 工作台四个分区（/today、/todos、/projects、/settings）与项目详情
-///   （/projects/:projectId）通过 [ShellRoute] 共享同一个工作台 Shell，
+/// - 工作台分区（/today、/todos、/calendar、/projects、/settings）与项目
+///   详情（/projects/:projectId）通过 [ShellRoute] 共享同一个工作台 Shell，
 ///   Shell 持有工作区控制器，子路由只切换内容区；
 /// - 其余业务路由（占位页）通过 [isVaultUnlocked] 判定，未解锁访问一律
 ///   重定向回门禁页；
@@ -148,6 +147,7 @@ GoRouter createAppRouter({
         routes: [
           workbenchChildRoute(workbenchRoutePath, const WorkbenchToday()),
           workbenchChildRoute(todosRoutePath, const WorkbenchTodos()),
+          workbenchChildRoute(calendarRoutePath, const WorkbenchCalendar()),
           workbenchChildRoute(projectsRoutePath, const WorkbenchProjects()),
           GoRoute(
             path: '$projectsRoutePath/:projectId',

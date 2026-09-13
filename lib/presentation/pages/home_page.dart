@@ -32,7 +32,9 @@ import '../widgets/subtodo_dialogs.dart';
 import '../widgets/sync_conflict_dialogs.dart';
 import '../widgets/todo_dialog.dart';
 import '../widgets/todo_panel.dart';
+import '../widgets/today_tasks_panel.dart';
 import 'asset_dialog.dart';
+import 'calendar_page.dart';
 import 'project_page.dart';
 import 'settings_page.dart';
 import 'settings_panel.dart';
@@ -91,6 +93,7 @@ class _HomePageState extends State<HomePage> {
     final path = GoRouterState.of(context).uri.path;
     if (path.startsWith(projectsRoutePath)) return AppSection.projects;
     if (path == todosRoutePath) return AppSection.todos;
+    if (path == calendarRoutePath) return AppSection.calendar;
     if (path == settingsRoutePath) return AppSection.settings;
     return AppSection.home;
   }
@@ -98,6 +101,7 @@ class _HomePageState extends State<HomePage> {
   String get _sectionTitle => switch (_currentSection) {
     AppSection.home => '看板',
     AppSection.todos => '待办事项',
+    AppSection.calendar => '日历',
     AppSection.projects =>
       GoRouterState.of(context).uri.path == projectsRoutePath ? '项目' : '项目详情',
     AppSection.settings => '设置',
@@ -565,6 +569,7 @@ class _HomePageState extends State<HomePage> {
     final target = switch (section) {
       AppSection.home => workbenchRoutePath,
       AppSection.todos => todosRoutePath,
+      AppSection.calendar => calendarRoutePath,
       AppSection.projects => projectsRoutePath,
       AppSection.settings => settingsRoutePath,
     };
@@ -715,6 +720,8 @@ class WorkbenchSectionContent extends StatelessWidget {
         return _SectionScrollArea(child: _HomeSectionContent(state: scope));
       case WorkbenchTodos():
         return _SectionScrollArea(child: _TodosSectionContent(state: scope));
+      case WorkbenchCalendar():
+        return _SectionScrollArea(child: _CalendarSectionContent(state: scope));
       case WorkbenchProjects():
         return _SectionScrollArea(child: _ProjectsSectionContent(state: scope));
       case WorkbenchProjectDetail(:final projectId):
@@ -768,6 +775,13 @@ class _HomeSectionContent extends StatelessWidget {
       const SizedBox(height: 22),
       Overview(data: state._data),
       const SizedBox(height: 22),
+      TodayTasksPanel(
+        todos: state._data.todos,
+        now: DateTime.now(),
+        onToggleTodo: state._toggleTodo,
+        onOpenTodo: state._openTodo,
+      ),
+      const SizedBox(height: 22),
       KanbanBoard(
         data: state._data,
         onAddProject: state._addProject,
@@ -802,6 +816,20 @@ class _TodosSectionContent extends StatelessWidget {
     onToggleSubTodo: state._toggleSubTodo,
     onOpenTodo: state._openTodo,
     onDeleteTodo: state._deleteTodo,
+  );
+}
+
+class _CalendarSectionContent extends StatelessWidget {
+  const _CalendarSectionContent({required this.state});
+
+  final _HomePageState state;
+
+  @override
+  Widget build(BuildContext context) => CalendarPage(
+    todos: state._data.todos,
+    now: DateTime.now(),
+    onToggleTodo: state._toggleTodo,
+    onOpenTodo: state._openTodo,
   );
 }
 
