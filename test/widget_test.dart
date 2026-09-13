@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:cardory/main.dart';
 import 'package:cardory/domain/attachment_repository.dart';
 import 'package:cardory/domain/cardory_repository.dart';
-import 'package:cardory/data/attachment_store.dart';
 import 'package:cardory/domain/cardory_models.dart';
 import 'package:cardory/presentation/widgets/sidebar.dart';
 import 'package:cardory/sync/sync_coordinator.dart';
@@ -40,30 +39,36 @@ void mockUnreadablePackageInfo() {
 }
 
 void main() {
-  // ignore: no_leading_underscores_for_local_identifiers, prefer_function_declarations_over_variables
-  SyncProviderFactory _noopFactory = (AppSettings _) async {
-    throw const SyncUnavailableException('测试未配置同步');
-  };
-
   // ignore: prefer_function_declarations_over_variables
   AttachmentRepositoryFactory attachmentRepositoryFactory = (_) =>
       _MemoryAttachmentRepository();
 
-  WorkspaceControllerFactory controllerFactory(
-    CardoryRepository repository, {
+  /// 以「已保存密码自动解锁」方式泵出完整 CardoryApp（含路由 Shell）。
+  Future<void> pumpUnlockedApp(
+    WidgetTester tester,
+    _MemoryRepository repository, {
     SyncProviderFactory? syncProviderFactory,
-  }) => WorkspaceControllerFactory(
-    workspaceRepository: repository,
-    vaultRepository: repository,
-    syncRepository: repository,
-    credentialStore: _CredentialStore(null),
-    syncServiceFactory: () => SyncCoordinator(
-      repository: repository,
-      providerFactory: syncProviderFactory ?? _noopFactory,
-      attachmentRepositoryFactory: attachmentRepositoryFactory,
-    ),
-    attachmentRepositoryFactory: attachmentRepositoryFactory,
-  );
+    GithubUpdateService? updateService,
+  }) async {
+    await tester.pumpWidget(
+      CardoryApp(
+        vaultRepository: repository,
+        workspaceRepository: repository,
+        syncRepository: repository,
+        credentialStore: _CredentialStore(null),
+        vaultCredentialStore: _MemoryVaultCredentialStore()
+          ..password = 'test-password',
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        providerFactory: syncProviderFactory,
+        updateService: updateService,
+        rowLevelStoreBuilder: () => InMemoryRowLevelWorkspaceStore(
+          () => repository.data,
+          (data) => repository.data = data,
+        ),
+      ),
+    );
+    await pumpUiFrames(tester);
+  }
 
   testWidgets('Cardory home renders loaded data', (WidgetTester tester) async {
     final repository = _MemoryRepository();
@@ -349,23 +354,12 @@ void main() {
   testWidgets('shows a sync failure in a snack bar', (tester) async {
     final repository = _MemoryRepository()
       ..settings = const AppSettings(syncProvider: SyncProviderType.webdav);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HomePage(
-          controllerFactory: controllerFactory(
-            repository,
-            syncProviderFactory: (_) async =>
-                throw const SyncProviderException('WebDAV 请求超时'),
-          ),
-          vaultRepository: repository,
-          credentialStore: _CredentialStore(null),
-          vaultCredentialStore: _MemoryVaultCredentialStore(),
-          attachmentRepositoryFactory: AttachmentStore.forDataFile,
-          onSettingsChanged: (_) {},
-        ),
-      ),
+    await pumpUnlockedApp(
+      tester,
+      repository,
+      syncProviderFactory: (_) async =>
+          throw const SyncProviderException('WebDAV 请求超时'),
     );
-    await pumpUiFrames(tester);
 
     await tester.tap(find.text('设置').first);
     await pumpUiFrames(tester);
@@ -390,31 +384,14 @@ void main() {
     'assets': const [],
   });
 
-  HomePage homePageForUpdateCheck(
-    _MemoryRepository repository,
-    GithubUpdateService updateService,
-  ) => HomePage(
-    controllerFactory: controllerFactory(repository),
-    vaultRepository: repository,
-    credentialStore: _CredentialStore(null),
-    vaultCredentialStore: _MemoryVaultCredentialStore(),
-    attachmentRepositoryFactory: attachmentRepositoryFactory,
-    onSettingsChanged: (_) {},
-    updateService: updateService,
-  );
-
   testWidgets('update check skips silently when local version is unreadable', (
     tester,
   ) async {
     mockUnreadablePackageInfo();
-    final repository = _MemoryRepository();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: homePageForUpdateCheck(
-          repository,
-          _FakeUpdateService(fakeRemoteRelease()),
-        ),
-      ),
+    await pumpUnlockedApp(
+      tester,
+      _MemoryRepository(),
+      updateService: _FakeUpdateService(fakeRemoteRelease()),
     );
     await pumpUiFrames(tester);
 
@@ -428,14 +405,10 @@ void main() {
     tester,
   ) async {
     mockUnreadablePackageInfo();
-    final repository = _MemoryRepository();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: homePageForUpdateCheck(
-          repository,
-          _FakeUpdateService(fakeRemoteRelease()),
-        ),
-      ),
+    await pumpUnlockedApp(
+      tester,
+      _MemoryRepository(),
+      updateService: _FakeUpdateService(fakeRemoteRelease()),
     );
     await pumpUiFrames(tester);
 

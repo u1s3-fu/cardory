@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../application/workspace_controller.dart';
@@ -9,6 +10,7 @@ import '../../domain/cardory_models.dart';
 import '../../domain/cardory_repository.dart';
 import '../../domain/sync_credentials.dart';
 import '../../domain/sync_status.dart';
+import '../../routing/app_router.dart';
 import '../../services/github_update_service.dart';
 import '../app_section.dart';
 import '../cardory_theme.dart';
@@ -35,6 +37,9 @@ import 'project_page.dart';
 import 'settings_page.dart';
 import 'settings_panel.dart';
 
+/// 工作台 Shell：持有工作区控制器、顶部栏、侧栏与底部导航；
+/// 内容区由路由（[WorkbenchLocation] 对应的子路由）驱动，
+/// /projects 与 /projects/:projectId 是独立的受门禁路由。
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
@@ -43,6 +48,7 @@ class HomePage extends StatefulWidget {
     required this.credentialStore,
     required this.vaultCredentialStore,
     required this.onSettingsChanged,
+    required this.child,
     this.initialResult,
     required this.attachmentRepositoryFactory,
     this.connectionTester,
@@ -61,13 +67,14 @@ class HomePage extends StatefulWidget {
   /// 更新检查服务；测试可注入假实现，缺省使用 GitHub Releases。
   final GithubUpdateService? updateService;
 
+  /// ShellRoute 注入的路由子内容（当前分区 / 项目详情）。
+  final Widget child;
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  bool _sidebarExpanded = true;
-  AppSection _section = AppSection.home;
   late final WorkspaceController _controller;
 
   CardoryData get _data => _controller.data;
@@ -78,6 +85,23 @@ class _HomePageState extends State<HomePage> {
   SyncStatus get _syncStatus => _controller.syncStatus;
   AttachmentRepository? get _attachmentStore =>
       _controller.attachmentRepository;
+
+  /// 侧栏 / 底部导航的当前分区：由路由路径推导（详情页高亮「项目」）。
+  AppSection get _currentSection {
+    final path = GoRouterState.of(context).uri.path;
+    if (path.startsWith(projectsRoutePath)) return AppSection.projects;
+    if (path == todosRoutePath) return AppSection.todos;
+    if (path == settingsRoutePath) return AppSection.settings;
+    return AppSection.home;
+  }
+
+  String get _sectionTitle => switch (_currentSection) {
+    AppSection.home => '看板',
+    AppSection.todos => '待办事项',
+    AppSection.projects =>
+      GoRouterState.of(context).uri.path == projectsRoutePath ? '项目' : '项目详情',
+    AppSection.settings => '设置',
+  };
 
   @override
   void initState() {
@@ -329,6 +353,8 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // ---- 项目 ----
+
   Future<void> _addProject() async {
     final project = await showDialog<ProjectData>(
       context: context,
@@ -357,6 +383,13 @@ class _HomePageState extends State<HomePage> {
     if (ok != true) return;
     await _perform(() => _controller.deleteProject(project.id));
   }
+
+  /// 打开项目详情：拆分为独立受门禁路由 /projects/:projectId。
+  Future<void> _openProject(ProjectData project) async {
+    context.go('$projectsRoutePath/${project.id}');
+  }
+
+  // ---- 待办 ----
 
   Future<void> _addTodo() async {
     final todo = await showDialog<TodoData>(
@@ -438,6 +471,8 @@ class _HomePageState extends State<HomePage> {
     await _perform(() => _controller.addSubTodo(todo, subTodo));
   }
 
+  // ---- 资产 ----
+
   Future<void> _updateProject(ProjectData project) async {
     try {
       await _controller.editProject(project);
@@ -445,52 +480,6 @@ class _HomePageState extends State<HomePage> {
       _showError(error);
       rethrow;
     }
-  }
-
-  Future<void> _openProject(ProjectData project) async {
-    // 用控制器监听重建路由内容：详情页内增删资产/待办后立即反映到列表，
-    // 否则路由只会持有进入时的快照数据。
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _WorkspaceBoundBuilder(
-          controller: _controller,
-          builder: (context) {
-            final current = _data.projects.firstWhere(
-              (item) => item.id == project.id,
-              orElse: () => project,
-            );
-            return ProjectDetailPage(
-              project: current,
-              todos: _data.todos
-                  .where((todo) => todo.projectId == current.id)
-                  .toList(),
-              assets: _data.assets
-                  .where((asset) => asset.projectId == current.id)
-                  .toList(),
-              onUpdateProject: _updateProject,
-              onAddAsset: () => _addAsset(current),
-              onEditAsset: _editAsset,
-              onDeleteAsset: _deleteAsset,
-              onToggleTodo: _toggleTodo,
-              onToggleSubTodo: _toggleSubTodo,
-              onOpenTodo: _openTodo,
-              onAddTodo: _addProjectTodo,
-              onDeleteTodo: _deleteTodo,
-              assetTags: _data.assetTags,
-              onUpdateAssetsTags: (assetIds, tagIds) =>
-                  _controller.updateAssetsTags(assetIds, tagIds),
-              onAddAssetTag: (tag) => _controller.addAssetTag(tag),
-              onUpdateAssetTag: (tag) => _controller.updateAssetTag(tag),
-              onDeleteAssetTag: (tagId) => _controller.deleteAssetTag(tagId),
-              attachmentStore: _attachmentStore,
-              renameAttachmentsOnUpload: _settings.renameAttachmentsOnUpload,
-              keepAttachmentExtensionOnRename:
-                  _settings.keepAttachmentExtensionOnRename,
-            );
-          },
-        ),
-      ),
-    );
   }
 
   Future<AssetData?> _addAsset(ProjectData project) async {
@@ -543,76 +532,15 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildContent() {
-    switch (_section) {
-      case AppSection.home:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            HeroHeader(onAddProject: _addProject, onAddTodo: _addTodo),
-            const SizedBox(height: 22),
-            Overview(data: _data),
-            const SizedBox(height: 22),
-            KanbanBoard(
-              data: _data,
-              onAddProject: _addProject,
-              onOpenProject: _openProject,
-              onEditProject: _editProject,
-              onDeleteProject: _deleteProject,
-            ),
-            const SizedBox(height: 22),
-            ReminderPanel(
-              todos: _data.todos,
-              priorityThreshold: _settings.homeReminderPriorityThreshold,
-              onToggleTodo: _toggleTodo,
-              onToggleSubTodo: _toggleSubTodo,
-              onAddSubTodo: _quickAddSubTodo,
-              onOpenTodo: _openTodo,
-            ),
-          ],
-        );
-      case AppSection.todos:
-        return TodoPanel(
-          todos: _data.todos,
-          onAddTodo: _addTodo,
-          onToggle: _toggleTodo,
-          onToggleSubTodo: _toggleSubTodo,
-          onOpenTodo: _openTodo,
-          onDeleteTodo: _deleteTodo,
-        );
-      case AppSection.projects:
-        return ProjectListPanel(
-          projects: _data.projects,
-          onAddProject: _addProject,
-          onOpenProject: _openProject,
-          onEditProject: _editProject,
-          onDeleteProject: _deleteProject,
-        );
-      case AppSection.settings:
-        return SettingsPanel(
-          settings: _settings,
-          syncStatus: _syncStatus,
-          onSync: _sync,
-          onOpenSettings: _openSettings,
-          onChangePassword: _changePassword,
-          onShowAbout: () => showAboutCardoryDialog(
-            context,
-            onCheckForUpdate: () => _checkForUpdate(manual: true),
-          ),
-        );
-    }
-  }
-
-  String get _sectionTitle => switch (_section) {
-    AppSection.home => '看板',
-    AppSection.todos => '待办事项',
-    AppSection.projects => '项目',
-    AppSection.settings => '设置',
-  };
-
   void _selectSection(AppSection section) {
-    if (section == _section) return;
-    setState(() => _section = section);
+    final target = switch (section) {
+      AppSection.home => workbenchRoutePath,
+      AppSection.todos => todosRoutePath,
+      AppSection.projects => projectsRoutePath,
+      AppSection.settings => settingsRoutePath,
+    };
+    if (GoRouterState.of(context).uri.path == target) return;
+    context.go(target);
   }
 
   @override
@@ -667,142 +595,280 @@ class _HomePageState extends State<HomePage> {
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 720;
     final medium = width >= 720 && width < 1100;
+    final section = _currentSection;
+    final expandedSidebar = !medium && _sidebarExpanded;
 
-    return Scaffold(
-      body: DecoratedBox(
-        // 扁平化：纯色背景，不再使用渐变。
-        decoration: BoxDecoration(color: CardoryColors.gray50),
-        child: SafeArea(
-          child: Column(
-            children: [
-              AppTopBar(
-                compact: compact,
-                title: _sectionTitle,
-                onOpenSettings: _openSettings,
-              ),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!compact)
-                      Sidebar(
-                        selected: _section,
-                        expanded: !medium && _sidebarExpanded,
-                        onToggleExpanded: medium
-                            ? null
-                            : () => setState(
-                                () => _sidebarExpanded = !_sidebarExpanded,
-                              ),
-                        onSelected: _selectSection,
-                      ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              key: const Key('main-scroll-view'),
-                              padding: EdgeInsets.fromLTRB(
-                                compact ? 16 : 28,
-                                compact ? 16 : 24,
-                                compact ? 16 : 28,
-                                36,
-                              ),
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 1680,
-                                  ),
-                                  child: AnimatedSwitcher(
-                                    duration: cardoryAnimDuration(
-                                      context,
-                                      CardoryMotion.base,
-                                    ),
-                                    switchInCurve: CardoryMotion.outCubic,
-                                    switchOutCurve: CardoryMotion.inCubic,
-                                    transitionBuilder: (child, animation) =>
-                                        FadeTransition(
-                                          opacity: animation,
-                                          child: SlideTransition(
-                                            position: Tween<Offset>(
-                                              begin: const Offset(0.025, 0),
-                                              end: Offset.zero,
-                                            ).animate(animation),
-                                            child: child,
-                                          ),
-                                        ),
-                                    child: KeyedSubtree(
-                                      key: ValueKey(_section),
-                                      child: _buildContent(),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+    return _WorkbenchScope(
+      state: this,
+      child: Scaffold(
+        body: DecoratedBox(
+          // 扁平化：纯色背景，不再使用渐变。
+          decoration: BoxDecoration(color: CardoryColors.gray50),
+          child: SafeArea(
+            child: Column(
+              children: [
+                AppTopBar(
+                  compact: compact,
+                  title: _sectionTitle,
+                  onOpenSettings: _openSettings,
                 ),
-              ),
-            ],
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (!compact)
+                        Sidebar(
+                          selected: section,
+                          expanded: expandedSidebar,
+                          onToggleExpanded: medium
+                              ? null
+                              : () => setState(
+                                  () => _sidebarExpanded = !_sidebarExpanded,
+                                ),
+                          onSelected: _selectSection,
+                        ),
+                      Expanded(
+                        // Shell 对路由子内容的祖先结构必须恒定：子内容是带
+                        // GlobalKey 的内层 Navigator，切换分区时改变它的容器
+                        // （滚动 ↔ 直挂）会在过渡帧触发 GlobalKey 重挂异常。
+                        // 滚动容器由各分区内容自行承担（见 WorkbenchScaffold）。
+                        child: widget.child,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+        bottomNavigationBar: compact
+            ? SectionNavigation(
+                key: const Key('bottom-navigation'),
+                selected: section,
+                compact: true,
+                onSelected: _selectSection,
+              )
+            : null,
       ),
-      bottomNavigationBar: compact
-          ? SectionNavigation(
-              key: const Key('bottom-navigation'),
-              selected: _section,
-              compact: true,
-              onSelected: _selectSection,
-            )
-          : null,
+    );
+  }
+
+  bool _sidebarExpanded = true;
+}
+
+/// 把工作台 Shell 状态暴露给路由内容区的 InheritedWidget：
+/// 分区内容与项目详情页通过它获取控制器投影与操作回调。
+class _WorkbenchScope extends InheritedWidget {
+  const _WorkbenchScope({required this.state, required super.child});
+
+  final _HomePageState state;
+
+  static _HomePageState of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_WorkbenchScope>()?.state ??
+      (throw StateError('WorkbenchSectionContent 必须位于 HomePage Shell 内。'));
+
+  @override
+  bool updateShouldNotify(_WorkbenchScope oldWidget) => false;
+}
+
+/// 路由内容区入口：由 [createAppRouter] 的 workbenchContentBuilder 调用，
+/// 按 [WorkbenchLocation] 渲染对应分区 / 项目详情。
+class WorkbenchSectionContent extends StatelessWidget {
+  const WorkbenchSectionContent({super.key, required this.location});
+
+  final WorkbenchLocation location;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = _WorkbenchScope.of(context);
+    switch (location) {
+      case WorkbenchToday():
+        return _SectionScrollArea(child: _HomeSectionContent(state: scope));
+      case WorkbenchTodos():
+        return _SectionScrollArea(child: _TodosSectionContent(state: scope));
+      case WorkbenchProjects():
+        return _SectionScrollArea(child: _ProjectsSectionContent(state: scope));
+      case WorkbenchProjectDetail(:final projectId):
+        return _ProjectDetailContent(state: scope, projectId: projectId);
+      case WorkbenchSettings():
+        return _SectionScrollArea(child: _SettingsSectionContent(state: scope));
+    }
+  }
+}
+
+/// 分区内容的滚动容器：滚动由各分区内容自行承担，
+/// 保证 Shell 对路由子内容的祖先结构恒定（见 HomePage build 注释）。
+class _SectionScrollArea extends StatelessWidget {
+  const _SectionScrollArea({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final compact = width < 720;
+    return SingleChildScrollView(
+      key: const Key('main-scroll-view'),
+      padding: EdgeInsets.fromLTRB(
+        compact ? 16 : 28,
+        compact ? 16 : 24,
+        compact ? 16 : 28,
+        36,
+      ),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1680),
+          child: child,
+        ),
+      ),
     );
   }
 }
 
-/// 订阅工作区控制器并在数据变化时重建子树的最小包装，
-/// 用于 Navigator 路由内容（路由不会随页面 setState 重建）。
-class _WorkspaceBoundBuilder extends StatefulWidget {
-  const _WorkspaceBoundBuilder({
-    required this.controller,
-    required this.builder,
-  });
+class _HomeSectionContent extends StatelessWidget {
+  const _HomeSectionContent({required this.state});
 
-  final WorkspaceController controller;
-  final WidgetBuilder builder;
+  final _HomePageState state;
 
   @override
-  State<_WorkspaceBoundBuilder> createState() => _WorkspaceBoundBuilderState();
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      HeroHeader(onAddProject: state._addProject, onAddTodo: state._addTodo),
+      const SizedBox(height: 22),
+      Overview(data: state._data),
+      const SizedBox(height: 22),
+      KanbanBoard(
+        data: state._data,
+        onAddProject: state._addProject,
+        onOpenProject: state._openProject,
+        onEditProject: state._editProject,
+        onDeleteProject: state._deleteProject,
+      ),
+      const SizedBox(height: 22),
+      ReminderPanel(
+        todos: state._data.todos,
+        priorityThreshold: state._settings.homeReminderPriorityThreshold,
+        onToggleTodo: state._toggleTodo,
+        onToggleSubTodo: state._toggleSubTodo,
+        onAddSubTodo: state._quickAddSubTodo,
+        onOpenTodo: state._openTodo,
+      ),
+    ],
+  );
 }
 
-class _WorkspaceBoundBuilderState extends State<_WorkspaceBoundBuilder> {
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(_onChanged);
-  }
+class _TodosSectionContent extends StatelessWidget {
+  const _TodosSectionContent({required this.state});
+
+  final _HomePageState state;
 
   @override
-  void didUpdateWidget(_WorkspaceBoundBuilder oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.controller != oldWidget.controller) {
-      oldWidget.controller.removeListener(_onChanged);
-      widget.controller.addListener(_onChanged);
+  Widget build(BuildContext context) => TodoPanel(
+    todos: state._data.todos,
+    onAddTodo: state._addTodo,
+    onToggle: state._toggleTodo,
+    onToggleSubTodo: state._toggleSubTodo,
+    onOpenTodo: state._openTodo,
+    onDeleteTodo: state._deleteTodo,
+  );
+}
+
+class _ProjectsSectionContent extends StatelessWidget {
+  const _ProjectsSectionContent({required this.state});
+
+  final _HomePageState state;
+
+  @override
+  Widget build(BuildContext context) => ProjectListPanel(
+    projects: state._data.projects,
+    onAddProject: state._addProject,
+    onOpenProject: state._openProject,
+    onEditProject: state._editProject,
+    onDeleteProject: state._deleteProject,
+  );
+}
+
+class _SettingsSectionContent extends StatelessWidget {
+  const _SettingsSectionContent({required this.state});
+
+  final _HomePageState state;
+
+  @override
+  Widget build(BuildContext context) => SettingsPanel(
+    settings: state._settings,
+    syncStatus: state._syncStatus,
+    onSync: state._sync,
+    onOpenSettings: state._openSettings,
+    onChangePassword: state._changePassword,
+    onShowAbout: () => showAboutCardoryDialog(
+      context,
+      onCheckForUpdate: () => state._checkForUpdate(manual: true),
+    ),
+  );
+}
+
+class _ProjectDetailContent extends StatelessWidget {
+  const _ProjectDetailContent({required this.state, required this.projectId});
+
+  final _HomePageState state;
+  final String projectId;
+
+  @override
+  Widget build(BuildContext context) {
+    final projects = state._data.projects;
+    ProjectData? project;
+    for (final item in projects) {
+      if (item.id == projectId) {
+        project = item;
+        break;
+      }
     }
+    if (project == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('项目不存在或已被删除。'),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => context.go(projectsRoutePath),
+              icon: const Icon(Icons.folder_outlined),
+              label: const Text('返回项目列表'),
+            ),
+          ],
+        ),
+      );
+    }
+    final current = project;
+    return ProjectDetailPage(
+      project: current,
+      todos: state._data.todos
+          .where((todo) => todo.projectId == current.id)
+          .toList(),
+      assets: state._data.assets
+          .where((asset) => asset.projectId == current.id)
+          .toList(),
+      onUpdateProject: state._updateProject,
+      onAddAsset: () => state._addAsset(current),
+      onEditAsset: state._editAsset,
+      onDeleteAsset: state._deleteAsset,
+      onToggleTodo: state._toggleTodo,
+      onToggleSubTodo: state._toggleSubTodo,
+      onOpenTodo: state._openTodo,
+      onAddTodo: state._addProjectTodo,
+      onDeleteTodo: state._deleteTodo,
+      assetTags: state._data.assetTags,
+      onUpdateAssetsTags: (assetIds, tagIds) =>
+          state._controller.updateAssetsTags(assetIds, tagIds),
+      onAddAssetTag: (tag) => state._controller.addAssetTag(tag),
+      onUpdateAssetTag: (tag) => state._controller.updateAssetTag(tag),
+      onDeleteAssetTag: (tagId) => state._controller.deleteAssetTag(tagId),
+      attachmentStore: state._attachmentStore,
+      renameAttachmentsOnUpload: state._settings.renameAttachmentsOnUpload,
+      keepAttachmentExtensionOnRename:
+          state._settings.keepAttachmentExtensionOnRename,
+    );
   }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_onChanged);
-    super.dispose();
-  }
-
-  void _onChanged() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.builder(context);
 }

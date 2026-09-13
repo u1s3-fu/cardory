@@ -165,7 +165,8 @@ class _CardoryAppState extends State<CardoryApp> {
     _router = createAppRouter(
       navigatorKey: _navigatorKey,
       vaultGateBuilder: _buildVaultGate,
-      workbenchBuilder: _buildWorkbench,
+      workbenchShellBuilder: _buildWorkbenchShell,
+      workbenchContentBuilder: _buildWorkbenchContent,
       isVaultUnlocked: () => _unlocked,
       refreshListenable: _vaultUnlockedNotifier,
       vaultPageEpoch: () => _vaultEpoch,
@@ -274,7 +275,8 @@ class _CardoryAppState extends State<CardoryApp> {
     onUnlocked: _handleUnlocked,
   );
 
-  Widget _buildWorkbench(BuildContext context) => HomePage(
+  /// 工作台 Shell：持有控制器与导航框架，内容区来自路由子页。
+  Widget _buildWorkbenchShell(BuildContext context, Widget child) => HomePage(
     controllerFactory: widget.controllerFactory,
     vaultRepository: widget.vaultRepository,
     credentialStore: widget.credentialStore,
@@ -284,7 +286,14 @@ class _CardoryAppState extends State<CardoryApp> {
     attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
     connectionTester: widget.connectionTester,
     updateService: widget.updateService,
+    child: child,
   );
+
+  /// 工作台内容区：按路由位置渲染分区 / 项目详情（作用域由 Shell 提供）。
+  Widget _buildWorkbenchContent(
+    BuildContext context,
+    WorkbenchLocation location,
+  ) => WorkbenchSectionContent(location: location);
 }
 
 void runCardoryApp() {
