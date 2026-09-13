@@ -326,4 +326,89 @@ void main() {
     await store.deleteAsset('asset-1');
     expect(await SqlCipherDataMapper(database).loadAssets(), isEmpty);
   });
+
+  test('专注计时：开始、结束、手动补记、编辑与删除', () async {
+    final running = await store.startEntry(
+      source: 'timer',
+      startedAt: DateTime(2026, 9, 13, 10),
+    );
+    expect(running.isRunning, isTrue);
+    final open = await store.loadOpenEntries();
+    expect(open.single.id, running.id);
+
+    final stopped = await store.stopEntry(
+      running.id,
+      endedAt: DateTime(2026, 9, 13, 10, 25),
+    );
+    expect(stopped.isRunning, isFalse);
+    expect(stopped.durationSeconds, 25 * 60);
+    expect(await store.loadOpenEntries(), isEmpty);
+
+    final manual = await store.createEntry(
+      startedAt: DateTime(2026, 9, 13, 14),
+      endedAt: DateTime(2026, 9, 13, 15),
+      note: '手动补记',
+    );
+    expect(manual.source, 'manual');
+
+    await store.updateEntry(
+      manual.copyWith(note: '补记-改', durationSeconds: 1800),
+    );
+    final entries = await store.loadEntries();
+    expect(entries.first.note, '补记-改');
+    expect(entries.first.durationSeconds, 1800);
+
+    await store.deleteEntry(manual.id);
+    expect((await store.loadEntries()).length, 1);
+  });
+
+  test('番茄钟：开始会话不产生 sync_changes，结束后补记审计', () async {
+    final changesAtStart = await database.select(database.syncChanges).get();
+    final session = await store.startSession(
+      mode: 'focus',
+      plannedSeconds: 25 * 60,
+      startedAt: DateTime(2026, 9, 13, 9),
+    );
+    expect(session.isRunning, isTrue);
+    // 运行中的番茄钟状态不得进入同步通道：开始时无 pomodoro_session 审计。
+    final changesWhileRunning = await database
+        .select(database.syncChanges)
+        .get();
+    expect(
+      changesWhileRunning.where(
+        (change) => change.entityType == 'pomodoro_session',
+      ),
+      isEmpty,
+    );
+    expect(changesWhileRunning.length, changesAtStart.length);
+
+    final running = await store.loadRunningSession();
+    expect(running?.id, session.id);
+
+    await store.finishSession(
+      session.id,
+      completed: true,
+      actualSeconds: 25 * 60,
+      endedAt: DateTime(2026, 9, 13, 9, 25),
+    );
+    expect(await store.loadRunningSession(), isNull);
+    final changesAfter = await database.select(database.syncChanges).get();
+    expect(
+      changesAfter
+          .where((change) => change.entityType == 'pomodoro_session')
+          .map((change) => change.operation),
+      ['update'],
+    );
+
+    // 完成的专注会话由页面层以 pomodoro 来源写入 time_entries。
+    await store.createEntry(
+      startedAt: session.startedAt,
+      endedAt: DateTime(2026, 9, 13, 9, 25),
+      source: 'pomodoro',
+      note: '番茄钟专注',
+    );
+    final entries = await store.loadEntries();
+    expect(entries.single.source, 'pomodoro');
+    expect(entries.single.durationSeconds, 25 * 60);
+  });
 }

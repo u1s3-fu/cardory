@@ -9,17 +9,17 @@ const vaultRoutePath = '/vault';
 /// 解锁后的工作台主页（今日视图 / 工作台 Shell）。
 const workbenchRoutePath = '/today';
 
-/// 工作台分区子路由：待办列表、日历、项目列表、项目详情与设置。
+/// 工作台分区子路由：待办列表、日历、时间、项目列表、项目详情与设置。
 const todosRoutePath = '/todos';
 const calendarRoutePath = '/calendar';
+const timeRoutePath = '/time';
 const projectsRoutePath = '/projects';
 const settingsRoutePath = '/settings';
 
 /// 业务路由规划（破坏性版本阶段 §6）：
-/// - /vault、/today、/todos、/calendar、/projects、/projects/:projectId、
-///   /settings 已落地（分区与日历为工作台 Shell 子路由）；
+/// - /vault、/today、/todos、/calendar、/time、/projects、
+///   /projects/:projectId、/settings 已落地（分区为工作台 Shell 子路由）；
 /// - 以下模块暂以「受保护占位页」挂载，页面就绪后替换占位 builder。
-const timeRoutePath = '/time';
 const ganttRoutePath = '/gantt';
 const assetsRoutePath = '/assets';
 
@@ -28,12 +28,6 @@ const assetsRoutePath = '/assets';
 /// 由 [createAppRouter] 统一展开为受门禁保护的路由。
 const placeholderRoutes =
     <({String path, String title, IconData icon, String description})>[
-      (
-        path: timeRoutePath,
-        title: '时间与番茄钟',
-        icon: Icons.timer_outlined,
-        description: '时间记录与番茄钟专注模块，即将在后续版本开放。',
-      ),
       (
         path: ganttRoutePath,
         title: '甘特图',
@@ -77,6 +71,10 @@ class WorkbenchSettings extends WorkbenchLocation {
 
 class WorkbenchCalendar extends WorkbenchLocation {
   const WorkbenchCalendar();
+}
+
+class WorkbenchTime extends WorkbenchLocation {
+  const WorkbenchTime();
 }
 
 /// 工作台 Shell 构建器：包住路由子内容（顶部栏 / 侧栏 / 底部导航由 Shell 提供）。
@@ -148,6 +146,7 @@ GoRouter createAppRouter({
           workbenchChildRoute(workbenchRoutePath, const WorkbenchToday()),
           workbenchChildRoute(todosRoutePath, const WorkbenchTodos()),
           workbenchChildRoute(calendarRoutePath, const WorkbenchCalendar()),
+          workbenchChildRoute(timeRoutePath, const WorkbenchTime()),
           workbenchChildRoute(projectsRoutePath, const WorkbenchProjects()),
           GoRoute(
             path: '$projectsRoutePath/:projectId',

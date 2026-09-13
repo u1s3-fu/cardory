@@ -8,14 +8,18 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../../application/row_level_workspace_store.dart';
+import '../../application/time_tracking_store.dart';
 import '../../domain/cardory_models.dart';
+import '../../domain/time_models.dart';
 import '../db/app_database.dart' as db;
 import 'asset_repository.dart';
 import 'attachment_repositories.dart';
 import 'project_repository.dart';
 import 'task_repository.dart';
+import 'time_repositories.dart';
 
-class DriftRowLevelWorkspaceStore implements RowLevelWorkspaceStore {
+class DriftRowLevelWorkspaceStore
+    implements RowLevelWorkspaceStore, TimeTrackingStore {
   DriftRowLevelWorkspaceStore(this._db);
 
   final db.AppDatabase _db;
@@ -26,6 +30,8 @@ class DriftRowLevelWorkspaceStore implements RowLevelWorkspaceStore {
   late final _assetTags = AssetTagRepository(_db);
   late final _attachments = AttachmentRecordRepository(_db);
   late final _categories = AttachmentCategoryRepository(_db);
+  late final _timeEntries = TimeEntryRepository(_db);
+  late final _pomodoros = PomodoroSessionRepository(_db);
 
   int get _now => DateTime.now().toUtc().millisecondsSinceEpoch;
 
@@ -491,4 +497,168 @@ class DriftRowLevelWorkspaceStore implements RowLevelWorkspaceStore {
       (_db.select(_db.assets)
             ..where((row) => row.id.equals(id) & row.deletedAt.isNull()))
           .getSingleOrNull();
+
+  // ---- 时间记录与番茄钟 ----
+
+  @override
+  Future<List<TimeEntryData>> loadEntries({int limit = 200}) async =>
+      (await _timeEntries.loadRecent(limit: limit)).map(_timeEntry).toList();
+
+  @override
+  Future<List<TimeEntryData>> loadOpenEntries() async =>
+      (await _timeEntries.loadOpen()).map(_timeEntry).toList();
+
+  @override
+  Future<PomodoroSessionData?> loadRunningSession() async {
+    final running = await _pomodoros.loadRunning();
+    return running == null ? null : _pomodoro(running);
+  }
+
+  @override
+  Future<List<PomodoroSessionData>> loadSessions({int limit = 100}) async =>
+      (await _pomodoros.loadRecent(limit: limit)).map(_pomodoro).toList();
+
+  @override
+  Future<TimeEntryData> startEntry({
+    String? projectId,
+    String? taskId,
+    String note = '',
+    String source = 'timer',
+    DateTime? startedAt,
+  }) async {
+    final started = startedAt ?? DateTime.now();
+    final entry = await _timeEntries.start(
+      startedAt: started.toUtc().millisecondsSinceEpoch,
+      source: source,
+      note: note,
+      projectId: (projectId == null || projectId.isEmpty) ? null : projectId,
+      taskId: (taskId == null || taskId.isEmpty) ? null : taskId,
+    );
+    return _timeEntry(entry);
+  }
+
+  @override
+  Future<TimeEntryData> stopEntry(
+    String id, {
+    required DateTime endedAt,
+  }) async {
+    await _timeEntries.stop(
+      id,
+      endedAt: endedAt.toUtc().millisecondsSinceEpoch,
+    );
+    final entry = await (_db.select(
+      _db.timeEntries,
+    )..where((row) => row.id.equals(id))).getSingle();
+    return _timeEntry(entry);
+  }
+
+  @override
+  Future<TimeEntryData> createEntry({
+    required DateTime startedAt,
+    required DateTime endedAt,
+    String? projectId,
+    String? taskId,
+    String note = '',
+    String source = 'manual',
+  }) async {
+    final entry = await _timeEntries.create(
+      startedAt: startedAt.toUtc().millisecondsSinceEpoch,
+      endedAt: endedAt.toUtc().millisecondsSinceEpoch,
+      source: source,
+      note: note,
+      projectId: (projectId == null || projectId.isEmpty) ? null : projectId,
+      taskId: (taskId == null || taskId.isEmpty) ? null : taskId,
+    );
+    return _timeEntry(entry);
+  }
+
+  @override
+  Future<void> updateEntry(TimeEntryData entry) async {
+    final row = await _timeEntryRow(entry.id);
+    await _timeEntries.update(
+      row.copyWith(
+        projectId: Value(entry.projectId),
+        taskId: Value(entry.taskId),
+        startedAt: entry.startedAt.toUtc().millisecondsSinceEpoch,
+        endedAt: Value(entry.endedAt?.toUtc().millisecondsSinceEpoch),
+        durationSeconds: entry.durationSeconds,
+        source: entry.source,
+        note: entry.note,
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteEntry(String id) => _timeEntries.softDelete(id);
+
+  @override
+  Future<PomodoroSessionData> startSession({
+    required String mode,
+    required int plannedSeconds,
+    String? projectId,
+    String? taskId,
+    DateTime? startedAt,
+  }) async {
+    final session = await _pomodoros.start(
+      mode: mode,
+      plannedSeconds: plannedSeconds,
+      startedAt: (startedAt ?? DateTime.now()).toUtc().millisecondsSinceEpoch,
+      projectId: (projectId == null || projectId.isEmpty) ? null : projectId,
+      taskId: (taskId == null || taskId.isEmpty) ? null : taskId,
+    );
+    return _pomodoro(session);
+  }
+
+  @override
+  Future<PomodoroSessionData> finishSession(
+    String id, {
+    required bool completed,
+    required int actualSeconds,
+    required DateTime endedAt,
+  }) async {
+    await _pomodoros.finish(
+      id,
+      completed: completed,
+      actualSeconds: actualSeconds,
+      endedAt: endedAt.toUtc().millisecondsSinceEpoch,
+    );
+    final session = await (_db.select(
+      _db.pomodoroSessions,
+    )..where((row) => row.id.equals(id))).getSingle();
+    return _pomodoro(session);
+  }
+
+  @override
+  Future<void> deleteSession(String id) => _pomodoros.softDelete(id);
+
+  TimeEntryData _timeEntry(db.TimeEntry row) => TimeEntryData(
+    id: row.id,
+    startedAt: _fromMillis(row.startedAt)!,
+    endedAt: _fromMillis(row.endedAt),
+    durationSeconds: row.durationSeconds,
+    projectId: row.projectId,
+    taskId: row.taskId,
+    source: row.source,
+    note: row.note,
+  );
+
+  PomodoroSessionData _pomodoro(db.PomodoroSession row) => PomodoroSessionData(
+    id: row.id,
+    mode: row.mode,
+    plannedSeconds: row.plannedSeconds,
+    startedAt: _fromMillis(row.startedAt)!,
+    endedAt: _fromMillis(row.endedAt),
+    actualSeconds: row.actualSeconds,
+    completed: row.completed,
+    projectId: row.projectId,
+    taskId: row.taskId,
+  );
+
+  DateTime? _fromMillis(int? value) => value == null
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
+
+  Future<db.TimeEntry> _timeEntryRow(String id) => (_db.select(
+    _db.timeEntries,
+  )..where((row) => row.id.equals(id) & row.deletedAt.isNull())).getSingle();
 }

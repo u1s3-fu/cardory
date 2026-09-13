@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/row_level_workspace_store.dart';
+import '../application/time_tracking_store.dart';
 import '../application/workspace_controller_factory.dart';
 import '../data/attachment_store.dart';
 import '../data/repositories/drift_row_level_workspace_store.dart';
@@ -59,6 +60,14 @@ final attachmentRepositoryFactoryProvider =
 /// 行级写入存储的惰性构建器：保险库解锁后控制器创建时才调用；
 /// 数据库会话未开启（如测试注入假仓库）时返回 null。
 final rowLevelStoreBuilderProvider = Provider<RowLevelWorkspaceStoreBuilder>(
+  (ref) => () {
+    final database = ref.watch(sqlCipherVaultStoreProvider).database;
+    return database == null ? null : DriftRowLevelWorkspaceStore(database);
+  },
+);
+
+/// 时间记录与番茄钟存储的惰性构建器：与行级写入存储共用数据库会话。
+final timeTrackingStoreBuilderProvider = Provider<TimeTrackingStoreBuilder>(
   (ref) => () {
     final database = ref.watch(sqlCipherVaultStoreProvider).database;
     return database == null ? null : DriftRowLevelWorkspaceStore(database);

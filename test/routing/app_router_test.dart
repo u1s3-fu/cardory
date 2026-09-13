@@ -25,6 +25,7 @@ void main() {
         WorkbenchToday() => const Text('工作台'),
         WorkbenchTodos() => const Text('待办区'),
         WorkbenchCalendar() => const Text('日历区'),
+        WorkbenchTime() => const Text('时间区'),
         WorkbenchProjects() => const Text('项目区'),
         WorkbenchProjectDetail(:final projectId) => Text('项目详情:$projectId'),
         WorkbenchSettings() => const Text('设置区'),
@@ -91,7 +92,7 @@ void main() {
     expect(router.routeInformationProvider.value.uri.path, workbenchRoutePath);
     expect(find.text('工作台'), findsOneWidget);
 
-    // 分区子路由：待办、日历、项目与设置均为独立受门禁路由。
+    // 分区子路由：待办、日历、时间、项目与设置均为独立受门禁路由。
     router.go(todosRoutePath);
     await tester.pumpAndSettle();
     expect(router.routeInformationProvider.value.uri.path, todosRoutePath);
@@ -101,6 +102,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(router.routeInformationProvider.value.uri.path, calendarRoutePath);
     expect(find.text('日历区'), findsOneWidget);
+
+    router.go(timeRoutePath);
+    await tester.pumpAndSettle();
+    expect(router.routeInformationProvider.value.uri.path, timeRoutePath);
+    expect(find.text('时间区'), findsOneWidget);
 
     router.go(projectsRoutePath);
     await tester.pumpAndSettle();

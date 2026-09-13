@@ -13,6 +13,20 @@ class TimeEntryRepository {
   final Clock _clock;
   final String _deviceId;
 
+  Future<List<TimeEntry>> loadRecent({int limit = 200}) async =>
+      await (_db.select(_db.timeEntries)
+            ..where((row) => row.deletedAt.isNull())
+            ..orderBy([(row) => OrderingTerm.desc(row.startedAt)])
+            ..limit(limit))
+          .get();
+
+  /// 未闭合（endedAt 为 null）的计时记录。
+  Future<List<TimeEntry>> loadOpen() async =>
+      await (_db.select(_db.timeEntries)
+            ..where((row) => row.deletedAt.isNull() & row.endedAt.isNull())
+            ..orderBy([(row) => OrderingTerm.desc(row.startedAt)]))
+          .get();
+
   Stream<List<TimeEntry>> watch({String? projectId, String? taskId}) {
     final query = _db.select(_db.timeEntries);
     query.where((row) {
@@ -238,6 +252,21 @@ class PomodoroSessionRepository {
     return query.watch();
   }
 
+  Future<List<PomodoroSession>> loadRecent({int limit = 100}) async =>
+      await (_db.select(_db.pomodoroSessions)
+            ..where((row) => row.deletedAt.isNull())
+            ..orderBy([(row) => OrderingTerm.desc(row.startedAt)])
+            ..limit(limit))
+          .get();
+
+  /// 进行中的会话（endedAt 为 null；同一时刻至多一个）。
+  Future<PomodoroSession?> loadRunning() async =>
+      await (_db.select(_db.pomodoroSessions)
+            ..where((row) => row.deletedAt.isNull() & row.endedAt.isNull())
+            ..orderBy([(row) => OrderingTerm.desc(row.startedAt)])
+            ..limit(1))
+          .getSingleOrNull();
+
   Future<PomodoroSession> start({
     required String mode,
     required int plannedSeconds,
@@ -248,6 +277,8 @@ class PomodoroSessionRepository {
   }) async {
     final now = _clock();
     final sessionId = id ?? repositoryUuid.v4();
+    // 注意：开始会话只写本地行，不记录 sync_changes——运行中的番茄钟
+    // 状态不得进入同步通道；结束（finish）时才补记完整审计。
     await _db.transaction(() async {
       await _db
           .into(_db.pomodoroSessions)
@@ -263,25 +294,14 @@ class PomodoroSessionRepository {
               updatedAt: now,
             ),
           );
-      final created = await (_db.select(
-        _db.pomodoroSessions,
-      )..where((row) => row.id.equals(sessionId))).getSingle();
-      await recordSyncChange(
-        _db,
-        entityType: 'pomodoro_session',
-        entityId: sessionId,
-        operation: 'create',
-        payload: rowPayload(created),
-        deviceId: _deviceId,
-        createdAt: now,
-      );
     });
     return await (_db.select(
       _db.pomodoroSessions,
     )..where((row) => row.id.equals(sessionId))).getSingle();
   }
 
-  /// 结束会话：[completed] 区分完成/中断，[actualSeconds] 与 [endedAt] 随写。
+  /// 结束会话：[completed] 区分完成/中断，[actualSeconds] 与 [endedAt] 随写；
+  /// 此时会话已定型，补记 sync_changes 审计。
   Future<void> finish(
     String id, {
     required bool completed,

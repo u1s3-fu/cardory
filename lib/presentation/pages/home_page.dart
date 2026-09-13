@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../application/time_tracking_store.dart';
 import '../../application/workspace_controller.dart';
 import '../../application/workspace_controller_factory.dart';
 import '../../application/workspace_settings_service.dart';
@@ -38,6 +39,7 @@ import 'calendar_page.dart';
 import 'project_page.dart';
 import 'settings_page.dart';
 import 'settings_panel.dart';
+import 'time_page.dart';
 
 /// 工作台 Shell：持有工作区控制器、顶部栏、侧栏与底部导航；
 /// 内容区由路由（[WorkbenchLocation] 对应的子路由）驱动，
@@ -55,6 +57,7 @@ class HomePage extends StatefulWidget {
     required this.attachmentRepositoryFactory,
     this.connectionTester,
     this.updateService,
+    this.timeTrackingStore,
   });
 
   final WorkspaceControllerFactory controllerFactory;
@@ -71,6 +74,9 @@ class HomePage extends StatefulWidget {
 
   /// ShellRoute 注入的路由子内容（当前分区 / 项目详情）。
   final Widget child;
+
+  /// 时间记录与番茄钟的行级存储；未注入时「时间」分区显示不可用提示。
+  final TimeTrackingStore? timeTrackingStore;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -94,6 +100,7 @@ class _HomePageState extends State<HomePage> {
     if (path.startsWith(projectsRoutePath)) return AppSection.projects;
     if (path == todosRoutePath) return AppSection.todos;
     if (path == calendarRoutePath) return AppSection.calendar;
+    if (path == timeRoutePath) return AppSection.time;
     if (path == settingsRoutePath) return AppSection.settings;
     return AppSection.home;
   }
@@ -102,6 +109,7 @@ class _HomePageState extends State<HomePage> {
     AppSection.home => '看板',
     AppSection.todos => '待办事项',
     AppSection.calendar => '日历',
+    AppSection.time => '时间与番茄钟',
     AppSection.projects =>
       GoRouterState.of(context).uri.path == projectsRoutePath ? '项目' : '项目详情',
     AppSection.settings => '设置',
@@ -570,6 +578,7 @@ class _HomePageState extends State<HomePage> {
       AppSection.home => workbenchRoutePath,
       AppSection.todos => todosRoutePath,
       AppSection.calendar => calendarRoutePath,
+      AppSection.time => timeRoutePath,
       AppSection.projects => projectsRoutePath,
       AppSection.settings => settingsRoutePath,
     };
@@ -722,6 +731,8 @@ class WorkbenchSectionContent extends StatelessWidget {
         return _SectionScrollArea(child: _TodosSectionContent(state: scope));
       case WorkbenchCalendar():
         return _SectionScrollArea(child: _CalendarSectionContent(state: scope));
+      case WorkbenchTime():
+        return _SectionScrollArea(child: _TimeSectionContent(state: scope));
       case WorkbenchProjects():
         return _SectionScrollArea(child: _ProjectsSectionContent(state: scope));
       case WorkbenchProjectDetail(:final projectId):
@@ -831,6 +842,26 @@ class _CalendarSectionContent extends StatelessWidget {
     onToggleTodo: state._toggleTodo,
     onOpenTodo: state._openTodo,
   );
+}
+
+class _TimeSectionContent extends StatelessWidget {
+  const _TimeSectionContent({required this.state});
+
+  final _HomePageState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = state.widget.timeTrackingStore;
+    if (store == null) {
+      return Center(
+        child: Text(
+          '时间存储未注入，无法使用时间与番茄钟模块。',
+          style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
+        ),
+      );
+    }
+    return TimePage(store: store, projects: state._data.projects);
+  }
 }
 
 class _ProjectsSectionContent extends StatelessWidget {

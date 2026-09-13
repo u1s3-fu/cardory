@@ -14,7 +14,10 @@ import 'package:flutter/services.dart'
     show MethodChannel, MissingPluginException;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cardory/presentation/pages/time_page.dart';
+
 import 'support/in_memory_row_level_workspace_store.dart';
+import 'support/in_memory_time_tracking_store.dart';
 
 Future<void> pumpUiFrames(WidgetTester tester) async {
   for (var index = 0; index < 20; index++) {
@@ -350,6 +353,48 @@ void main() {
     expect(syncCount, 1);
     expect(passwordChangeCount, 1);
     expect(aboutCount, 1);
+  });
+
+  testWidgets('时间页面：专注计时与手动记录走行级存储', (tester) async {
+    final timeStore = InMemoryTimeTrackingStore();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: TimePage(
+              store: timeStore,
+              projects: CardoryData.seed().projects,
+              now: DateTime(2026, 9, 13, 15),
+            ),
+          ),
+        ),
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    // 专注计时：开始 → 暂停，产生一条已闭合的计时记录。
+    final timerCard = find.byKey(const Key('focus-timer-card'));
+    await tester.tap(find.descendant(of: timerCard, matching: find.text('开始')));
+    await pumpUiFrames(tester);
+    expect(timeStore.entries.single.isRunning, isTrue);
+
+    await tester.tap(find.descendant(of: timerCard, matching: find.text('暂停')));
+    await pumpUiFrames(tester);
+    expect(timeStore.entries.single.isRunning, isFalse);
+    // 时间记录清单出现这条计时器来源的记录。
+    expect(find.text('计时器'), findsWidgets);
+
+    // 番茄钟：开始专注模式后出现倒计时与提前结束。
+    final pomodoroCard = find.byKey(const Key('pomodoro-card'));
+    await tester.tap(
+      find.descendant(of: pomodoroCard, matching: find.text('开始').first),
+    );
+    await pumpUiFrames(tester);
+    expect(timeStore.sessions.single.isRunning, isTrue);
+    expect(
+      find.descendant(of: pomodoroCard, matching: find.text('提前结束')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('看板拖拽把项目移动到其他阶段并持久化排序', (tester) async {
