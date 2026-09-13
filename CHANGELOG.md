@@ -8,7 +8,7 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 - （无）
 
-## [0.2.0] - 2026-09-13
+## [0.2.1] - 2026-09-13
 
 ### 新增（Added）
 
