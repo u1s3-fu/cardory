@@ -6,6 +6,7 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ### 变更（Changed）
 
+- 看板拖拽排序（阶段 B 第三步）：项目卡片可拖拽跨阶段移动与列内排序，落点插入到目标卡之前或列尾追加；拖拽结果经行级 Repository 写入项目阶段与 `sortOrder`（单事务、仅更新发生变化的行并记录 sync_changes 审计）。
 - 路由拆分（阶段 B 第二步）：`/projects`（项目列表）与 `/projects/:projectId`（项目详情）拆为独立受门禁路由；工作台四个分区（/today、/todos、/projects、/settings）改经 `ShellRoute` 共享同一工作台 Shell（控制器、顶部栏、侧栏、底部导航），侧栏/底部导航改为路由导航，看板与项目列表点击项目改为 `context.go('/projects/:id')`，不再使用 Navigator.push 与路由内重建包装；项目详情页随路由全高渲染，删除路由内 `AnimatedSwitcher`（Shell 子内容含内层 Navigator 的 GlobalKey，交叉动画会在过渡帧复制它触发 Duplicate GlobalKey）。工作台子路由使用 `NoTransitionPage` 瞬时切换。
 - 核心界面写入口迁移到 Repository 行级单事务写入（阶段 B 第一步）：项目增删改、待办/子待办增删改与完成切换、资产与标签管理、看板重排全部经新增的 `RowLevelWorkspaceStore` 接口落库（生产实现 `DriftRowLevelWorkspaceStore` 组合各实体 Repository，多行差异对齐包在单个外层事务内，行级 updatedAt/tombstone 与 sync_changes 审计同事务提交），界面写入不再构建整包 `CardoryData` 快照；`database_snapshot_applier.dart` 仅保留给同步导入路径使用。
 - `WorkspaceController` 写入后统一从数据库回读投影并刷新桌面小组件摘要；行级写入存储未注入时业务写入直接抛错，防止界面悄悄退化回整包快照写入。`TaskRepository.create` 支持可选 `createdAt`/`completedAt` 并接受可空 `projectId`，新增 `setDone`；`AttachmentRecordRepository.create` 支持可选 `createdAt`。

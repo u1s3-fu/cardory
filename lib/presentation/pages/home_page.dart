@@ -389,6 +389,35 @@ class _HomePageState extends State<HomePage> {
     context.go('$projectsRoutePath/${project.id}');
   }
 
+  /// 看板拖拽排序：把 [project] 移动到 [stage] 列的 [insertIndex] 位置。
+  Future<void> _reorderKanban(
+    ProjectData project,
+    ProjectStage stage,
+    int insertIndex,
+  ) async {
+    final projects = _data.projects;
+    final targetColumn = projects
+        .where((item) => item.stage == stage && item.id != project.id)
+        .toList();
+    final index = insertIndex.clamp(0, targetColumn.length);
+    final moved = project.copyWith(stage: stage);
+    // 全局顺序：保持其余项目相对顺序不变，把被拖项目插到目标列
+    // 第 index 张卡之前（锚点），列尾追加则没有锚点。
+    final anchor = index < targetColumn.length ? targetColumn[index].id : null;
+    final ordered = <ProjectData>[];
+    var inserted = false;
+    for (final item in projects) {
+      if (item.id == project.id) continue;
+      if (!inserted && item.id == anchor) {
+        ordered.add(moved);
+        inserted = true;
+      }
+      ordered.add(item);
+    }
+    if (!inserted) ordered.add(moved);
+    await _perform(() => _controller.reorderProjects(ordered));
+  }
+
   // ---- 待办 ----
 
   Future<void> _addTodo() async {
@@ -745,6 +774,7 @@ class _HomeSectionContent extends StatelessWidget {
         onOpenProject: state._openProject,
         onEditProject: state._editProject,
         onDeleteProject: state._deleteProject,
+        onReorderProject: state._reorderKanban,
       ),
       const SizedBox(height: 22),
       ReminderPanel(

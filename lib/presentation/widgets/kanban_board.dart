@@ -6,7 +6,7 @@ import '../model_colors.dart';
 import 'badges.dart';
 import 'section_title.dart';
 
-/// 项目看板：按阶段分列的响应式卡片墙。
+/// 项目看板：按阶段分列的响应式卡片墙，支持拖拽跨阶段移动与列内排序。
 class KanbanBoard extends StatelessWidget {
   const KanbanBoard({
     super.key,
@@ -15,6 +15,7 @@ class KanbanBoard extends StatelessWidget {
     required this.onOpenProject,
     required this.onEditProject,
     required this.onDeleteProject,
+    required this.onReorderProject,
   });
 
   final CardoryData data;
@@ -23,11 +24,20 @@ class KanbanBoard extends StatelessWidget {
   final Future<void> Function(ProjectData project) onEditProject;
   final Future<void> Function(ProjectData project) onDeleteProject;
 
+  /// 拖拽落点回调：把 [project] 移动到 [stage] 列的 [insertIndex] 位置
+  /// （插入到该列当前第 insertIndex 张卡之前，超过列尾则追加）。
+  final Future<void> Function(
+    ProjectData project,
+    ProjectStage stage,
+    int insertIndex,
+  )
+  onReorderProject;
+
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const SectionTitle(title: '项目看板', subtitle: '点击项目进入详情页记录进度'),
+      const SectionTitle(title: '项目看板', subtitle: '点击项目进入详情页，拖拽卡片调整阶段与顺序'),
       const SizedBox(height: 16),
       LayoutBuilder(
         builder: (context, constraints) {
@@ -60,6 +70,7 @@ class KanbanBoard extends StatelessWidget {
                   onOpenProject: onOpenProject,
                   onEditProject: onEditProject,
                   onDeleteProject: onDeleteProject,
+                  onReorderProject: onReorderProject,
                 ),
             ],
           );
@@ -80,6 +91,7 @@ class KanbanColumn extends StatelessWidget {
     required this.onOpenProject,
     required this.onEditProject,
     required this.onDeleteProject,
+    required this.onReorderProject,
   });
 
   final double width;
@@ -89,6 +101,12 @@ class KanbanColumn extends StatelessWidget {
   final Future<void> Function(ProjectData project) onOpenProject;
   final Future<void> Function(ProjectData project) onEditProject;
   final Future<void> Function(ProjectData project) onDeleteProject;
+  final Future<void> Function(
+    ProjectData project,
+    ProjectStage stage,
+    int insertIndex,
+  )
+  onReorderProject;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -142,26 +160,75 @@ class KanbanColumn extends StatelessWidget {
           if (projects.isEmpty)
             EmptyCard(text: '暂无项目', actionLabel: '新建项目', onAction: onAddProject)
           else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: projects.length,
-              itemBuilder: (context, index) {
-                final project = projects[index];
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index < projects.length - 1 ? 12 : 0,
-                  ),
-                  child: ProjectCard(
-                    project: project,
-                    onTap: () => onOpenProject(project),
-                    onEdit: () => onEditProject(project),
-                    onDelete: () => onDeleteProject(project),
-                  ),
-                );
-              },
+            DragTarget<ProjectData>(
+              // 列级兜底落点：拖到列内空白处追加到列尾。
+              onWillAcceptWithDetails: (details) => true,
+              onAcceptWithDetails: (details) =>
+                  onReorderProject(details.data, stage, projects.length),
+              builder: (context, candidate, _) => ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: projects.length,
+                itemBuilder: (context, index) {
+                  final project = projects[index];
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: index < projects.length - 1 ? 12 : 0,
+                    ),
+                    child: DragTarget<ProjectData>(
+                      // 卡片级落点：拖到某张卡上插入到它之前。
+                      onWillAcceptWithDetails: (details) => true,
+                      onAcceptWithDetails: (details) =>
+                          onReorderProject(details.data, stage, index),
+                      builder: (context, candidate, _) =>
+                          Draggable<ProjectData>(
+                            data: project,
+                            feedback: _DragFeedback(project: project),
+                            childWhenDragging: Opacity(
+                              opacity: 0.35,
+                              child: ProjectCard(
+                                project: project,
+                                onTap: () => onOpenProject(project),
+                                onEdit: () => onEditProject(project),
+                                onDelete: () => onDeleteProject(project),
+                              ),
+                            ),
+                            child: ProjectCard(
+                              project: project,
+                              onTap: () => onOpenProject(project),
+                              onEdit: () => onEditProject(project),
+                              onDelete: () => onDeleteProject(project),
+                            ),
+                          ),
+                    ),
+                  );
+                },
+              ),
             ),
         ],
+      ),
+    ),
+  );
+}
+
+/// 拖拽跟随的卡片投影。
+class _DragFeedback extends StatelessWidget {
+  const _DragFeedback({required this.project});
+
+  final ProjectData project;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 260),
+    child: Material(
+      color: Colors.transparent,
+      elevation: 6,
+      borderRadius: BorderRadius.circular(14),
+      child: ProjectCard(
+        project: project,
+        onTap: () {},
+        onEdit: () {},
+        onDelete: () {},
       ),
     ),
   );

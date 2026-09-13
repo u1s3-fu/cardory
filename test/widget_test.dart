@@ -247,6 +247,7 @@ void main() {
                 onOpenProject: (_) async {},
                 onEditProject: (_) async {},
                 onDeleteProject: (_) async {},
+                onReorderProject: (_, _, _) async {},
               ),
             ),
           ),
@@ -349,6 +350,57 @@ void main() {
     expect(syncCount, 1);
     expect(passwordChangeCount, 1);
     expect(aboutCount, 1);
+  });
+
+  testWidgets('看板拖拽把项目移动到其他阶段并持久化排序', (tester) async {
+    final repository = _MemoryRepository();
+    final rowLevelStore = InMemoryRowLevelWorkspaceStore(
+      () => repository.data,
+      (data) => repository.data = data,
+    );
+    await tester.pumpWidget(
+      CardoryApp(
+        vaultRepository: repository,
+        workspaceRepository: repository,
+        syncRepository: repository,
+        vaultCredentialStore: _MemoryVaultCredentialStore(),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        rowLevelStoreBuilder: () => rowLevelStore,
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    // seed 数据：「Cardory 桌面端」在 doing 列，「同步目录方案」在 planned 列。
+    // 把「同步目录方案」拖到「Cardory 桌面端」卡片上：阶段改为 doing，
+    // 且插到它之前。
+    final source = find
+        .descendant(
+          of: find.byKey(const Key('kanban-responsive-board')),
+          matching: find.text('同步目录方案'),
+        )
+        .first;
+    final target = find
+        .descendant(
+          of: find.byKey(const Key('kanban-responsive-board')),
+          matching: find.text('Cardory 桌面端'),
+        )
+        .first;
+    await tester.ensureVisible(source);
+    await pumpUiFrames(tester);
+    await tester.ensureVisible(target);
+    await pumpUiFrames(tester);
+    await tester.drag(
+      source,
+      tester.getCenter(target) - tester.getCenter(source),
+    );
+    await pumpUiFrames(tester);
+
+    final projects = repository.data.projects;
+    expect(projects.map((project) => project.id).toList(), [
+      'project-sync',
+      'project-cardory',
+    ], reason: '被拖项目应插入到目标卡之前');
+    expect(projects.first.stage, ProjectStage.doing, reason: '拖入 doing 列应更新阶段');
   });
 
   testWidgets('shows a sync failure in a snack bar', (tester) async {
