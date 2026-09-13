@@ -6,7 +6,17 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ### 变更（Changed）
 
+- （无）
+
+## [0.1.0-beta.6] - 2026-09-13
+
+### 变更（Changed）
+
 - 甘特图与里程碑（阶段 E）：`/gantt` 替换占位页为真实页面——甘特时间线（项目/任务起止日期条形排期、里程碑菱形标记、时间窗自适应、点击任务条调整日期）、里程碑管理（新增/编辑/完成/删除，逾期标识）、任务依赖（finish_to_start 前后继关系，拒绝自依赖/重复/循环）、项目健康度（进度、待办完成率、里程碑完成率与 良好/风险/滞后 评估）；侧栏与底部导航新增「甘特」入口，成为工作台 Shell 子路由（受门禁保护）。数据库 schema v1 → v2 新增 `milestones` 表（附迁移测试），行级存储扩展里程碑与任务依赖写入（依赖含环检测）。
+
+### 构建（Build）
+
+- 发布前本机验证：`flutter build windows --release` 成功；`flutter build apk --release --target-platform android-arm64` 成功。质量门禁：dart format 无变化、flutter analyze 0 问题、flutter test 178 用例全绿（Flutter 3.47.4 / Dart 3.13.3）。
 
 ## [0.1.0-beta.5] - 2026-09-13
 
