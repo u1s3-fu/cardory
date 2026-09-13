@@ -8,17 +8,25 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 - （无）
 
-## [0.1.0-beta.6] - 2026-09-13
+## [0.2.0] - 2026-09-13
+
+### 新增（Added）
+
+- 实体级增量同步（阶段 F）：新增 delta 同步通道（`cardory-delta-v1.bin`，AES-GCM-256 加密，密钥由保险库密码 PBKDF2 派生）——拉取远端变更记录按 `updatedAt` 做实体级 LWW 合并（远端新→覆盖、相同载荷→幂等跳过、本地新→跳过、相同时间戳不同载荷→挂起逐实体冲突界面），推送本地 `sync_changes` 待推送记录（条件写 + 并发重试）；资产敏感列（账号/密码）不进入同步载荷，覆盖时保留本地值；运行中的番茄钟会话不进入同步通道；软删除 tombstone 超过 30 天自动物理清理（含已确认审计记录）；每个成功同步周期无条件刷新云端容器基线，保证新设备「容器基线 + delta 重放」可完整收敛；首次同步/云端无 delta feed 时自动回退整库快照流程并引导建立增量基线。
+- 同步冲突类型新增 `entityLevel`（逐实体冲突），冲突对话框逐项列出冲突实体并支持保留本地/远端或逐项裁决，两侧均以「updatedAt 抬升 + 重新推送」保证多设备收敛。
 
 ### 变更（Changed）
 
 - 甘特图与里程碑（阶段 E）：`/gantt` 替换占位页为真实页面——甘特时间线（项目/任务起止日期条形排期、里程碑菱形标记、时间窗自适应、点击任务条调整日期）、里程碑管理（新增/编辑/完成/删除，逾期标识）、任务依赖（finish_to_start 前后继关系，拒绝自依赖/重复/循环）、项目健康度（进度、待办完成率、里程碑完成率与 良好/风险/滞后 评估）；侧栏与底部导航新增「甘特」入口，成为工作台 Shell 子路由（受门禁保护）。数据库 schema v1 → v2 新增 `milestones` 表（附迁移测试），行级存储扩展里程碑与任务依赖写入（依赖含环检测）。
+- 时间记录与番茄钟（阶段 D）：`/time` 替换占位页为真实页面——专注计时器（开始/暂停/继续/结束，墙钟计时支持后台与重启恢复）、番茄钟（专注 25 分钟 / 短休 5 分钟 / 长休 15 分钟，到时自动收尾、可提前结束，完成会话写入 `pomodoro_sessions` 并以 pomodoro 来源写入 `time_entries`）、手动时间记录 CRUD（开始/结束时间选择、关联项目、备注）、耗时统计（今日/本周专注时长与按项目分布）；侧栏与底部导航新增「时间」入口，成为工作台 Shell 子路由（受门禁保护）。运行中的番茄钟会话只写本地行、不产生 sync_changes 审计（结束后补记），不进入同步通道。
+- 今日任务聚合与月历视图（阶段 C）：`/calendar` 替换占位页为真实月历页面——月份网格按优先级色标注每日截止任务、周一开头、支持前后翻月与回到今天；任务清单支持「当天 / 本周 / 本月」日期范围筛选；点击任务打开编辑对话框（含开始/截止日期编辑）。工作台首页新增「今日任务」面板：逾期（红色标识）与今日截止两组，按优先级与截止时间排序；侧栏与底部导航新增「日历」入口，日历成为工作台 Shell 子路由（受门禁保护）。
+- 核心界面写入口迁移到 Repository 行级单事务写入（阶段 B）：项目增删改、待办/子待办增删改与完成切换、资产与标签管理、看板拖拽排序全部经 `RowLevelWorkspaceStore` 接口落库（生产实现 `DriftRowLevelWorkspaceStore`，多行差异对齐包在单个外层事务内，行级 updatedAt/tombstone 与 sync_changes 审计同事务提交）；`/projects` 与 `/projects/:projectId` 拆为独立受门禁路由，工作台四分区经 ShellRoute 共享 Shell。
 
 ### 构建（Build）
 
-- 发布前本机验证：`flutter build windows --release` 成功；`flutter build apk --release --target-platform android-arm64` 成功。质量门禁：dart format 无变化、flutter analyze 0 问题、flutter test 178 用例全绿（Flutter 3.47.4 / Dart 3.13.3）。
+- 发布前本机验证：`flutter build windows --release` 成功；`flutter build apk --release --target-platform android-arm64` 成功。质量门禁：dart format 无变化、flutter analyze 0 问题、flutter test 185 用例全绿（Flutter 3.47.4 / Dart 3.13.3）。
 
-## [0.1.0-beta.5] - 2026-09-13
+## [0.1.0-beta.6] - 2026-09-13
 
 ### 变更（Changed）
 

@@ -8,11 +8,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cryptography/cryptography.dart';
+import '../data/db/app_database.dart' as db;
+import '../data/repositories/sync_change_repository.dart';
 import '../domain/attachment_repository.dart';
 import '../domain/workspace_sync_service.dart';
 import '../domain/cardory_repository.dart';
 import '../domain/cardory_models.dart';
 import 'attachment_manifest.dart';
+import 'delta_sync.dart';
 import 'sync_config_sync.dart';
 import 'sync_data_merger.dart';
 import 'sync_debug_log.dart';
@@ -20,6 +23,19 @@ import 'sync_models.dart';
 import 'sync_provider.dart';
 
 export 'sync_provider.dart' show SyncProviderFactory;
+
+/// 增量同步通道挂起的逐实体冲突。
+class _PendingDeltaSync {
+  const _PendingDeltaSync({
+    required this.conflicts,
+    required this.settings,
+    required this.providerId,
+  });
+
+  final List<DeltaConflict> conflicts;
+  final AppSettings settings;
+  final String providerId;
+}
 
 class _PendingSyncConflict {
   const _PendingSyncConflict({
@@ -55,6 +71,8 @@ class SyncCoordinator implements WorkspaceSyncService {
     required this.providerFactory,
     required this.attachmentRepositoryFactory,
     this.providerInitializationTimeout = defaultProviderInitializationTimeout,
+    this.deltaKeyProvider,
+    this.deltaDatabaseProvider,
   });
 
   static const documentKey = 'cardory-snapshot-v2.db';
@@ -66,8 +84,17 @@ class SyncCoordinator implements WorkspaceSyncService {
   final SyncProviderFactory providerFactory;
   final AttachmentRepositoryFactory attachmentRepositoryFactory;
   final Duration providerInitializationTimeout;
+
+  /// 增量同步（delta）通道的解密密钥提供者（保险库密钥）。返回 null 或
+  /// 未注入时禁用增量通道，走整库快照流程。
+  final String? Function()? deltaKeyProvider;
+
+  /// 增量同步使用的本地数据库（保险库解锁后可用）。
+  final db.AppDatabase? Function()? deltaDatabaseProvider;
+
   SyncStatus _status = const SyncStatus();
   _PendingSyncConflict? _pendingConflict;
+  _PendingDeltaSync? _pendingDeltaSync;
   // 最近一次 synchronize 收到的设置。pending 冲突丢失时（过期请求、
   // 竞态重入）resolveConflict 用它兜底，避免把用户配置重置为出厂默认。
   AppSettings _lastKnownSettings = const AppSettings();
@@ -87,6 +114,10 @@ class SyncCoordinator implements WorkspaceSyncService {
     SyncConflictChoice choice, {
     Map<String, SyncConflictSide> itemChoices = const {},
   }) async {
+    final pendingDelta = _pendingDeltaSync;
+    if (pendingDelta != null) {
+      return await _resolveDeltaConflicts(pendingDelta, choice, itemChoices);
+    }
     final pending = _pendingConflict;
     if (pending == null) return _lastKnownSettings;
     if (choice == SyncConflictChoice.cancel) {
@@ -299,6 +330,47 @@ class SyncCoordinator implements WorkspaceSyncService {
       final attachmentStore = attachmentRepositoryFactory(localResult.path);
       final local = await repository.exportContainer();
       final localHash = await _hash(local);
+
+      // —— 实体级增量同步（delta）快速路径 ——
+      // 基线（syncLocalHash）已建立且云端存在 delta feed 时，走增量通道：
+      // 拉取远端记录按 updatedAt LWW 应用 → 推送本地待推送记录 → 刷新容器
+      // 基线。云端尚无 feed 时先推送本地基线，再走整库快照流程兜底。
+      final deltaKey = deltaKeyProvider?.call();
+      if (deltaKey != null && settings.syncLocalHash != null) {
+        final deltaDatabase = deltaDatabaseProvider?.call();
+        if (deltaDatabase != null) {
+          final handled = await _syncDeltaChannel(
+            activeProvider,
+            settings,
+            deltaKey,
+            deltaDatabase,
+            localResult.data,
+            attachmentStore,
+          );
+          if (handled != null) {
+            final withConfig = await _configSync.sync(
+              activeProvider,
+              handled,
+              _hash,
+            );
+            _setStatus(
+              SyncStatus(
+                phase: SyncPhase.success,
+                providerId: activeProvider.id,
+                message: '同步完成',
+                lastSyncedAt: handled.lastSyncedAt,
+              ),
+            );
+            return withConfig;
+          }
+          await _bootstrapDelta(
+            activeProvider,
+            settings,
+            deltaKey,
+            deltaDatabase,
+          );
+        }
+      }
       _setStatus(
         SyncStatus(phase: SyncPhase.pulling, providerId: activeProvider.id),
       );
@@ -602,6 +674,315 @@ class SyncCoordinator implements WorkspaceSyncService {
     }
   }
 
+  // ---- 实体级增量同步（delta）通道 ----
+
+  /// 增量快速路径。返回 null 表示云端尚无 delta feed（调用方应引导基线并
+  /// 走整库快照流程）；否则完成拉取/推送/附件/基线刷新并返回新设置，
+  /// 冲突时挂起逐实体冲突界面并返回当前设置。
+  Future<AppSettings?> _syncDeltaChannel(
+    SyncProvider provider,
+    AppSettings settings,
+    String vaultKey,
+    db.AppDatabase database,
+    CardoryData localData,
+    AttachmentRepository attachmentStore,
+  ) async {
+    final remoteDoc = await provider.read(deltaDocumentKey);
+    if (remoteDoc == null) return null;
+    final codec = const DeltaFeedCodec();
+    final cipher = DeltaFeedCipher(vaultKey);
+    final List<DeltaRecord> remoteRecords;
+    try {
+      remoteRecords = codec.parse(await cipher.open(remoteDoc.bytes));
+    } on FormatException catch (error) {
+      logSync('delta feed 解析失败，回退整库快照流程', error: error);
+      return null;
+    } catch (error) {
+      // 解密失败（如另一台设备使用了不同保险库密码）同样回退整库流程。
+      logSync('delta feed 读取失败，回退整库快照流程', error: error);
+      return null;
+    }
+
+    _setStatus(SyncStatus(phase: SyncPhase.pulling, providerId: provider.id));
+    final applier = DeltaApplier(database, localDeviceId: '');
+    final result = await applier.apply(remoteRecords);
+    logSync(
+      'delta 拉取：应用 ${result.applied} 条，跳过 ${result.skipped} 条，'
+      '冲突 ${result.conflicts.length} 条',
+    );
+    if (result.conflicts.isNotEmpty) {
+      _pendingDeltaSync = _PendingDeltaSync(
+        conflicts: result.conflicts,
+        settings: settings,
+        providerId: provider.id,
+      );
+      _setStatus(
+        SyncStatus(
+          phase: SyncPhase.conflict,
+          providerId: provider.id,
+          conflicts: [
+            for (final conflict in result.conflicts)
+              SyncConflictItem(
+                id: conflict.entityId,
+                category: conflict.entityType,
+                title: conflict.entityId,
+                side: SyncConflictSide.local,
+              ),
+          ],
+          conflictKind: SyncConflictKind.entityLevel,
+          message: '检出 ${result.conflicts.length} 个实体级冲突，请逐项选择保留哪一侧',
+        ),
+      );
+      return settings;
+    }
+
+    return await _finishDeltaSync(
+      provider,
+      settings,
+      remoteRecords,
+      remoteDoc.revision,
+      database,
+      localData,
+      attachmentStore,
+    );
+  }
+
+  /// 推送本地待推送记录（与远端 feed 合并），刷新容器基线并同步附件，
+  /// 最后清理过期 tombstone。
+  Future<AppSettings> _finishDeltaSync(
+    SyncProvider provider,
+    AppSettings settings,
+    List<DeltaRecord> remoteRecords,
+    String? remoteRevision,
+    db.AppDatabase database,
+    CardoryData localData,
+    AttachmentRepository attachmentStore,
+  ) async {
+    final changeRepo = SyncChangeRepository(database);
+    final codec = const DeltaFeedCodec();
+    final cipher = DeltaFeedCipher(deltaKeyProvider?.call() ?? '');
+    final pending = await changeRepo.pending();
+    final byChangeId = <String, DeltaRecord>{
+      for (final record in remoteRecords) record.changeId: record,
+      for (final record in pending.map(DeltaRecord.fromChange))
+        record.changeId: record,
+    };
+    _setStatus(SyncStatus(phase: SyncPhase.pushing, providerId: provider.id));
+    await _writeDeltaFeed(
+      provider,
+      codec,
+      cipher,
+      byChangeId.values.toList(),
+      remoteRevision,
+    );
+    for (final change in pending) {
+      await changeRepo.acknowledge(change.id);
+    }
+    // 容器基线刷新：delta 通道已把两侧变更合并进本地库，任何一方的本地库
+    // 都是有效基线，因此无约束覆盖（避免容器比对与 delta 通道互相干扰）。
+    final container = await repository.exportContainer();
+    final containerWrite = await provider.write(documentKey, container);
+    var updated = settings.copyWith(
+      syncRevision: containerWrite.revision,
+      syncLocalHash: await _hash(container),
+      lastSyncedAt: DateTime.now().toUtc(),
+    );
+    // 附件与删除意图沿用既有通道。
+    final remoteManifest = await _readAttachmentManifest(provider);
+    await _synchronizeAttachments(
+      provider,
+      localData,
+      attachmentStore,
+      remoteManifest: remoteManifest,
+    );
+    final remaining = await _deletePendingAttachments(
+      provider,
+      localData,
+      updated.pendingAttachmentDeletes,
+    );
+    updated = updated.copyWith(pendingAttachmentDeletes: remaining);
+    // tombstone 清理：软删除超过保留期的行物理删除，防止数据无限累积。
+    final purged = await purgeTombstones(database);
+    final pruned = await changeRepo.pruneConfirmedOlderThan(
+      tombstoneRetention.inMilliseconds,
+    );
+    if (purged > 0 || pruned > 0) {
+      logSync('tombstone 清理：删除 $purged 行，整理 $pruned 条审计记录');
+    }
+    await repository.saveSettings(updated);
+    return updated;
+  }
+
+  Future<void> _writeDeltaFeed(
+    SyncProvider provider,
+    DeltaFeedCodec codec,
+    DeltaFeedCipher cipher,
+    List<DeltaRecord> records,
+    String? expectedRevision,
+  ) async {
+    final bytes = await cipher.seal(codec.serialize(records));
+    try {
+      await provider.write(
+        deltaDocumentKey,
+        bytes,
+        expectedRevision: expectedRevision,
+      );
+      return;
+    } on SyncConflictException {
+      // 远端 feed 被并发更新：重读合并后重试一次。
+      final fresh = await provider.read(deltaDocumentKey);
+      final freshRecords = fresh == null
+          ? const <DeltaRecord>[]
+          : codec.parse(await cipher.open(fresh.bytes));
+      final merged = <String, DeltaRecord>{
+        for (final record in freshRecords) record.changeId: record,
+        for (final record in records) record.changeId: record,
+      };
+      await provider.write(
+        deltaDocumentKey,
+        await cipher.seal(codec.serialize(merged.values.toList())),
+        expectedRevision: fresh?.revision,
+      );
+    }
+  }
+
+  /// 云端尚无 delta feed 时推送本地基线（整条待推送历史），下次同步起
+  /// 走增量快速路径。失败不影响本次同步。
+  Future<void> _bootstrapDelta(
+    SyncProvider provider,
+    AppSettings settings,
+    String vaultKey,
+    db.AppDatabase database,
+  ) async {
+    try {
+      final changeRepo = SyncChangeRepository(database);
+      final pending = await changeRepo.pending();
+      if (pending.isEmpty) return;
+      final codec = const DeltaFeedCodec();
+      final cipher = DeltaFeedCipher(vaultKey);
+      final bytes = await cipher.seal(
+        codec.serialize(pending.map(DeltaRecord.fromChange)),
+      );
+      await provider.write(deltaDocumentKey, bytes);
+      for (final change in pending) {
+        await changeRepo.acknowledge(change.id);
+      }
+      logSync('已建立增量同步基线（${pending.length} 条记录）');
+    } catch (error) {
+      logSync('增量基线推送失败，下次同步重试', error: error);
+    }
+  }
+
+  /// 逐实体冲突裁决：每个冲突按 [itemChoices]（缺省用整体 [choice]）
+  /// 保留本地或远端；两侧都以「updatedAt 抬到当前时刻 + 重新推送」保证
+  /// 其他设备最终收敛。
+  Future<AppSettings> _resolveDeltaConflicts(
+    _PendingDeltaSync pending,
+    SyncConflictChoice choice,
+    Map<String, SyncConflictSide> itemChoices,
+  ) async {
+    if (choice == SyncConflictChoice.cancel) {
+      _pendingDeltaSync = null;
+      _setStatus(
+        SyncStatus(
+          phase: SyncPhase.idle,
+          providerId: pending.providerId,
+          message: '已取消冲突处理：本次增量变更未应用，本地数据未改变',
+          lastSyncedAt: pending.settings.lastSyncedAt,
+        ),
+      );
+      return pending.settings;
+    }
+    final database = deltaDatabaseProvider?.call();
+    final vaultKey = deltaKeyProvider?.call();
+    if (database == null || vaultKey == null) {
+      _pendingDeltaSync = null;
+      return _fail(pending.settings, '增量同步存储不可用，无法解决冲突。');
+    }
+    SyncProvider? provider;
+    try {
+      provider = await _createProvider(pending.settings);
+      await provider.checkConnection();
+      final applier = DeltaApplier(database, localDeviceId: '');
+      final now = DateTime.now().toUtc();
+      final newRecords = <DeltaRecord>[];
+      for (final conflict in pending.conflicts) {
+        final side =
+            itemChoices[conflict.entityId] ??
+            (choice == SyncConflictChoice.keepRemote
+                ? SyncConflictSide.remote
+                : SyncConflictSide.local);
+        if (side == SyncConflictSide.remote) {
+          newRecords.add(await applier.adoptRemote(conflict, now: now));
+        } else {
+          final record = await applier.keepLocal(conflict, now: now);
+          if (record != null) newRecords.add(record);
+        }
+      }
+      final codec = const DeltaFeedCodec();
+      final cipher = DeltaFeedCipher(vaultKey);
+      final remoteDoc = await provider.read(deltaDocumentKey);
+      final remoteRecords = remoteDoc == null
+          ? const <DeltaRecord>[]
+          : codec.parse(await cipher.open(remoteDoc.bytes));
+      final changeRepo = SyncChangeRepository(database);
+      final pendingChanges = await changeRepo.pending();
+      final byChangeId = <String, DeltaRecord>{
+        for (final record in remoteRecords) record.changeId: record,
+        for (final record in pendingChanges.map(DeltaRecord.fromChange))
+          record.changeId: record,
+        for (final record in newRecords) record.changeId: record,
+      };
+      _setStatus(SyncStatus(phase: SyncPhase.pushing, providerId: provider.id));
+      await _writeDeltaFeed(
+        provider,
+        codec,
+        cipher,
+        byChangeId.values.toList(),
+        remoteDoc?.revision,
+      );
+      for (final change in pendingChanges) {
+        await changeRepo.acknowledge(change.id);
+      }
+      final container = await repository.exportContainer();
+      final containerWrite = await provider.write(documentKey, container);
+      final syncedAt = DateTime.now().toUtc();
+      var updated = pending.settings.copyWith(
+        syncRevision: containerWrite.revision,
+        syncLocalHash: await _hash(container),
+        lastSyncedAt: syncedAt,
+      );
+      final localResult = await repository.load();
+      final attachmentStore = attachmentRepositoryFactory(localResult.path);
+      await _synchronizeAttachments(
+        provider,
+        localResult.data,
+        attachmentStore,
+      );
+      final remaining = await _deletePendingAttachments(
+        provider,
+        localResult.data,
+        updated.pendingAttachmentDeletes,
+      );
+      updated = updated.copyWith(pendingAttachmentDeletes: remaining);
+      await repository.saveSettings(updated);
+      _pendingDeltaSync = null;
+      _setStatus(
+        SyncStatus(
+          phase: SyncPhase.success,
+          providerId: provider.id,
+          message: '已完成逐实体冲突处理并同步',
+          lastSyncedAt: syncedAt,
+          summary: SyncResultSummary(mergedItems: pending.conflicts.length),
+        ),
+      );
+      return updated;
+    } catch (error) {
+      logSync('逐实体冲突处理失败，保留冲突上下文', error: error);
+      return _fail(pending.settings, '冲突处理未完成：$error');
+    }
+  }
+
   Future<AppSettings> _push(
     SyncProvider provider,
     List<int> local,
@@ -781,6 +1162,8 @@ class SyncCoordinator implements WorkspaceSyncService {
       SyncConflictKind.unreadableRemote =>
         '云端数据无法解密：文件可能已损坏，或由使用不同保险库密码的设备上传。'
             '本地数据未改变，已暂停自动同步，请手动选择处理方式',
+      SyncConflictKind.entityLevel =>
+        '检出 ${conflicts.length} 个实体级冲突，请逐项选择保留哪一侧',
     };
     logSync(message);
     _pendingConflict = _PendingSyncConflict(

@@ -14,7 +14,7 @@ enum SyncConflictSide { local, remote }
 /// - [unreadableRemote]：云端数据快照无法用本机保险库密钥解密（损坏或由使用
 ///   不同保险库密码的设备上传），无法自动合并或「使用远端」，需用户手动决定
 ///   （用本地覆盖云端 / 跳过）。
-enum SyncConflictKind { firstSync, concurrent, unreadableRemote }
+enum SyncConflictKind { firstSync, concurrent, unreadableRemote, entityLevel }
 
 class SyncConflictItem {
   const SyncConflictItem({

@@ -41,6 +41,10 @@ class SqlCipherVaultStore
   AppDatabase? get database => _session.database;
   bool get isOpen => _session.isOpen;
 
+  /// 当前解锁会话的保险库密钥（仅进程内使用，例如增量同步 feed 的
+  /// 对称加密派生）；未解锁时为 null。不落盘、不打日志。
+  String? get currentVaultKey => _key;
+
   Future<File> _databaseFile() async {
     final directory = await _directoryProvider();
     final root = Directory(path.join(directory.path, 'Cardory'));

@@ -93,6 +93,10 @@ final workspaceControllerFactoryProvider = Provider<WorkspaceControllerFactory>(
       attachmentRepositoryFactory: ref.read(
         attachmentRepositoryFactoryProvider,
       ),
+      deltaKeyProvider: () =>
+          ref.read(sqlCipherVaultStoreProvider).currentVaultKey,
+      deltaDatabaseProvider: () =>
+          ref.read(sqlCipherVaultStoreProvider).database,
     ),
     attachmentRepositoryFactory: ref.watch(attachmentRepositoryFactoryProvider),
     rowLevelStoreBuilder: ref.watch(rowLevelStoreBuilderProvider),
