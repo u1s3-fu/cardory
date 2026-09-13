@@ -292,6 +292,7 @@ class _CardoryAppState extends State<CardoryApp> {
     connectionTester: widget.connectionTester,
     updateService: widget.updateService,
     timeTrackingStore: widget._timeTrackingStoreBuilder?.call(),
+    rowLevelStore: widget._rowLevelStoreBuilder?.call(),
     child: child,
   );
 

@@ -18,6 +18,7 @@ part 'app_database.g.dart';
     TimeEntries,
     PomodoroSessions,
     TaskDependencies,
+    Milestones,
     Settings,
     SyncChanges,
   ],
@@ -53,7 +54,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -71,16 +72,12 @@ class AppDatabase extends _$AppDatabase {
 
   /// 从 [from] 版本迁移到下一个版本。
   ///
-  /// schemaVersion 当前为 1（首个 SQLCipher 运行时版本）。未来发布 v2 时，
-  /// 在此为 `case 1` 增加真实 DDL（如新表/新列 + 数据回填），并在迁移测试
-  /// 中覆盖 from=1→2 的完整路径；在此之前拒绝静默破库，明确失败。
-  static Future<void> _upgradeFrom(Migrator migrator, int from) async {
+  /// schemaVersion 当前为 2。v1 → v2 新增里程碑表（甘特/里程碑模块）；
+  /// v1 库中不存在里程碑数据，无需回填。
+  Future<void> _upgradeFrom(Migrator migrator, int from) async {
     switch (from) {
       case 1:
-        throw StateError(
-          '尚未定义数据库 v1 → v2 的迁移步骤；升级 v2 前必须在 '
-          '_upgradeFrom 中实现 case 1。',
-        );
+        await migrator.createTable(milestones);
       default:
         throw StateError('未知的数据库版本来源：$from');
     }
@@ -265,6 +262,23 @@ class TaskDependencies extends Table {
   List<Set<Column<Object>>> get uniqueKeys => [
     {predecessorTaskId, successorTaskId, type},
   ];
+}
+
+/// 项目里程碑（甘特/排期模块）。
+class Milestones extends Table {
+  TextColumn get id => text()();
+  TextColumn get projectId => text().references(Projects, #id)();
+  TextColumn get title => text()();
+  TextColumn get note => text().withDefault(const Constant(''))();
+  IntColumn get dueAt => integer()();
+  BoolColumn get completed => boolean().withDefault(const Constant(false))();
+  IntColumn get completedAt => integer().nullable()();
+  IntColumn get createdAt => integer()();
+  IntColumn get updatedAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
 }
 
 class Settings extends Table {

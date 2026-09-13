@@ -6,6 +6,7 @@
 // 测试可提供内存实现。
 
 import '../domain/cardory_models.dart';
+import '../domain/milestone_models.dart';
 
 /// 每次调用返回当前会话的行级存储；保险库未解锁时返回 null。
 typedef RowLevelWorkspaceStoreBuilder = RowLevelWorkspaceStore? Function();
@@ -43,4 +44,20 @@ abstract interface class RowLevelWorkspaceStore {
   Future<void> updateAssetTag(AssetTag tag);
   Future<void> deleteAssetTag(String tagId);
   Future<void> updateAssetsTags(Set<String> assetIds, Set<String> tagIds);
+
+  // 里程碑与任务依赖（甘特/排期模块）。
+
+  Future<List<MilestoneData>> loadMilestones();
+  Future<void> addMilestone(MilestoneData milestone);
+  Future<void> updateMilestone(MilestoneData milestone);
+  Future<void> deleteMilestone(String id);
+
+  Future<List<TaskDependencyData>> loadDependencies();
+
+  /// 建立 finish_to_start 依赖；拒绝自依赖、重复与环。
+  Future<void> addDependency({
+    required String predecessorTaskId,
+    required String successorTaskId,
+  });
+  Future<void> deleteDependency(String id);
 }

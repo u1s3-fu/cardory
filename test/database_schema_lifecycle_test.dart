@@ -8,10 +8,10 @@ import 'package:cardory/data/db/app_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('schemaVersion 当前为 v1', () {
+  test('schemaVersion 当前为 v2', () {
     final db = AppDatabase.inMemory();
     addTearDown(db.close);
-    expect(db.schemaVersion, 1);
+    expect(db.schemaVersion, 2);
   });
 
   test('加密文件库可安全反复打开关闭并保持数据与版本', () async {

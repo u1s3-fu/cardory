@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../application/row_level_workspace_store.dart';
 import '../../application/time_tracking_store.dart';
 import '../../application/workspace_controller.dart';
 import '../../application/workspace_controller_factory.dart';
@@ -36,6 +37,7 @@ import '../widgets/todo_panel.dart';
 import '../widgets/today_tasks_panel.dart';
 import 'asset_dialog.dart';
 import 'calendar_page.dart';
+import 'gantt_page.dart';
 import 'project_page.dart';
 import 'settings_page.dart';
 import 'settings_panel.dart';
@@ -58,6 +60,7 @@ class HomePage extends StatefulWidget {
     this.connectionTester,
     this.updateService,
     this.timeTrackingStore,
+    this.rowLevelStore,
   });
 
   final WorkspaceControllerFactory controllerFactory;
@@ -77,6 +80,9 @@ class HomePage extends StatefulWidget {
 
   /// 时间记录与番茄钟的行级存储；未注入时「时间」分区显示不可用提示。
   final TimeTrackingStore? timeTrackingStore;
+
+  /// 里程碑与任务依赖等行级存储（甘特分区）；未注入时分区显示不可用提示。
+  final RowLevelWorkspaceStore? rowLevelStore;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -101,6 +107,7 @@ class _HomePageState extends State<HomePage> {
     if (path == todosRoutePath) return AppSection.todos;
     if (path == calendarRoutePath) return AppSection.calendar;
     if (path == timeRoutePath) return AppSection.time;
+    if (path == ganttRoutePath) return AppSection.gantt;
     if (path == settingsRoutePath) return AppSection.settings;
     return AppSection.home;
   }
@@ -110,6 +117,7 @@ class _HomePageState extends State<HomePage> {
     AppSection.todos => '待办事项',
     AppSection.calendar => '日历',
     AppSection.time => '时间与番茄钟',
+    AppSection.gantt => '甘特图',
     AppSection.projects =>
       GoRouterState.of(context).uri.path == projectsRoutePath ? '项目' : '项目详情',
     AppSection.settings => '设置',
@@ -579,6 +587,7 @@ class _HomePageState extends State<HomePage> {
       AppSection.todos => todosRoutePath,
       AppSection.calendar => calendarRoutePath,
       AppSection.time => timeRoutePath,
+      AppSection.gantt => ganttRoutePath,
       AppSection.projects => projectsRoutePath,
       AppSection.settings => settingsRoutePath,
     };
@@ -733,6 +742,8 @@ class WorkbenchSectionContent extends StatelessWidget {
         return _SectionScrollArea(child: _CalendarSectionContent(state: scope));
       case WorkbenchTime():
         return _SectionScrollArea(child: _TimeSectionContent(state: scope));
+      case WorkbenchGantt():
+        return _SectionScrollArea(child: _GanttSectionContent(state: scope));
       case WorkbenchProjects():
         return _SectionScrollArea(child: _ProjectsSectionContent(state: scope));
       case WorkbenchProjectDetail(:final projectId):
@@ -861,6 +872,31 @@ class _TimeSectionContent extends StatelessWidget {
       );
     }
     return TimePage(store: store, projects: state._data.projects);
+  }
+}
+
+class _GanttSectionContent extends StatelessWidget {
+  const _GanttSectionContent({required this.state});
+
+  final _HomePageState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = state.widget.rowLevelStore;
+    if (store == null) {
+      return Center(
+        child: Text(
+          '行级存储未注入，无法使用甘特图模块。',
+          style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
+        ),
+      );
+    }
+    return GanttPage(
+      store: store,
+      projects: state._data.projects,
+      todos: state._data.todos,
+      onEditTodo: state._openTodo,
+    );
   }
 }
 

@@ -13,14 +13,14 @@ const workbenchRoutePath = '/today';
 const todosRoutePath = '/todos';
 const calendarRoutePath = '/calendar';
 const timeRoutePath = '/time';
+const ganttRoutePath = '/gantt';
 const projectsRoutePath = '/projects';
 const settingsRoutePath = '/settings';
 
 /// 业务路由规划（破坏性版本阶段 §6）：
-/// - /vault、/today、/todos、/calendar、/time、/projects、
+/// - /vault、/today、/todos、/calendar、/time、/gantt、/projects、
 ///   /projects/:projectId、/settings 已落地（分区为工作台 Shell 子路由）；
 /// - 以下模块暂以「受保护占位页」挂载，页面就绪后替换占位 builder。
-const ganttRoutePath = '/gantt';
 const assetsRoutePath = '/assets';
 
 /// 占位路由清单：{ path, 标题, 图标, 说明 }。
@@ -28,12 +28,6 @@ const assetsRoutePath = '/assets';
 /// 由 [createAppRouter] 统一展开为受门禁保护的路由。
 const placeholderRoutes =
     <({String path, String title, IconData icon, String description})>[
-      (
-        path: ganttRoutePath,
-        title: '甘特图',
-        icon: Icons.view_timeline_outlined,
-        description: '项目排期甘特视图，即将在后续版本开放。',
-      ),
       (
         path: assetsRoutePath,
         title: '素材库',
@@ -75,6 +69,10 @@ class WorkbenchCalendar extends WorkbenchLocation {
 
 class WorkbenchTime extends WorkbenchLocation {
   const WorkbenchTime();
+}
+
+class WorkbenchGantt extends WorkbenchLocation {
+  const WorkbenchGantt();
 }
 
 /// 工作台 Shell 构建器：包住路由子内容（顶部栏 / 侧栏 / 底部导航由 Shell 提供）。
@@ -147,6 +145,7 @@ GoRouter createAppRouter({
           workbenchChildRoute(todosRoutePath, const WorkbenchTodos()),
           workbenchChildRoute(calendarRoutePath, const WorkbenchCalendar()),
           workbenchChildRoute(timeRoutePath, const WorkbenchTime()),
+          workbenchChildRoute(ganttRoutePath, const WorkbenchGantt()),
           workbenchChildRoute(projectsRoutePath, const WorkbenchProjects()),
           GoRoute(
             path: '$projectsRoutePath/:projectId',

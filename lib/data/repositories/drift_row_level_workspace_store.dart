@@ -10,10 +10,13 @@ import 'package:drift/drift.dart';
 import '../../application/row_level_workspace_store.dart';
 import '../../application/time_tracking_store.dart';
 import '../../domain/cardory_models.dart';
+import '../../domain/milestone_models.dart';
 import '../../domain/time_models.dart';
 import '../db/app_database.dart' as db;
 import 'asset_repository.dart';
 import 'attachment_repositories.dart';
+import 'dependency_repository.dart';
+import 'milestone_repository.dart';
 import 'project_repository.dart';
 import 'task_repository.dart';
 import 'time_repositories.dart';
@@ -32,6 +35,8 @@ class DriftRowLevelWorkspaceStore
   late final _categories = AttachmentCategoryRepository(_db);
   late final _timeEntries = TimeEntryRepository(_db);
   late final _pomodoros = PomodoroSessionRepository(_db);
+  late final _milestones = MilestoneRepository(_db);
+  late final _dependencies = TaskDependencyRepository(_db);
 
   int get _now => DateTime.now().toUtc().millisecondsSinceEpoch;
 
@@ -661,4 +666,104 @@ class DriftRowLevelWorkspaceStore
   Future<db.TimeEntry> _timeEntryRow(String id) => (_db.select(
     _db.timeEntries,
   )..where((row) => row.id.equals(id) & row.deletedAt.isNull())).getSingle();
+
+  // ---- 里程碑与任务依赖 ----
+
+  @override
+  Future<List<MilestoneData>> loadMilestones() async =>
+      (await _milestones.loadVisible()).map(_milestone).toList();
+
+  @override
+  Future<void> addMilestone(MilestoneData milestone) => _milestones.create(
+    projectId: milestone.projectId,
+    title: milestone.title,
+    dueAt: milestone.dueAt.toUtc().millisecondsSinceEpoch,
+    note: milestone.note,
+    id: milestone.id,
+  );
+
+  @override
+  Future<void> updateMilestone(MilestoneData milestone) async {
+    final rows = await _milestones.loadVisible();
+    db.Milestone? current;
+    for (final row in rows) {
+      if (row.id == milestone.id) {
+        current = row;
+        break;
+      }
+    }
+    if (current == null) throw StateError('里程碑不存在：');
+    await _milestones.update(
+      current.copyWith(
+        title: milestone.title,
+        note: milestone.note,
+        dueAt: milestone.dueAt.toUtc().millisecondsSinceEpoch,
+        completed: milestone.completed,
+        completedAt: Value(
+          milestone.completedAt?.toUtc().millisecondsSinceEpoch,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteMilestone(String id) => _milestones.softDelete(id);
+
+  @override
+  Future<List<TaskDependencyData>> loadDependencies() async =>
+      (await _dependencies.loadVisible())
+          .map(
+            (row) => TaskDependencyData(
+              id: row.id,
+              predecessorTaskId: row.predecessorTaskId,
+              successorTaskId: row.successorTaskId,
+            ),
+          )
+          .toList();
+
+  @override
+  Future<void> addDependency({
+    required String predecessorTaskId,
+    required String successorTaskId,
+  }) async {
+    if (predecessorTaskId == successorTaskId) {
+      throw StateError('任务不能依赖自身。');
+    }
+    // 环检测：沿「后继 → 前驱」方向从后继任务回走，能到达前驱即成环。
+    final all = await loadDependencies();
+    final predecessorsOf = <String, List<String>>{};
+    for (final dependency in all) {
+      predecessorsOf
+          .putIfAbsent(dependency.successorTaskId, () => [])
+          .add(dependency.predecessorTaskId);
+    }
+    final visited = <String>{successorTaskId};
+    final queue = <String>[successorTaskId];
+    while (queue.isNotEmpty) {
+      final current = queue.removeLast();
+      if (current == predecessorTaskId) {
+        throw StateError('该依赖会形成循环，无法添加。');
+      }
+      for (final next in predecessorsOf[current] ?? const <String>[]) {
+        if (visited.add(next)) queue.add(next);
+      }
+    }
+    await _dependencies.create(
+      predecessorTaskId: predecessorTaskId,
+      successorTaskId: successorTaskId,
+    );
+  }
+
+  @override
+  Future<void> deleteDependency(String id) => _dependencies.softDelete(id);
+
+  MilestoneData _milestone(db.Milestone row) => MilestoneData(
+    id: row.id,
+    projectId: row.projectId,
+    title: row.title,
+    note: row.note,
+    dueAt: _fromMillis(row.dueAt)!,
+    completed: row.completed,
+    completedAt: _fromMillis(row.completedAt),
+  );
 }

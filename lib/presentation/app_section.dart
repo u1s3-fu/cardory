@@ -1,1 +1,1 @@
-enum AppSection { home, todos, calendar, time, projects, settings }
+enum AppSection { home, todos, calendar, time, gantt, projects, settings }

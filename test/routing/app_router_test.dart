@@ -26,6 +26,7 @@ void main() {
         WorkbenchTodos() => const Text('待办区'),
         WorkbenchCalendar() => const Text('日历区'),
         WorkbenchTime() => const Text('时间区'),
+        WorkbenchGantt() => const Text('甘特区'),
         WorkbenchProjects() => const Text('项目区'),
         WorkbenchProjectDetail(:final projectId) => Text('项目详情:$projectId'),
         WorkbenchSettings() => const Text('设置区'),
@@ -51,6 +52,9 @@ void main() {
     for (final path in [
       workbenchRoutePath,
       todosRoutePath,
+      calendarRoutePath,
+      timeRoutePath,
+      ganttRoutePath,
       projectsRoutePath,
       '$projectsRoutePath/project-1',
       settingsRoutePath,
@@ -66,7 +70,7 @@ void main() {
     }
 
     // 访问占位业务路由同样被拦截。
-    router.go(calendarRoutePath);
+    router.go(assetsRoutePath);
     await tester.pumpAndSettle();
     expect(router.routeInformationProvider.value.uri.path, vaultRoutePath);
     expect(find.text('门禁页'), findsOneWidget);
@@ -127,12 +131,11 @@ void main() {
     expect(router.routeInformationProvider.value.uri.path, settingsRoutePath);
     expect(find.text('设置区'), findsOneWidget);
 
-    // 工作台内可访问受保护占位页（渲染真实占位内容）。
+    // 工作台内可访问甘特分区（真实页面）。
     router.go(ganttRoutePath);
     await tester.pumpAndSettle();
     expect(router.routeInformationProvider.value.uri.path, ganttRoutePath);
-    expect(find.text('项目排期甘特视图，即将在后续版本开放。'), findsOneWidget);
-    expect(find.text('返回今日'), findsOneWidget);
+    expect(find.text('甘特区'), findsOneWidget);
 
     router.go(assetsRoutePath);
     await tester.pumpAndSettle();

@@ -7,6 +7,7 @@
 import 'package:cardory/application/row_level_workspace_store.dart';
 import 'package:cardory/application/workspace_mutation_service.dart';
 import 'package:cardory/domain/cardory_models.dart';
+import 'package:cardory/domain/milestone_models.dart';
 
 class InMemoryRowLevelWorkspaceStore implements RowLevelWorkspaceStore {
   InMemoryRowLevelWorkspaceStore(this._read, this._write);
@@ -14,6 +15,10 @@ class InMemoryRowLevelWorkspaceStore implements RowLevelWorkspaceStore {
   final CardoryData Function() _read;
   final void Function(CardoryData data) _write;
   static const _mutations = WorkspaceMutationService();
+
+  /// 里程碑与任务依赖的内存清单（与快照数据无关的旁路实体）。
+  final List<MilestoneData> milestones = [];
+  final List<TaskDependencyData> dependencies = [];
 
   /// 置为 true 时下一次写入抛错，用于模拟持久化失败。
   bool failNextWrite = false;
@@ -138,4 +143,54 @@ class InMemoryRowLevelWorkspaceStore implements RowLevelWorkspaceStore {
           }).toList(),
         ),
       );
+
+  // ---- 里程碑与任务依赖 ----
+
+  @override
+  Future<List<MilestoneData>> loadMilestones() async => List.of(milestones);
+
+  @override
+  Future<void> addMilestone(MilestoneData milestone) async =>
+      milestones.add(milestone);
+
+  @override
+  Future<void> updateMilestone(MilestoneData milestone) async {
+    final index = milestones.indexWhere((item) => item.id == milestone.id);
+    milestones[index] = milestone;
+  }
+
+  @override
+  Future<void> deleteMilestone(String id) async =>
+      milestones.removeWhere((item) => item.id == id);
+
+  @override
+  Future<List<TaskDependencyData>> loadDependencies() async =>
+      List.of(dependencies);
+
+  @override
+  Future<void> addDependency({
+    required String predecessorTaskId,
+    required String successorTaskId,
+  }) async {
+    if (predecessorTaskId == successorTaskId) {
+      throw StateError('任务不能依赖自身。');
+    }
+    for (final dependency in dependencies) {
+      if (dependency.predecessorTaskId == predecessorTaskId &&
+          dependency.successorTaskId == successorTaskId) {
+        throw StateError('该依赖关系已存在。');
+      }
+    }
+    dependencies.add(
+      TaskDependencyData(
+        id: 'dep-${dependencies.length + 1}',
+        predecessorTaskId: predecessorTaskId,
+        successorTaskId: successorTaskId,
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteDependency(String id) async =>
+      dependencies.removeWhere((item) => item.id == id);
 }

@@ -22,6 +22,7 @@ class Sidebar extends StatelessWidget {
     (AppSection.todos, Icons.check_circle_outline_rounded, '待办'),
     (AppSection.calendar, Icons.calendar_month_outlined, '日历'),
     (AppSection.time, Icons.timer_outlined, '时间'),
+    (AppSection.gantt, Icons.view_timeline_outlined, '甘特'),
     (AppSection.projects, Icons.folder_outlined, '项目'),
     (AppSection.settings, Icons.settings_outlined, '设置'),
   ];
