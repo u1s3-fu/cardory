@@ -6,7 +6,17 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ### 变更（Changed）
 
+- （无）
+
+## [0.1.0-beta.5] - 2026-09-13
+
+### 变更（Changed）
+
 - 时间记录与番茄钟（阶段 D）：`/time` 替换占位页为真实页面——专注计时器（开始/暂停/继续/结束，墙钟计时支持后台与重启恢复）、番茄钟（专注 25 分钟 / 短休 5 分钟 / 长休 15 分钟，到时自动收尾、可提前结束，完成会话写入 `pomodoro_sessions` 并以 pomodoro 来源写入 `time_entries`）、手动时间记录 CRUD（开始/结束时间选择、关联项目、备注）、耗时统计（今日/本周专注时长与按项目分布）；侧栏与底部导航新增「时间」入口，成为工作台 Shell 子路由（受门禁保护）。运行中的番茄钟会话只写本地行、不产生 sync_changes 审计（结束后补记），不进入同步通道。
+
+### 构建（Build）
+
+- 发布前本机验证：`flutter build windows --release` 成功；`flutter build apk --release --target-platform android-arm64` 成功。质量门禁：dart format 无变化、flutter analyze 0 问题、flutter test 176 用例全绿（Flutter 3.47.4 / Dart 3.13.3）。
 
 ## [0.1.0-beta.4] - 2026-09-13
 
