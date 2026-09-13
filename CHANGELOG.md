@@ -6,12 +6,16 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ### 变更（Changed）
 
+- （无）
+
+## [0.1.0-beta.3] - 2026-09-13
+
+### 变更（Changed）
+
 - 看板拖拽排序（阶段 B 第三步）：项目卡片可拖拽跨阶段移动与列内排序，落点插入到目标卡之前或列尾追加；拖拽结果经行级 Repository 写入项目阶段与 `sortOrder`（单事务、仅更新发生变化的行并记录 sync_changes 审计）。
 - 路由拆分（阶段 B 第二步）：`/projects`（项目列表）与 `/projects/:projectId`（项目详情）拆为独立受门禁路由；工作台四个分区（/today、/todos、/projects、/settings）改经 `ShellRoute` 共享同一工作台 Shell（控制器、顶部栏、侧栏、底部导航），侧栏/底部导航改为路由导航，看板与项目列表点击项目改为 `context.go('/projects/:id')`，不再使用 Navigator.push 与路由内重建包装；项目详情页随路由全高渲染，删除路由内 `AnimatedSwitcher`（Shell 子内容含内层 Navigator 的 GlobalKey，交叉动画会在过渡帧复制它触发 Duplicate GlobalKey）。工作台子路由使用 `NoTransitionPage` 瞬时切换。
 - 核心界面写入口迁移到 Repository 行级单事务写入（阶段 B 第一步）：项目增删改、待办/子待办增删改与完成切换、资产与标签管理、看板重排全部经新增的 `RowLevelWorkspaceStore` 接口落库（生产实现 `DriftRowLevelWorkspaceStore` 组合各实体 Repository，多行差异对齐包在单个外层事务内，行级 updatedAt/tombstone 与 sync_changes 审计同事务提交），界面写入不再构建整包 `CardoryData` 快照；`database_snapshot_applier.dart` 仅保留给同步导入路径使用。
 - `WorkspaceController` 写入后统一从数据库回读投影并刷新桌面小组件摘要；行级写入存储未注入时业务写入直接抛错，防止界面悄悄退化回整包快照写入。`TaskRepository.create` 支持可选 `createdAt`/`completedAt` 并接受可空 `projectId`，新增 `setDone`；`AttachmentRecordRepository.create` 支持可选 `createdAt`。
-- README 依赖表去除 `^` 前缀，改列 `pubspec.lock` 实际解析版本，并同步校正 `path_provider`（2.1.6）、`build_runner`（2.15.1）、`drift_dev`（2.34.6）三处版本号。
-- README 版本徽章与开发环境表同步更新：版本 `0.1.0-beta.2`、Flutter `3.47.4`（CI 已固定）、Dart `3.13.3`。
 
 ## [0.1.0-beta.2] - 2026-09-13
 
@@ -19,6 +23,7 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 - 适配 Flutter 3.47.4 stable：同步协调器 6 处 try 块内的 `return future` 改为 `return await future`，修复新分析器的 `unawaited_return_in_try_block` 警告；CI 质量门禁与构建 job 固定 Flutter 版本为 3.47.4（`subosito/flutter-action` 增加 `flutter-version`），避免 stable 通道漂移导致发版门禁失败——v0.1.0-beta.2 首次 tag 触发的 CI 即因 stable 漂移在 analyze 阶段失败，本次以固定版本重跑。
 - build_runner 自动升级 `analysis_options.yaml`：分析器排除 `build/` 与各平台目录，减少无关分析开销。
+- README 依赖表去除 `^` 前缀，改列 `pubspec.lock` 实际解析版本，并同步校正 `path_provider`（2.1.6）、`build_runner`（2.15.1）、`drift_dev`（2.34.6）三处版本号；版本徽章与开发环境表同步更新至 `0.1.0-beta.2` / Flutter 3.47.4 / Dart 3.13.3。
 
 - 同步冲突流程重构：`SyncStatus` 新增 `SyncConflictKind`（`firstSync` 首次同步发现本地数据 / `concurrent` 自上次同步后双向修改），冲突状态携带场景信息并纳入序列化与状态比较，界面据此呈现差异化提示（`lib/domain/sync_status.dart`）。
 - 同步协调器把「首次同步发现本地数据」与「双向修改」两条冲突路径收敛为统一挂起方法 `_suspendForConflict`：同一套「远端快照留底 → 只读解析对比 → 记录冲突上下文 → 进入冲突状态」流程，冲突消息携带本地数据项数 / 差异条目数；内容冲突不再以异常作为控制流上抛，`synchronize` 全部以状态与返回值表达结果。
