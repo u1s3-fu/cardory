@@ -6,6 +6,7 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ### 变更（Changed）
 
+- README 依赖表去除 `^` 前缀，改列 `pubspec.lock` 实际解析版本，并同步校正 `path_provider`（2.1.6）、`build_runner`（2.15.1）、`drift_dev`（2.34.6）三处版本号。
 - README 版本徽章与开发环境表同步更新：版本 `0.1.0-beta.2`、Flutter `3.47.4`（CI 已固定）、Dart `3.13.3`。
 
 ## [0.1.0-beta.2] - 2026-09-13

@@ -149,35 +149,35 @@ UI 写入口 → WorkspaceController → Repository 单事务写入 SQLCipher
 
 ### 核心依赖
 
-下表列出 `pubspec.yaml` 中的声明版本约束；实际解析版本以 `pubspec.lock` 为准。
+下表列出各依赖的实际解析版本（以 `pubspec.lock` 为准；`pubspec.yaml` 中的声明约束可能带 `^` 前缀，表示兼容该版本的更新补丁）。
 
 | 依赖 | 版本 | 用途 |
 |------|------|------|
-| `path_provider` | `^2.1.5` | 获取应用文档目录 |
-| `drift` | `^2.34.4` | SQLite 响应式 ORM（表结构 / 查询 / 事务） |
-| `sqlite3` | `^3.5.2` | 原生 SQLite 绑定（`hooks` 指向 SQLCipher 源码构建） |
-| `flutter_riverpod` | `^3.4.3` | session-scoped 状态管理与依赖注入 |
-| `go_router` | `^18.0.1` | 声明式路由与解锁门禁 redirect |
-| `uuid` | `^4.6.0` | 跨设备同步 ID 生成 |
-| `flutter_secure_storage` | `^10.3.1` | 平台原生安全存储（密码 / Token） |
-| `cryptography` | `^2.9.0` | 附件 AES-256-GCM 加密与摘要校验 |
-| `http` | `^1.6.0` | HTTP 客户端（自建服务同步） |
-| `crypto` | `^3.0.7` | S3 请求摘要与签名辅助 |
-| `webdav_client` | `^1.2.2` | WebDAV 兼容性支持 |
-| `package_info_plus` | `^10.2.1` | 本地版本读取（更新检查） |
-| `url_launcher` | `^6.3.2` | 打开更新页 / 仓库链接 |
-| `file_picker` | `^12.2.0` | 系统文件选择（附件导入等） |
-| `path` | `^1.9.1` | 路径操作 |
-| `home_widget` | `^0.9.4` | Android / iOS 桌面小组件数据桥接 |
+| `path_provider` | `2.1.6` | 获取应用文档目录 |
+| `drift` | `2.34.4` | SQLite 响应式 ORM（表结构 / 查询 / 事务） |
+| `sqlite3` | `3.5.2` | 原生 SQLite 绑定（`hooks` 指向 SQLCipher 源码构建） |
+| `flutter_riverpod` | `3.4.3` | session-scoped 状态管理与依赖注入 |
+| `go_router` | `18.0.1` | 声明式路由与解锁门禁 redirect |
+| `uuid` | `4.6.0` | 跨设备同步 ID 生成 |
+| `flutter_secure_storage` | `10.3.1` | 平台原生安全存储（密码 / Token） |
+| `cryptography` | `2.9.0` | 附件 AES-256-GCM 加密与摘要校验 |
+| `http` | `1.6.0` | HTTP 客户端（自建服务同步） |
+| `crypto` | `3.0.7` | S3 请求摘要与签名辅助 |
+| `webdav_client` | `1.2.2` | WebDAV 兼容性支持 |
+| `package_info_plus` | `10.2.1` | 本地版本读取（更新检查） |
+| `url_launcher` | `6.3.2` | 打开更新页 / 仓库链接 |
+| `file_picker` | `12.2.0` | 系统文件选择（附件导入等） |
+| `path` | `1.9.1` | 路径操作 |
+| `home_widget` | `0.9.4` | Android / iOS 桌面小组件数据桥接 |
 
 ### 开发依赖
 
 | 依赖 | 版本 | 用途 |
 |------|------|------|
-| `build_runner` | `^2.10.4` | 代码生成驱动 |
-| `drift_dev` | `^2.34.4` | drift 表代码生成 |
-| `flutter_lints` | `^5.0.0` | 代码规范检查 |
-| `flutter_launcher_icons` | `^0.14.4` | 自动生成多平台应用图标 |
+| `build_runner` | `2.15.1` | 代码生成驱动 |
+| `drift_dev` | `2.34.6` | drift 表代码生成 |
+| `flutter_lints` | `5.0.0` | 代码规范检查 |
+| `flutter_launcher_icons` | `0.14.4` | 自动生成多平台应用图标 |
 
 ---
 
