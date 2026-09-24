@@ -6,6 +6,8 @@
 
 import 'dart:async';
 
+import 'package:flutter/services.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../application/time_tracking_store.dart';
@@ -421,7 +423,10 @@ class _PomodoroCard extends StatelessWidget {
       for (final (mode, label, _) in modes) {
         if (mode == session.mode) modeLabel = label;
       }
-      modeLabel ??= session.mode;
+      modeLabel ??= switch (session.mode) {
+        'custom' => '自定义',
+        _ => session.mode,
+      };
     }
     final remaining = session == null
         ? null
@@ -460,6 +465,7 @@ class _PomodoroCard extends StatelessWidget {
                   ],
                 ),
               ),
+            _CustomPomodoroRow(onStart: onStart),
           ] else ...[
             Center(
               child: Column(
@@ -1049,5 +1055,61 @@ class _ManualTimeEntryDialogState extends State<ManualTimeEntryDialog> {
       ),
       FilledButton(onPressed: () => _submit(context), child: const Text('保存')),
     ],
+  );
+}
+
+/// 自定义番茄钟时长输入（分钟）。
+class _CustomPomodoroRow extends StatefulWidget {
+  const _CustomPomodoroRow({required this.onStart});
+
+  final Future<void> Function(String mode, int plannedSeconds) onStart;
+
+  @override
+  State<_CustomPomodoroRow> createState() => _CustomPomodoroRowState();
+}
+
+class _CustomPomodoroRowState extends State<_CustomPomodoroRow> {
+  late final TextEditingController _minutesController = TextEditingController(
+    text: '40',
+  );
+
+  @override
+  void dispose() {
+    _minutesController.dispose();
+    super.dispose();
+  }
+
+  void _start() {
+    final minutes = int.tryParse(_minutesController.text.trim());
+    if (minutes == null || minutes < 1 || minutes > 600) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入 1-600 之间的分钟数。')));
+      return;
+    }
+    widget.onStart('custom', minutes * 60);
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _minutesController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              labelText: '自定义时长（分钟，1-600）',
+              isDense: true,
+            ),
+            onSubmitted: (_) => _start(),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton.tonal(onPressed: _start, child: const Text('开始')),
+      ],
+    ),
   );
 }

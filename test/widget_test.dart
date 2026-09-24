@@ -14,6 +14,7 @@ import 'package:flutter/services.dart'
     show MethodChannel, MissingPluginException;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cardory/presentation/pages/calendar_page.dart';
 import 'package:cardory/presentation/pages/time_page.dart';
 
 import 'support/in_memory_row_level_workspace_store.dart';
@@ -353,6 +354,36 @@ void main() {
     expect(syncCount, 1);
     expect(passwordChangeCount, 1);
     expect(aboutCount, 1);
+  });
+
+  testWidgets('日历页：周视图渲染时间网格与任务', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalendarPage(
+              todos: CardoryData.seed().todos,
+              now: DateTime(2026, 9, 13, 15),
+              onToggleTodo: (_) async => CardoryData.seed().todos.first,
+              onOpenTodo: (_) async => null,
+            ),
+          ),
+        ),
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    // 切到周视图：24 小时网格与星期头出现。
+    await tester.tap(find.text('周'));
+    await pumpUiFrames(tester);
+    expect(find.text('周视图'), findsOneWidget);
+    expect(find.text('0:00'), findsOneWidget);
+    expect(find.text('23:00'), findsOneWidget);
+
+    // 日视图同样可进入。
+    await tester.tap(find.text('日'));
+    await pumpUiFrames(tester);
+    expect(find.textContaining('的日程与任务'), findsOneWidget);
   });
 
   testWidgets('时间页面：专注计时与手动记录走行级存储', (tester) async {

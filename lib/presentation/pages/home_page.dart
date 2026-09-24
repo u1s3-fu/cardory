@@ -14,6 +14,7 @@ import '../../domain/sync_credentials.dart';
 import '../../domain/sync_status.dart';
 import '../../routing/app_router.dart';
 import '../../services/github_update_service.dart';
+import '../../services/system_calendar_service.dart';
 import '../app_section.dart';
 import '../cardory_theme.dart';
 import '../dialogs/about_dialog.dart';
@@ -61,6 +62,7 @@ class HomePage extends StatefulWidget {
     this.updateService,
     this.timeTrackingStore,
     this.rowLevelStore,
+    this.systemCalendar,
   });
 
   final WorkspaceControllerFactory controllerFactory;
@@ -83,6 +85,9 @@ class HomePage extends StatefulWidget {
 
   /// 里程碑与任务依赖等行级存储（甘特分区）；未注入时分区显示不可用提示。
   final RowLevelWorkspaceStore? rowLevelStore;
+
+  /// 系统日历服务：移动端读取/写入设备日历，桌面端读取/生成 .ics。
+  final SystemCalendarService? systemCalendar;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -852,6 +857,7 @@ class _CalendarSectionContent extends StatelessWidget {
     now: DateTime.now(),
     onToggleTodo: state._toggleTodo,
     onOpenTodo: state._openTodo,
+    systemCalendar: state.widget.systemCalendar,
   );
 }
 

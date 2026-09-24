@@ -236,6 +236,8 @@ class _GanttTimeline extends StatelessWidget {
           .add(milestone);
     }
 
+    final timelineWidth = totalDays * _dayWidth;
+
     final rows = <Widget>[];
     for (final project in projects) {
       rows.add(
@@ -247,6 +249,7 @@ class _GanttTimeline extends StatelessWidget {
           color: project.stage.color,
           windowStart: start,
           dayWidth: _dayWidth,
+          timelineWidth: timelineWidth,
           height: _rowHeight,
           markers: [
             for (final milestone
@@ -277,14 +280,13 @@ class _GanttTimeline extends StatelessWidget {
             color: todo.done ? CardoryColors.gray300 : const Color(0xFF6B9EDF),
             windowStart: start,
             dayWidth: _dayWidth,
+            timelineWidth: timelineWidth,
             height: _rowHeight,
             onTap: () => onSelectTodo(todo),
           ),
         );
       }
     }
-
-    final timelineWidth = totalDays * _dayWidth;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -306,24 +308,24 @@ class _GanttTimeline extends StatelessWidget {
               ),
             )
           else
-            SizedBox(
-              width: double.infinity,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: _labelWidth + timelineWidth,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _TimelineHeader(
-                        windowStart: start,
-                        totalDays: totalDays,
-                        dayWidth: _dayWidth,
-                        labelWidth: _labelWidth,
-                      ),
-                      for (final row in rows) row,
-                    ],
-                  ),
+            // 水平滚动容器：子项定宽（标签列 + 时间轴全宽）。
+            // 不能用 width: double.infinity——水平滚动给无界宽度约束，
+            // 无限宽会让 Stack 裁掉首屏之外的条形（时间线显示不完整）。
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: _labelWidth + timelineWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _TimelineHeader(
+                      windowStart: start,
+                      totalDays: totalDays,
+                      dayWidth: _dayWidth,
+                      labelWidth: _labelWidth,
+                    ),
+                    for (final row in rows) row,
+                  ],
                 ),
               ),
             ),
@@ -360,7 +362,9 @@ class _TimelineHeader extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(width: labelWidth),
-          Expanded(
+          // 显式给时间轴全宽：Stack 默认只占视口宽度，月份标签超出部分会被裁剪。
+          SizedBox(
+            width: totalDays * dayWidth,
             child: Stack(
               children: [
                 for (final (day, label) in monthMarks)
@@ -406,6 +410,7 @@ class _GanttBar extends StatelessWidget {
     required this.color,
     required this.windowStart,
     required this.dayWidth,
+    required this.timelineWidth,
     required this.height,
     this.labelStyle,
     this.indent = false,
@@ -419,6 +424,10 @@ class _GanttBar extends StatelessWidget {
   final Color color;
   final DateTime windowStart;
   final double dayWidth;
+
+  /// 时间轴全宽（条形以 Positioned 定位，Stack 必须与滚动内容等宽，
+  /// 否则首屏之外的条形会被裁剪）。
+  final double timelineWidth;
   final double height;
   final TextStyle? labelStyle;
   final bool indent;
@@ -429,14 +438,18 @@ class _GanttBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final barStart = start == null ? null : localDayKey(start!);
     final barEnd = end == null ? null : localDayKey(end!);
+    // 条形位置与宽度都夹取到时间轴窗口内，超出窗口的日期不越界绘制。
     final left = barStart == null
         ? null
-        : barStart.difference(windowStart).inDays * dayWidth;
+        : (barStart.difference(windowStart).inDays * dayWidth).clamp(
+            0.0,
+            timelineWidth,
+          );
     final width = barStart == null || barEnd == null
         ? null
         : ((barEnd.difference(barStart).inDays + 1) * dayWidth - 2).clamp(
             4.0,
-            double.infinity,
+            timelineWidth - left!,
           );
 
     return SizedBox(
@@ -457,17 +470,20 @@ class _GanttBar extends StatelessWidget {
               ),
             ),
           ),
-          Expanded(
+          SizedBox(
+            width: timelineWidth,
             child: Stack(
               children: [
-                Container(
-                  height: height - 6,
-                  margin: const EdgeInsets.symmetric(vertical: 3),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: CardoryColors.gray100,
-                        width: 0.5,
+                Positioned.fill(
+                  child: Container(
+                    height: height - 6,
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: CardoryColors.gray100,
+                          width: 0.5,
+                        ),
                       ),
                     ),
                   ),
@@ -511,9 +527,10 @@ class _GanttBar extends StatelessWidget {
                 for (final marker in markers)
                   Positioned(
                     left:
-                        marker.day.difference(windowStart).inDays * dayWidth +
-                        dayWidth / 2 -
-                        5,
+                        (marker.day.difference(windowStart).inDays * dayWidth +
+                                dayWidth / 2 -
+                                5)
+                            .clamp(0.0, timelineWidth - 12),
                     top: 2,
                     child: Tooltip(
                       message: '◆ ${marker.label}',
@@ -784,58 +801,38 @@ class _HealthCard extends StatelessWidget {
             style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
           )
         else
-          for (final project in projects)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
+          // 窄屏（<640px）五列横排会互相挤压截断，改为两行布局：
+          // 第一行项目名 + 健康度徽标，第二行进度 / 待办 / 里程碑明细。
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 640;
+              return Column(
                 children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      project.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: CardoryColors.gray900,
-                      ),
+                  for (final project in projects)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: compact
+                          ? _NarrowHealthRow(
+                              title: project.title,
+                              progressText:
+                                  '进度 ${(project.progress * 100).toStringAsFixed(0)}%',
+                              taskText: _taskSummary(project),
+                              milestoneText: _milestoneSummary(project),
+                              badge: _healthBadge(project),
+                            )
+                          : _WideHealthRow(
+                              title: project.title,
+                              progressText:
+                                  '进度 ${(project.progress * 100).toStringAsFixed(0)}%',
+                              taskText: _taskSummary(project),
+                              milestoneText: _milestoneSummary(project),
+                              badge: _healthBadge(project),
+                            ),
                     ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      '进度 ${(project.progress * 100).toStringAsFixed(0)}%',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: CardoryColors.gray600,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      _taskSummary(project),
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: CardoryColors.gray600,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      _milestoneSummary(project),
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: CardoryColors.gray600,
-                      ),
-                    ),
-                  ),
-                  Expanded(flex: 2, child: _healthBadge(project)),
                 ],
-              ),
-            ),
+              );
+            },
+          ),
       ],
     ),
   );
@@ -1087,6 +1084,111 @@ class _DependencyDialogState extends State<DependencyDialog> {
         child: const Text('取消'),
       ),
       FilledButton(onPressed: _submit, child: const Text('保存')),
+    ],
+  );
+}
+
+/// 宽屏健康度行：项目名 / 进度 / 待办 / 里程碑 / 健康度 五列横排。
+class _WideHealthRow extends StatelessWidget {
+  const _WideHealthRow({
+    required this.title,
+    required this.progressText,
+    required this.taskText,
+    required this.milestoneText,
+    required this.badge,
+  });
+
+  final String title;
+  final String progressText;
+  final String taskText;
+  final String milestoneText;
+  final Widget badge;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        flex: 3,
+        child: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
+            color: CardoryColors.gray900,
+          ),
+        ),
+      ),
+      Expanded(
+        flex: 2,
+        child: Text(
+          progressText,
+          style: TextStyle(fontSize: 12.5, color: CardoryColors.gray600),
+        ),
+      ),
+      Expanded(
+        flex: 2,
+        child: Text(
+          taskText,
+          style: TextStyle(fontSize: 12.5, color: CardoryColors.gray600),
+        ),
+      ),
+      Expanded(
+        flex: 2,
+        child: Text(
+          milestoneText,
+          style: TextStyle(fontSize: 12.5, color: CardoryColors.gray600),
+        ),
+      ),
+      Expanded(flex: 2, child: badge),
+    ],
+  );
+}
+
+/// 窄屏健康度行：两行布局避免五列互相挤压截断。
+class _NarrowHealthRow extends StatelessWidget {
+  const _NarrowHealthRow({
+    required this.title,
+    required this.progressText,
+    required this.taskText,
+    required this.milestoneText,
+    required this.badge,
+  });
+
+  final String title;
+  final String progressText;
+  final String taskText;
+  final String milestoneText;
+  final Widget badge;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: CardoryColors.gray900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          badge,
+        ],
+      ),
+      const SizedBox(height: 4),
+      Text(
+        '$progressText · $taskText · $milestoneText',
+        style: TextStyle(fontSize: 12, color: CardoryColors.gray600),
+      ),
     ],
   );
 }

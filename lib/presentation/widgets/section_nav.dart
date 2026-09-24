@@ -25,19 +25,77 @@ class SectionNavigation extends StatelessWidget {
     (AppSection.settings, Icons.settings_outlined, '设置'),
   ];
 
+  /// 底部导航只保留 4 个高频分区，其余收纳进「更多」，避免 7 个入口挤满。
+  static const _compactPrimary = [
+    AppSection.home,
+    AppSection.todos,
+    AppSection.calendar,
+    AppSection.time,
+  ];
+
+  void _openOverflowSheet(BuildContext context) {
+    final overflow = _items
+        .where((item) => !_compactPrimary.contains(item.$1))
+        .toList();
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final item in overflow)
+              ListTile(
+                leading: Icon(
+                  item.$2,
+                  color: selected == item.$1
+                      ? Theme.of(context).colorScheme.primary
+                      : CardoryColors.gray600,
+                ),
+                title: Text(item.$3),
+                trailing: selected == item.$1
+                    ? Icon(
+                        Icons.check_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  if (item.$1 != selected) onSelected(item.$1);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (compact) {
+      final primaryIndex = _compactPrimary.indexOf(selected);
+      final selectedIndex = primaryIndex >= 0 ? primaryIndex : 4;
       return NavigationBar(
         height: 64,
-        selectedIndex: _items.indexWhere((item) => item.$1 == selected),
+        selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
-          final section = _items[index].$1;
-          if (section != selected) onSelected(section);
+          if (index < _compactPrimary.length) {
+            final section = _compactPrimary[index];
+            if (section != selected) onSelected(section);
+            return;
+          }
+          _openOverflowSheet(context);
         },
         destinations: [
-          for (final item in _items)
-            NavigationDestination(icon: Icon(item.$2), label: item.$3),
+          for (final section in _compactPrimary)
+            NavigationDestination(
+              icon: Icon(_items.firstWhere((item) => item.$1 == section).$2),
+              label: _items.firstWhere((item) => item.$1 == section).$3,
+            ),
+          const NavigationDestination(
+            icon: Icon(Icons.more_horiz_rounded),
+            label: '更多',
+          ),
         ],
       );
     }

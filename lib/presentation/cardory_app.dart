@@ -12,6 +12,7 @@ import '../application/workspace_controller_factory.dart';
 import '../application/row_level_workspace_store.dart';
 import '../application/time_tracking_store.dart';
 import '../data/attachment_store.dart';
+import '../data/db/app_database.dart' as db;
 import '../domain/attachment_repository.dart';
 import '../domain/cardory_models.dart';
 import '../domain/cardory_repository.dart';
@@ -21,6 +22,7 @@ import '../providers/app_providers.dart';
 import '../routing/app_router.dart';
 import '../services/github_update_service.dart';
 import '../services/home_widget_data_service.dart';
+import '../services/system_calendar_service.dart';
 import '../sync/sync_coordinator.dart';
 import '../sync/sync_credentials.dart'
     show SecureSyncCredentialStore, SecureVaultCredentialStore;
@@ -73,6 +75,9 @@ class CardoryApp extends StatefulWidget {
     AttachmentRepositoryFactory? attachmentRepositoryFactory,
     RowLevelWorkspaceStoreBuilder? rowLevelStoreBuilder,
     TimeTrackingStoreBuilder? timeTrackingStoreBuilder,
+    SystemCalendarService? systemCalendar,
+    String? Function()? deltaKeyProvider,
+    db.AppDatabase? Function()? deltaDatabaseProvider,
     Future<void> Function(AppSettings, SyncCredentials)? connectionTester,
     GithubUpdateService? updateService,
   }) : credentialStore = credentialStore ?? SecureSyncCredentialStore(),
@@ -87,6 +92,12 @@ class CardoryApp extends StatefulWidget {
        _rowLevelStoreBuilder = rowLevelStoreBuilder,
        // ignore: prefer_initializing_formals
        _timeTrackingStoreBuilder = timeTrackingStoreBuilder,
+       // ignore: prefer_initializing_formals
+       _systemCalendar = systemCalendar,
+       // ignore: prefer_initializing_formals
+       _deltaKeyProvider = deltaKeyProvider,
+       // ignore: prefer_initializing_formals
+       _deltaDatabaseProvider = deltaDatabaseProvider,
        // ignore: prefer_initializing_formals
        _connectionTester = connectionTester,
        // ignore: prefer_initializing_formals
@@ -103,6 +114,9 @@ class CardoryApp extends StatefulWidget {
   final AttachmentRepositoryFactory _attachmentRepositoryFactory;
   final RowLevelWorkspaceStoreBuilder? _rowLevelStoreBuilder;
   final TimeTrackingStoreBuilder? _timeTrackingStoreBuilder;
+  final SystemCalendarService? _systemCalendar;
+  final String? Function()? _deltaKeyProvider;
+  final db.AppDatabase? Function()? _deltaDatabaseProvider;
   final Future<void> Function(AppSettings, SyncCredentials)? _connectionTester;
   final GithubUpdateService? _updateService;
 
@@ -119,6 +133,8 @@ class CardoryApp extends StatefulWidget {
           repository: syncRepository,
           providerFactory: providerFactory,
           attachmentRepositoryFactory: attachmentRepositoryFactory,
+          deltaKeyProvider: _deltaKeyProvider,
+          deltaDatabaseProvider: _deltaDatabaseProvider,
         ),
         attachmentRepositoryFactory: attachmentRepositoryFactory,
         rowLevelStoreBuilder: _rowLevelStoreBuilder,
@@ -162,6 +178,11 @@ class _CardoryAppState extends State<CardoryApp> {
 
   VaultAutoLockController? _autoLock;
   late final GoRouter _router;
+
+  /// 系统日历服务：注入优先，缺省按平台创建（每会话缓存，避免 Shell
+  /// 重建时反复初始化移动端日历插件 / 桌面 .ics 目录）。
+  late final SystemCalendarService _effectiveSystemCalendar =
+      widget._systemCalendar ?? createSystemCalendarService();
 
   @override
   void initState() {
@@ -293,6 +314,7 @@ class _CardoryAppState extends State<CardoryApp> {
     updateService: widget.updateService,
     timeTrackingStore: widget._timeTrackingStoreBuilder?.call(),
     rowLevelStore: widget._rowLevelStoreBuilder?.call(),
+    systemCalendar: _effectiveSystemCalendar,
     child: child,
   );
 
@@ -321,6 +343,10 @@ void runCardoryApp() {
           ),
           rowLevelStoreBuilder: ref.watch(rowLevelStoreBuilderProvider),
           timeTrackingStoreBuilder: ref.watch(timeTrackingStoreBuilderProvider),
+          deltaKeyProvider: () =>
+              ref.read(sqlCipherVaultStoreProvider).currentVaultKey,
+          deltaDatabaseProvider: () =>
+              ref.read(sqlCipherVaultStoreProvider).database,
           connectionTester: ref.watch(syncConnectionTesterProvider),
         ),
       ),

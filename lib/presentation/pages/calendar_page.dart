@@ -1,15 +1,50 @@
-// 月历视图：月份网格 + 日期范围筛选（当天/本周/本月）+ 任务日期编辑入口。
+// 日历页：月视图 / 周视图 / 日视图 + 日期范围筛选 + 系统日历集成。
+//
+// - 月视图：月份网格，每日截止任务按优先级着色标记；
+// - 周视图：7 列 × 24 小时时间网格，任务与系统日程按时间落位；
+// - 日视图：单列 24 小时网格；
+// - 系统日历：移动端读写系统日历（需授权），桌面端以 .ics 文件落地
+//   （见 SystemCalendarService）。
 
 import 'package:flutter/material.dart';
 
 import '../../domain/cardory_models.dart';
 import '../../domain/schedule_queries.dart';
+import '../../services/system_calendar_service.dart';
 import '../cardory_theme.dart';
 import '../model_colors.dart';
 import '../widgets/badges.dart';
 
-/// 月历页面：显示某月每日截止任务标记，选中日期后按范围筛选任务清单；
-/// 点击任务打开编辑对话框（含日期编辑）。
+enum CalendarViewMode { month, week, day }
+
+/// 统一的日历条目：任务截止（endDate）或系统日程。
+class CalendarEntry {
+  const CalendarEntry({
+    required this.title,
+    required this.start,
+    required this.end,
+    required this.isTask,
+    this.isDone = false,
+    this.priority = ProjectPriority.p2,
+    this.note = '',
+  });
+
+  final String title;
+  final DateTime start;
+  final DateTime end;
+  final bool isTask;
+  final bool isDone;
+  final ProjectPriority priority;
+  final String note;
+
+  bool get isAllDay =>
+      localDayKey(start) == localDayKey(end) &&
+      start.hour == 0 &&
+      start.minute == 0 &&
+      end.hour == 0 &&
+      end.minute == 0;
+}
+
 class CalendarPage extends StatefulWidget {
   const CalendarPage({
     super.key,
@@ -17,7 +52,7 @@ class CalendarPage extends StatefulWidget {
     required this.now,
     required this.onToggleTodo,
     required this.onOpenTodo,
-    this.onAddTodo,
+    this.systemCalendar,
   });
 
   final List<TodoData> todos;
@@ -26,7 +61,9 @@ class CalendarPage extends StatefulWidget {
   final DateTime now;
   final Future<TodoData> Function(TodoData todo) onToggleTodo;
   final Future<TodoData?> Function(TodoData todo) onOpenTodo;
-  final Future<void> Function(DateTime day)? onAddTodo;
+
+  /// 系统日历服务；null 时隐藏系统日程相关功能（仅显示应用内任务）。
+  final SystemCalendarService? systemCalendar;
 
   @override
   State<CalendarPage> createState() => _CalendarPageState();
@@ -36,15 +73,58 @@ class _CalendarPageState extends State<CalendarPage> {
   late DateTime _selectedDay = localDayKey(widget.now);
   late DateTime _month = DateTime(_selectedDay.year, _selectedDay.month);
   CalendarRange _range = CalendarRange.selectedDay;
+  CalendarViewMode _viewMode = CalendarViewMode.month;
+
+  List<SystemCalendarEvent> _systemEvents = [];
+  String? _systemCalendarError;
+  bool _loadingSystemEvents = false;
+
+  DateTime get _now => localDayKey(widget.now);
 
   @override
-  void didUpdateWidget(CalendarPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.todos != oldWidget.todos && !mounted) return;
+  void initState() {
+    super.initState();
+    _loadSystemEvents();
+  }
+
+  /// 当前视图可见的日期区间（用于加载系统日程）。
+  (DateTime, DateTime) get _visibleRange => switch (_viewMode) {
+    CalendarViewMode.month => calendarRangeBounds(
+      CalendarRange.month,
+      DateTime(_month.year, _month.month, 15),
+    ),
+    CalendarViewMode.week => calendarRangeBounds(
+      CalendarRange.week,
+      _selectedDay,
+    ),
+    CalendarViewMode.day => (_selectedDay, _selectedDay),
+  };
+
+  Future<void> _loadSystemEvents() async {
+    final service = widget.systemCalendar;
+    if (service == null) return;
+    final (start, end) = _visibleRange;
+    setState(() => _loadingSystemEvents = true);
+    try {
+      final events = await service.loadEvents(start, end);
+      if (!mounted) return;
+      setState(() {
+        _systemEvents = events;
+        _systemCalendarError = null;
+        _loadingSystemEvents = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _systemCalendarError = '系统日程读取失败：$error';
+        _loadingSystemEvents = false;
+      });
+    }
   }
 
   void _shiftMonth(int delta) {
     setState(() => _month = DateTime(_month.year, _month.month + delta));
+    _loadSystemEvents();
   }
 
   void _selectDay(DateTime day) {
@@ -54,129 +134,313 @@ class _CalendarPageState extends State<CalendarPage> {
         _month = DateTime(day.year, day.month);
       }
     });
+    _loadSystemEvents();
   }
 
-  /// 每日截止任务数（含已完成，已完成数量单独弱化）。
-  Map<DateTime, List<TodoData>> get _todosByDay {
-    final byDay = <DateTime, List<TodoData>>{};
-    for (final todo in widget.todos) {
-      final due = todo.endDate;
-      if (due == null) continue;
-      byDay.putIfAbsent(localDayKey(due), () => []).add(todo);
-    }
-    return byDay;
+  /// 应用内任务 → 日历条目（截止时刻；0 点视为全天）。
+  List<CalendarEntry> get _taskEntries => [
+    for (final todo in widget.todos)
+      if (todo.endDate != null)
+        CalendarEntry(
+          title: todo.title,
+          start: todo.endDate!,
+          end: todo.endDate!,
+          isTask: true,
+          isDone: todo.done,
+          priority: todo.priority,
+        ),
+  ];
+
+  List<CalendarEntry> get _systemEntries => [
+    for (final event in _systemEvents)
+      CalendarEntry(
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        isTask: false,
+        note: event.note,
+      ),
+  ];
+
+  List<CalendarEntry> entriesOnDay(DateTime day) {
+    final entries = [
+      ..._taskEntries.where((entry) => isDueOnTask(entry, day)),
+      ..._systemEntries.where((entry) => overlapsDay(entry, day)),
+    ]..sort((a, b) => a.start.compareTo(b.start));
+    return entries;
+  }
+
+  static bool isDueOnTask(CalendarEntry entry, DateTime day) =>
+      localDayKey(entry.start) == day;
+
+  static bool overlapsDay(CalendarEntry entry, DateTime day) {
+    final dayStart = DateTime(day.year, day.month, day.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+    return entry.end.isAfter(dayStart) && entry.start.isBefore(dayEnd);
   }
 
   @override
   Widget build(BuildContext context) {
-    final byDay = _todosByDay;
-    final today = localDayKey(widget.now);
-    final tasks = todosWithin(
-      widget.todos,
-      calendarRangeBounds(_range, _selectedDay),
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _MonthHeader(
+        _CalendarHeader(
           month: _month,
-          onPrevious: () => _shiftMonth(-1),
-          onNext: () => _shiftMonth(1),
-          onToday: () => _selectDay(today),
-        ),
-        const SizedBox(height: 12),
-        _MonthGrid(
-          month: _month,
-          selectedDay: _selectedDay,
-          today: today,
-          todosByDay: byDay,
-          onSelectDay: _selectDay,
-        ),
-        const SizedBox(height: 16),
-        _RangeSelector(
-          range: _range,
-          selectedDay: _selectedDay,
-          onChanged: (range) => setState(() => _range = range),
-        ),
-        const SizedBox(height: 12),
-        _TaskList(
-          tasks: tasks,
-          now: widget.now,
-          emptyLabel: switch (_range) {
-            CalendarRange.selectedDay => '该日没有截止任务',
-            CalendarRange.week => '本周没有截止任务',
-            CalendarRange.month => '本月没有截止任务',
+          viewMode: _viewMode,
+          onPrevious: () => switch (_viewMode) {
+            CalendarViewMode.month => _shiftMonth(-1),
+            CalendarViewMode.week => _selectDay(
+              _selectedDay.subtract(const Duration(days: 7)),
+            ),
+            CalendarViewMode.day => _selectDay(
+              _selectedDay.subtract(const Duration(days: 1)),
+            ),
           },
-          onToggleTodo: widget.onToggleTodo,
-          onOpenTodo: widget.onOpenTodo,
-          onAddTodo: widget.onAddTodo == null
-              ? null
-              : () => widget.onAddTodo!(_selectedDay),
+          onNext: () => switch (_viewMode) {
+            CalendarViewMode.month => _shiftMonth(1),
+            CalendarViewMode.week => _selectDay(
+              _selectedDay.add(const Duration(days: 7)),
+            ),
+            CalendarViewMode.day => _selectDay(
+              _selectedDay.add(const Duration(days: 1)),
+            ),
+          },
+          onToday: () => _selectDay(localDayKey(widget.now)),
+          onViewModeChanged: (mode) {
+            setState(() => _viewMode = mode);
+            _loadSystemEvents();
+          },
         ),
+        if (widget.systemCalendar != null && _systemCalendarError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              _systemCalendarError!,
+              style: TextStyle(fontSize: 11.5, color: CardoryColors.error),
+            ),
+          ),
+        const SizedBox(height: 12),
+        if (_loadingSystemEvents)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          )
+        else
+          switch (_viewMode) {
+            CalendarViewMode.month => _MonthView(
+              month: _month,
+              selectedDay: _selectedDay,
+              today: _now,
+              taskEntries: _taskEntries,
+              hasSystemEntries: (day) =>
+                  entriesOnDay(day).any((entry) => !entry.isTask),
+              onSelectDay: _selectDay,
+            ),
+            CalendarViewMode.week => _TimeGridView(
+              days: [
+                for (var i = 0; i < 7; i++)
+                  calendarRangeBounds(
+                    CalendarRange.week,
+                    _selectedDay,
+                  ).$1.add(Duration(days: i)),
+              ],
+              entriesFor: entriesOnDay,
+              now: widget.now,
+              onOpenTodo: (entry) async {
+                final todo = widget.todos.firstWhere(
+                  (item) => item.endDate == entry.start,
+                );
+                await widget.onOpenTodo(todo);
+              },
+            ),
+            CalendarViewMode.day => _TimeGridView(
+              days: [_selectedDay],
+              entriesFor: entriesOnDay,
+              now: widget.now,
+              onOpenTodo: (entry) async {
+                final todo = widget.todos.firstWhere(
+                  (item) => item.endDate == entry.start,
+                );
+                await widget.onOpenTodo(todo);
+              },
+            ),
+          },
+        const SizedBox(height: 16),
+        if (_viewMode == CalendarViewMode.month) ...[
+          _RangeSelector(
+            range: _range,
+            selectedDay: _selectedDay,
+            onChanged: (range) => setState(() => _range = range),
+          ),
+          const SizedBox(height: 12),
+          _TaskList(
+            tasks: todosWithin(
+              widget.todos,
+              calendarRangeBounds(_range, _selectedDay),
+            ),
+            now: widget.now,
+            emptyLabel: switch (_range) {
+              CalendarRange.selectedDay => '该日没有截止任务',
+              CalendarRange.week => '本周没有截止任务',
+              CalendarRange.month => '本月没有截止任务',
+            },
+            onToggleTodo: widget.onToggleTodo,
+            onOpenTodo: widget.onOpenTodo,
+          ),
+        ] else ...[
+          _DayEntryList(
+            day: _selectedDay,
+            entries: entriesOnDay(_selectedDay),
+            onOpenTodo: widget.onOpenTodo,
+          ),
+        ],
+        if (widget.systemCalendar != null) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.tonalIcon(
+              onPressed: _createSystemEvent,
+              icon: const Icon(Icons.event_available_outlined, size: 18),
+              label: const Text('新建日程到系统日历'),
+            ),
+          ),
+        ],
       ],
     );
   }
+
+  Future<void> _createSystemEvent() async {
+    final service = widget.systemCalendar;
+    if (service == null) return;
+    final result = await showDialog<SystemEventDraft>(
+      context: context,
+      builder: (_) => SystemEventDialog(initialDay: _selectedDay),
+    );
+    if (result == null || !mounted) return;
+    final write = await service.createEvent(
+      title: result.title,
+      start: result.start,
+      end: result.end,
+      note: result.note,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          write.success
+              ? (write.detail.isEmpty ? '日程已创建。' : write.detail)
+              : (write.detail.isEmpty ? '日程创建失败。' : write.detail),
+        ),
+      ),
+    );
+    await _loadSystemEvents();
+  }
 }
 
-class _MonthHeader extends StatelessWidget {
-  const _MonthHeader({
+// ---- 页头：月份导航 + 视图切换 ----
+
+class _CalendarHeader extends StatelessWidget {
+  const _CalendarHeader({
     required this.month,
+    required this.viewMode,
     required this.onPrevious,
     required this.onNext,
     required this.onToday,
+    required this.onViewModeChanged,
   });
 
   final DateTime month;
+  final CalendarViewMode viewMode;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onToday;
+  final ValueChanged<CalendarViewMode> onViewModeChanged;
+
+  String get _titleText => switch (viewMode) {
+    CalendarViewMode.month => '${month.year} 年 ${month.month} 月',
+    CalendarViewMode.week => '周视图',
+    CalendarViewMode.day => '日视图',
+  };
 
   @override
   Widget build(BuildContext context) => Row(
     children: [
       Text(
-        '${month.year} 年 ${month.month} 月',
+        _titleText,
         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
       ),
       const Spacer(),
       TextButton(onPressed: onToday, child: const Text('回到今天')),
-      IconButton(
-        tooltip: '上一月',
-        onPressed: onPrevious,
-        icon: const Icon(Icons.chevron_left_rounded),
+      SegmentedButton<CalendarViewMode>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(value: CalendarViewMode.month, label: Text('月')),
+          ButtonSegment(value: CalendarViewMode.week, label: Text('周')),
+          ButtonSegment(value: CalendarViewMode.day, label: Text('日')),
+        ],
+        selected: {viewMode},
+        onSelectionChanged: (selection) => onViewModeChanged(selection.first),
       ),
-      IconButton(
-        tooltip: '下一月',
-        onPressed: onNext,
-        icon: const Icon(Icons.chevron_right_rounded),
-      ),
+      if (viewMode == CalendarViewMode.month) ...[
+        IconButton(
+          tooltip: '上一月',
+          onPressed: onPrevious,
+          icon: const Icon(Icons.chevron_left_rounded),
+        ),
+        IconButton(
+          tooltip: '下一月',
+          onPressed: onNext,
+          icon: const Icon(Icons.chevron_right_rounded),
+        ),
+      ] else ...[
+        IconButton(
+          tooltip: '上一天/周',
+          onPressed: onPrevious,
+          icon: const Icon(Icons.chevron_left_rounded),
+        ),
+        IconButton(
+          tooltip: '下一天/周',
+          onPressed: onNext,
+          icon: const Icon(Icons.chevron_right_rounded),
+        ),
+      ],
     ],
   );
 }
 
-/// 周一开头的 6 行月历网格。
-class _MonthGrid extends StatelessWidget {
-  const _MonthGrid({
+// ---- 月视图 ----
+
+class _MonthView extends StatelessWidget {
+  const _MonthView({
     required this.month,
     required this.selectedDay,
     required this.today,
-    required this.todosByDay,
+    required this.taskEntries,
+    required this.hasSystemEntries,
     required this.onSelectDay,
   });
 
   final DateTime month;
   final DateTime selectedDay;
   final DateTime today;
-  final Map<DateTime, List<TodoData>> todosByDay;
+  final List<CalendarEntry> taskEntries;
+  final bool Function(DateTime day) hasSystemEntries;
   final ValueChanged<DateTime> onSelectDay;
 
   static const _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
 
+  Map<DateTime, List<CalendarEntry>> get _entriesByDay {
+    final byDay = <DateTime, List<CalendarEntry>>{};
+    for (final entry in taskEntries) {
+      byDay.putIfAbsent(localDayKey(entry.start), () => []).add(entry);
+    }
+    return byDay;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final byDay = _entriesByDay;
     final firstOfMonth = DateTime(month.year, month.month);
-    // weekday: 1=周一 … 7=周日；偏移 = 月首之前的空格数。
     final leadingBlanks = firstOfMonth.weekday - 1;
     final dayCount = DateTime(
       month.year,
@@ -225,7 +489,8 @@ class _MonthGrid extends StatelessWidget {
                         day: day,
                         isSelected: day == selectedDay,
                         isToday: day == today,
-                        todos: todosByDay[day] ?? const [],
+                        entries: byDay[day] ?? const [],
+                        hasSystemEntries: hasSystemEntries(day),
                         onSelect: () => onSelectDay(day),
                       ),
                     },
@@ -244,14 +509,16 @@ class _DayCell extends StatelessWidget {
     required this.day,
     required this.isSelected,
     required this.isToday,
-    required this.todos,
+    required this.entries,
+    required this.hasSystemEntries,
     required this.onSelect,
   });
 
   final DateTime day;
   final bool isSelected;
   final bool isToday;
-  final List<TodoData> todos;
+  final List<CalendarEntry> entries;
+  final bool hasSystemEntries;
   final VoidCallback onSelect;
 
   @override
@@ -291,28 +558,30 @@ class _DayCell extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 3),
-            if (todos.isNotEmpty)
+            if (entries.isNotEmpty || hasSystemEntries)
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  for (final todo in todos.take(4))
+                  for (final entry in entries.take(4))
                     Container(
                       width: 5,
                       height: 5,
                       margin: const EdgeInsets.symmetric(horizontal: 1),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: todo.done
+                        color: entry.isDone
                             ? CardoryColors.gray300
-                            : todo.priority.color,
+                            : entry.priority.color,
                       ),
                     ),
-                  if (todos.length > 4)
-                    Text(
-                      '+${todos.length - 4}',
-                      style: TextStyle(
-                        fontSize: 8,
-                        color: CardoryColors.gray400,
+                  if (hasSystemEntries)
+                    Container(
+                      width: 5,
+                      height: 5,
+                      margin: const EdgeInsets.symmetric(horizontal: 1),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: CardoryColors.gray500,
                       ),
                     ),
                 ],
@@ -325,6 +594,393 @@ class _DayCell extends StatelessWidget {
     );
   }
 }
+
+// ---- 周 / 日视图：24 小时时间网格 ----
+
+class _TimeGridView extends StatelessWidget {
+  const _TimeGridView({
+    required this.days,
+    required this.entriesFor,
+    required this.now,
+    required this.onOpenTodo,
+  });
+
+  final List<DateTime> days;
+  final List<CalendarEntry> Function(DateTime day) entriesFor;
+  final DateTime now;
+  final Future<void> Function(CalendarEntry entry) onOpenTodo;
+
+  static const _hourHeight = 46.0;
+  static const _minColumnWidth = 130.0;
+  static const _timeColumnWidth = 44.0;
+
+  @override
+  Widget build(BuildContext context) {
+    // 统一固定列宽 + 水平滚动：内部行使用定宽子项而非 Expanded，
+    // 避免无界宽度约束下的 flex 冲突；日视图单列时宽度自适应撑满由
+    // 外层列宽取 max(视口可用, 最小列宽) 实现。
+    final availableWidth = MediaQuery.sizeOf(context).width - 56;
+    final dayColumnWidth = days.length == 1
+        ? (availableWidth < _minColumnWidth ? _minColumnWidth : availableWidth)
+        : _minColumnWidth;
+    // 容器左右 padding 24 + 边框 2（Border.all 1px 两侧）。
+    final gridWidth = _timeColumnWidth + days.length * dayColumnWidth + 26;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: gridWidth,
+        child: Container(
+          decoration: cardDecoration(),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 30,
+                child: Row(
+                  children: [
+                    const SizedBox(width: _timeColumnWidth),
+                    for (final day in days)
+                      SizedBox(
+                        width: dayColumnWidth,
+                        child: Center(
+                          child: Text(
+                            '周${_weekdayName(day.weekday)} ${day.day}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: localDayKey(now) == day
+                                  ? Theme.of(context).colorScheme.primary
+                                  : CardoryColors.gray600,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 24 * _hourHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: _timeColumnWidth,
+                      child: Column(
+                        children: [
+                          for (var hour = 0; hour < 24; hour++)
+                            SizedBox(
+                              height: _hourHeight,
+                              child: Text(
+                                '$hour:00',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: CardoryColors.gray400,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    for (final day in days)
+                      SizedBox(
+                        width: dayColumnWidth,
+                        child: _DayHourColumn(
+                          day: day,
+                          entries: entriesFor(day),
+                          now: now,
+                          hourHeight: _hourHeight,
+                          onOpenTodo: onOpenTodo,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _weekdayName(int weekday) => switch (weekday) {
+    1 => '一',
+    2 => '二',
+    3 => '三',
+    4 => '四',
+    5 => '五',
+    6 => '六',
+    _ => '日',
+  };
+}
+
+class _DayHourColumn extends StatelessWidget {
+  const _DayHourColumn({
+    required this.day,
+    required this.entries,
+    required this.now,
+    required this.hourHeight,
+    required this.onOpenTodo,
+  });
+
+  final DateTime day;
+  final List<CalendarEntry> entries;
+  final DateTime now;
+  final double hourHeight;
+  final Future<void> Function(CalendarEntry entry) onOpenTodo;
+
+  static bool overlapsDay(CalendarEntry entry, DateTime day) {
+    final dayStart = DateTime(day.year, day.month, day.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+    return entry.end.isAfter(dayStart) && entry.start.isBefore(dayEnd);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 单日条目按时间重叠分道，避免互相遮挡。
+    final positioned = _layoutEntries(
+      entries.where((entry) {
+        final sameDay =
+            localDayKey(entry.start) == day || overlapsDay(entry, day);
+        return sameDay && !entry.isAllDay;
+      }).toList(),
+    );
+    final allDay = entries
+        .where((entry) => entry.isAllDay || localDayKey(entry.start) == day)
+        .toList();
+
+    return Container(
+      height: 24 * hourHeight,
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: CardoryColors.gray100, width: 0.5),
+        ),
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (var hour = 0; hour < 24; hour++)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: hour * hourHeight,
+              child: Container(
+                height: hourHeight,
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: CardoryColors.gray100,
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          Positioned(
+            left: 2,
+            right: 2,
+            top: 0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (allDay.isNotEmpty)
+                  for (final entry in allDay.take(3))
+                    _EntryChip(
+                      entry: entry,
+                      label: '全天 · ${entry.title}',
+                      height: 18,
+                    ),
+              ],
+            ),
+          ),
+          for (final layout in positioned)
+            Positioned(
+              left: 2 + layout.column * 6,
+              right: 2 - layout.column * 6,
+              top: layout.top,
+              child: _EntryChip(
+                entry: layout.entry,
+                label: '${_timeText(layout.entry.start)} ${layout.entry.title}',
+                height: layout.height,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _timeText(DateTime value) =>
+      '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+
+  List<_PositionedEntry> _layoutEntries(List<CalendarEntry> entries) {
+    final positioned = <_PositionedEntry>[];
+    for (final entry in entries) {
+      final startMinutes = entry.start.hour * 60 + entry.start.minute;
+      final endMinutes = entry.end.hour * 60 + entry.end.minute;
+      final clampedEnd = endMinutes <= startMinutes
+          ? startMinutes + 30
+          : endMinutes;
+      final top = startMinutes / 60 * hourHeight;
+      final height = ((clampedEnd - startMinutes) / 60 * hourHeight).clamp(
+        20.0,
+        24 * hourHeight - top,
+      );
+      var column = 0;
+      while (positioned.any(
+        (item) =>
+            item.column == column &&
+            item.top < top + height &&
+            item.top + item.height > top,
+      )) {
+        column++;
+      }
+      positioned.add(
+        _PositionedEntry(
+          entry: entry,
+          top: top,
+          height: height,
+          column: column,
+        ),
+      );
+    }
+    return positioned;
+  }
+}
+
+class _PositionedEntry {
+  const _PositionedEntry({
+    required this.entry,
+    required this.top,
+    required this.height,
+    required this.column,
+  });
+
+  final CalendarEntry entry;
+  final double top;
+  final double height;
+  final int column;
+}
+
+class _EntryChip extends StatelessWidget {
+  const _EntryChip({
+    required this.entry,
+    required this.label,
+    required this.height,
+  });
+
+  final CalendarEntry entry;
+  final String label;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: entry.isTask ? () {} : null,
+    child: Container(
+      height: height,
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      decoration: BoxDecoration(
+        color: entry.isTask
+            ? entry.priority.color.withValues(alpha: 0.18)
+            : CardoryColors.primarySoft,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: entry.isTask
+              ? entry.priority.color.withValues(alpha: 0.5)
+              : CardoryColors.gray300,
+          width: 0.6,
+        ),
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 10.5,
+            decoration: entry.isDone ? TextDecoration.lineThrough : null,
+            color: entry.isTask ? CardoryColors.gray800 : CardoryColors.gray700,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+// ---- 选中日条目清单 ----
+
+class _DayEntryList extends StatelessWidget {
+  const _DayEntryList({
+    required this.day,
+    required this.entries,
+    required this.onOpenTodo,
+  });
+
+  final DateTime day;
+  final List<CalendarEntry> entries;
+  final Future<TodoData?> Function(TodoData todo) onOpenTodo;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: cardDecoration(),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${formatDate(day)} 的日程与任务（${entries.length}）',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: CardoryColors.gray900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (entries.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              '该日没有任务或日程。',
+              style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
+            ),
+          )
+        else
+          for (final entry in entries)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: entry.isTask
+                  ? PriorityBadge(priority: entry.priority)
+                  : Icon(
+                      Icons.event_outlined,
+                      size: 18,
+                      color: CardoryColors.gray500,
+                    ),
+              title: Text(
+                entry.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: entry.isDone
+                      ? CardoryColors.gray400
+                      : CardoryColors.gray900,
+                  decoration: entry.isDone ? TextDecoration.lineThrough : null,
+                ),
+              ),
+              subtitle: Text(
+                entry.isAllDay
+                    ? '全天'
+                    : '${entry.start.hour.toString().padLeft(2, '0')}:${entry.start.minute.toString().padLeft(2, '0')}',
+                style: TextStyle(fontSize: 11.5, color: CardoryColors.gray500),
+              ),
+            ),
+      ],
+    ),
+  );
+}
+
+// ---- 范围选择与任务清单（月视图用） ----
 
 class _RangeSelector extends StatelessWidget {
   const _RangeSelector({
@@ -363,7 +1019,6 @@ class _TaskList extends StatelessWidget {
     required this.emptyLabel,
     required this.onToggleTodo,
     required this.onOpenTodo,
-    this.onAddTodo,
   });
 
   final List<TodoData> tasks;
@@ -371,7 +1026,6 @@ class _TaskList extends StatelessWidget {
   final String emptyLabel;
   final Future<TodoData> Function(TodoData todo) onToggleTodo;
   final Future<TodoData?> Function(TodoData todo) onOpenTodo;
-  final VoidCallback? onAddTodo;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -395,13 +1049,6 @@ class _TaskList extends StatelessWidget {
               '${tasks.length} 项',
               style: TextStyle(fontSize: 12, color: CardoryColors.gray500),
             ),
-            const Spacer(),
-            if (onAddTodo != null)
-              TextButton.icon(
-                onPressed: onAddTodo,
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('新建'),
-              ),
           ],
         ),
         const SizedBox(height: 8),
@@ -470,5 +1117,146 @@ class _TaskList extends StatelessWidget {
             ),
       ],
     ),
+  );
+}
+
+// ---- 新建系统日程对话框 ----
+
+class SystemEventDraft {
+  const SystemEventDraft({
+    required this.title,
+    required this.start,
+    required this.end,
+    this.note = '',
+  });
+
+  final String title;
+  final DateTime start;
+  final DateTime end;
+  final String note;
+}
+
+class SystemEventDialog extends StatefulWidget {
+  const SystemEventDialog({super.key, required this.initialDay});
+
+  final DateTime initialDay;
+
+  @override
+  State<SystemEventDialog> createState() => _SystemEventDialogState();
+}
+
+class _SystemEventDialogState extends State<SystemEventDialog> {
+  late final TextEditingController _titleController = TextEditingController();
+  late final TextEditingController _noteController = TextEditingController();
+  late int _startMinutes = 9 * 60;
+  late int _durationMinutes = 60;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickTime({required bool start}) async {
+    final base = start ? _startMinutes : _startMinutes + _durationMinutes;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: (base ~/ 60) % 24, minute: base % 60),
+    );
+    if (picked == null || !mounted) return;
+    final minutes = picked.hour * 60 + picked.minute;
+    setState(() {
+      if (start) {
+        _startMinutes = minutes;
+        if (_durationMinutes <= 0) _durationMinutes = 60;
+      } else {
+        _durationMinutes = minutes - _startMinutes;
+        if (_durationMinutes <= 0) _durationMinutes += 24 * 60;
+      }
+    });
+  }
+
+  void _submit() {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写日程标题。')));
+      return;
+    }
+    final day = widget.initialDay;
+    final start = DateTime(
+      day.year,
+      day.month,
+      day.day,
+      _startMinutes ~/ 60,
+      _startMinutes % 60,
+    );
+    final end = start.add(Duration(minutes: _durationMinutes));
+    Navigator.of(context).pop(
+      SystemEventDraft(
+        title: title,
+        start: start,
+        end: end,
+        note: _noteController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('新建日程'),
+    content: SizedBox(
+      width: 360,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(labelText: '日程标题'),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _pickTime(start: true),
+                  child: Text(
+                    '开始 ${_startMinutes ~/ 60}:${(_startMinutes % 60).toString().padLeft(2, '0')}',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _pickTime(start: false),
+                  child: Text(
+                    '结束 ${(_startMinutes + _durationMinutes) ~/ 60 % 24}:${(_startMinutes + _durationMinutes) % 60}',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Text(
+            '日期：${formatDate(widget.initialDay)} · 时长 $_durationMinutes 分钟',
+            style: TextStyle(fontSize: 12, color: CardoryColors.gray500),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _noteController,
+            decoration: const InputDecoration(labelText: '备注（可选）'),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('取消'),
+      ),
+      FilledButton(onPressed: _submit, child: const Text('保存')),
+    ],
   );
 }
