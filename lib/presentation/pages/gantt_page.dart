@@ -62,46 +62,49 @@ class _GanttPageState extends State<GanttPage> {
   };
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _GanttTimeline(
-        projects: widget.projects,
-        todos: widget.todos,
-        milestones: _milestones,
-        now: _now,
-        onSelectTodo: (todo) async {
-          await widget.onEditTodo(todo);
-          await _reload();
-        },
-      ),
-      const SizedBox(height: 16),
-      _MilestonesCard(
-        projects: widget.projects,
-        milestones: _milestones,
-        now: _now,
-        onAdd: _addMilestone,
-        onEdit: _editMilestone,
-        onToggle: _toggleMilestone,
-        onDelete: _deleteMilestone,
-      ),
-      const SizedBox(height: 16),
-      _DependenciesCard(
-        todos: widget.todos,
-        todoTitles: _todoTitles,
-        dependencies: _dependencies,
-        onAdd: _addDependency,
-        onDelete: _deleteDependency,
-      ),
-      const SizedBox(height: 16),
-      _HealthCard(
-        projects: widget.projects,
-        todos: widget.todos,
-        milestones: _milestones,
-        now: _now,
-      ),
-    ],
-  );
+  Widget build(BuildContext context) =>
+      // stretch：所有卡片横向撑满内容区。时间线与健康度卡片内部没有
+      // 能撑宽的 Row，用 start 会让它们收缩成文字自然宽度。
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _GanttTimeline(
+            projects: widget.projects,
+            todos: widget.todos,
+            milestones: _milestones,
+            now: _now,
+            onSelectTodo: (todo) async {
+              await widget.onEditTodo(todo);
+              await _reload();
+            },
+          ),
+          const SizedBox(height: 16),
+          _MilestonesCard(
+            projects: widget.projects,
+            milestones: _milestones,
+            now: _now,
+            onAdd: _addMilestone,
+            onEdit: _editMilestone,
+            onToggle: _toggleMilestone,
+            onDelete: _deleteMilestone,
+          ),
+          const SizedBox(height: 16),
+          _DependenciesCard(
+            todos: widget.todos,
+            todoTitles: _todoTitles,
+            dependencies: _dependencies,
+            onAdd: _addDependency,
+            onDelete: _deleteDependency,
+          ),
+          const SizedBox(height: 16),
+          _HealthCard(
+            projects: widget.projects,
+            todos: widget.todos,
+            milestones: _milestones,
+            now: _now,
+          ),
+        ],
+      );
 
   Future<void> _addMilestone() async {
     final result = await showDialog<MilestoneData>(

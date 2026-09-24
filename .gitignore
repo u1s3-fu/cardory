@@ -68,3 +68,6 @@ app.*.map.json
 /assets/branding/app_icon_productivity.png
 /assets/branding/README.md
 /tools/
+
+# 手动测试构建产物
+dist/
