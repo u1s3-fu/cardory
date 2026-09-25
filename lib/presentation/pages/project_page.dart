@@ -352,38 +352,44 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
         ],
       ),
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        tile,
-        if (todo.subTodos.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: 42),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final sub in todo.subTodos)
-                  CheckboxListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    value: sub.done,
-                    onChanged: (_) => _toggleSubTodo(todo, sub),
-                    title: Text(
-                      sub.content,
-                      style: TextStyle(
-                        fontSize: 13,
-                        decoration: sub.done
-                            ? TextDecoration.lineThrough
-                            : null,
-                        color: sub.done ? CardoryColors.gray500 : null,
+    // 外层容器带背景色 DecoratedBox，ListTile 需要自己的 Material 承载
+    // 墨水涟漪，否则 debug 断言报 "background color or ink splashes may be
+    // invisible"。
+    return Material(
+      type: MaterialType.transparency,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          tile,
+          if (todo.subTodos.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 42),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final sub in todo.subTodos)
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      value: sub.done,
+                      onChanged: (_) => _toggleSubTodo(todo, sub),
+                      title: Text(
+                        sub.content,
+                        style: TextStyle(
+                          fontSize: 13,
+                          decoration: sub.done
+                              ? TextDecoration.lineThrough
+                              : null,
+                          color: sub.done ? CardoryColors.gray500 : null,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

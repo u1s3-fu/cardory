@@ -479,6 +479,52 @@ void main() {
     expect(projects.first.stage, ProjectStage.doing, reason: '拖入 doing 列应更新阶段');
   });
 
+  testWidgets('新建项目后项目列表立即刷新，无需重新进出分区', (tester) async {
+    final repository = _MemoryRepository();
+    await pumpUnlockedApp(tester, repository);
+
+    // 进入项目分区。
+    await tester.tap(
+      find.descendant(of: find.byType(Sidebar), matching: find.text('项目')),
+    );
+    await pumpUiFrames(tester);
+
+    // 新建项目并保存，全程停留在项目分区。
+    await tester.tap(find.widgetWithText(FilledButton, '新建项目'));
+    await pumpUiFrames(tester);
+    await tester.enterText(find.widgetWithText(TextField, '项目名称'), '回归验证项目');
+    await pumpUiFrames(tester);
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await pumpUiFrames(tester);
+
+    expect(find.text('回归验证项目'), findsOneWidget, reason: '保存后列表应立即出现新项目');
+  });
+
+  testWidgets('系统返回键在子分区回退上一级，而不是退出应用', (tester) async {
+    final repository = _MemoryRepository();
+    await pumpUnlockedApp(tester, repository);
+
+    // 看板 → 项目 → 项目详情。
+    await tester.tap(
+      find.descendant(of: find.byType(Sidebar), matching: find.text('项目')),
+    );
+    await pumpUiFrames(tester);
+    await tester.tap(find.text('Cardory 桌面端').first);
+    await pumpUiFrames(tester);
+    expect(find.text('项目详情'), findsOneWidget);
+
+    // 第一次返回：项目详情 → 项目列表。
+    await tester.binding.handlePopRoute();
+    await pumpUiFrames(tester);
+    expect(find.text('项目详情'), findsNothing);
+    expect(find.text('Cardory 桌面端'), findsOneWidget);
+
+    // 第二次返回：项目列表 → 今日看板。
+    await tester.binding.handlePopRoute();
+    await pumpUiFrames(tester);
+    expect(find.text('把项目推进，落到今天'), findsOneWidget);
+  });
+
   testWidgets('shows a sync failure in a snack bar', (tester) async {
     final repository = _MemoryRepository()
       ..settings = const AppSettings(syncProvider: SyncProviderType.webdav);

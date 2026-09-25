@@ -10,6 +10,9 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ### 修复（Fixed）
 
+- 移动端系统返回键误退应用：工作台各分区是 ShellRoute 内 go 替换的单页栈，此前按返回键会弹掉整个工作台壳直接退出；现改为在 /today 允许正常退出，其余分区回退上一级（项目详情回项目列表，其他分区回今日）。
+- 工作台分区内容不随数据变化刷新：Shell 作用域 InheritedWidget 的 `updateShouldNotify` 返回 false，控制器通知后 identical 子树被短路跳过，新建项目/待办后需重新进出分区才能看到；改为返回 true 后保存即刷新。
+- 项目详情页待办条目 debug 断言告警：外层背景色容器中的 ListTile 缺少 Material 承载墨水涟漪，补 MaterialType.transparency 包装。
 - 甘特页卡片布局：时间线与健康度卡片在内容区收缩为文字自然宽度（其余卡片全宽不一致），统一改为 stretch 对齐撑满。
 - 甘特时间线显示不完整：滚动容器无限宽度约束导致 Stack 裁掉首屏之外的条形（移除 double.infinity、显式给时间轴全宽），条形与里程碑位置夹取到窗口内不再越界；月份表头同样因 Stack 收缩丢标签，已修复。
 - 项目健康度在窄屏下五列互相挤压截断：改为响应式布局（≥640px 保持五列横排，窄屏改为「项目名 + 健康度徽标 / 明细行」两行布局）。

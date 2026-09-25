@@ -654,58 +654,77 @@ class _HomePageState extends State<HomePage> {
     final medium = width >= 720 && width < 1100;
     final section = _currentSection;
     final expandedSidebar = !medium && _sidebarExpanded;
+    final currentPath = GoRouterState.of(context).uri.path;
+    final atWorkbenchRoot = currentPath == workbenchRoutePath;
 
     return _WorkbenchScope(
       state: this,
-      child: Scaffold(
-        body: DecoratedBox(
-          // 扁平化：纯色背景，不再使用渐变。
-          decoration: BoxDecoration(color: CardoryColors.gray50),
-          child: SafeArea(
-            child: Column(
-              children: [
-                AppTopBar(
-                  compact: compact,
-                  title: _sectionTitle,
-                  onOpenSettings: _openSettings,
-                ),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (!compact)
-                        Sidebar(
-                          selected: section,
-                          expanded: expandedSidebar,
-                          onToggleExpanded: medium
-                              ? null
-                              : () => setState(
-                                  () => _sidebarExpanded = !_sidebarExpanded,
-                                ),
-                          onSelected: _selectSection,
-                        ),
-                      Expanded(
-                        // Shell 对路由子内容的祖先结构必须恒定：子内容是带
-                        // GlobalKey 的内层 Navigator，切换分区时改变它的容器
-                        // （滚动 ↔ 直挂）会在过渡帧触发 GlobalKey 重挂异常。
-                        // 滚动容器由各分区内容自行承担（见 WorkbenchScaffold）。
-                        child: widget.child,
-                      ),
-                    ],
+      // 移动端系统返回键：ShellRoute 的子分区都是 go 替换进来的单页栈，
+      // 不拦截的话返回键会弹掉整个工作台壳导致应用直接退出。
+      // 在 /today 允许按返回键正常退出；其余分区回退到上一级。
+      child: PopScope(
+        canPop: atWorkbenchRoot,
+        onPopInvokedWithResult: atWorkbenchRoot
+            ? null
+            : (didPop, result) {
+                if (didPop) return;
+                final isProjectDetail =
+                    currentPath.startsWith('$projectsRoutePath/') &&
+                    currentPath != projectsRoutePath;
+                context.go(
+                  isProjectDetail ? projectsRoutePath : workbenchRoutePath,
+                );
+              },
+        child: Scaffold(
+          body: DecoratedBox(
+            // 扁平化：纯色背景，不再使用渐变。
+            decoration: BoxDecoration(color: CardoryColors.gray50),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  AppTopBar(
+                    compact: compact,
+                    title: _sectionTitle,
+                    onOpenSettings: _openSettings,
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!compact)
+                          Sidebar(
+                            selected: section,
+                            expanded: expandedSidebar,
+                            onToggleExpanded: medium
+                                ? null
+                                : () => setState(
+                                    () => _sidebarExpanded = !_sidebarExpanded,
+                                  ),
+                            onSelected: _selectSection,
+                          ),
+                        Expanded(
+                          // Shell 对路由子内容的祖先结构必须恒定：子内容是带
+                          // GlobalKey 的内层 Navigator，切换分区时改变它的容器
+                          // （滚动 ↔ 直挂）会在过渡帧触发 GlobalKey 重挂异常。
+                          // 滚动容器由各分区内容自行承担（见 WorkbenchScaffold）。
+                          child: widget.child,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+          bottomNavigationBar: compact
+              ? SectionNavigation(
+                  key: const Key('bottom-navigation'),
+                  selected: section,
+                  compact: true,
+                  onSelected: _selectSection,
+                )
+              : null,
         ),
-        bottomNavigationBar: compact
-            ? SectionNavigation(
-                key: const Key('bottom-navigation'),
-                selected: section,
-                compact: true,
-                onSelected: _selectSection,
-              )
-            : null,
       ),
     );
   }
@@ -715,6 +734,11 @@ class _HomePageState extends State<HomePage> {
 
 /// 把工作台 Shell 状态暴露给路由内容区的 InheritedWidget：
 /// 分区内容与项目详情页通过它获取控制器投影与操作回调。
+///
+/// [updateShouldNotify] 必须返回 true：路由子内容（widget.child）在两次
+/// 控制器通知之间是同一个 widget 实例，Shell setState 时 Flutter 会因
+/// 「identical child」短路跳过整棵子树；分区内容正是依赖本通知重建，
+/// 才能在新建项目 / 待办后立即刷新（否则要重新进出分区才能看到）。
 class _WorkbenchScope extends InheritedWidget {
   const _WorkbenchScope({required this.state, required super.child});
 
@@ -725,7 +749,7 @@ class _WorkbenchScope extends InheritedWidget {
       (throw StateError('WorkbenchSectionContent 必须位于 HomePage Shell 内。'));
 
   @override
-  bool updateShouldNotify(_WorkbenchScope oldWidget) => false;
+  bool updateShouldNotify(_WorkbenchScope oldWidget) => true;
 }
 
 /// 路由内容区入口：由 [createAppRouter] 的 workbenchContentBuilder 调用，
