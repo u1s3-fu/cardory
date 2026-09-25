@@ -147,10 +147,40 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
   Future<void> _openTodo(TodoData todo) => widget.onOpenTodo(todo);
 
   Future<void> _viewAsset(AssetData asset) async {
+    var attachments = List<AttachmentData>.of(_project.attachments);
     final editRequested = await showDialog<bool>(
       context: context,
-      builder: (_) =>
-          AssetDetailDialog(asset: asset, assetTags: widget.assetTags),
+      builder: (_) => StatefulBuilder(
+        builder: (context, setDialogState) => AssetDetailDialog(
+          asset: asset,
+          assetTags: widget.assetTags,
+          attachments: attachments,
+          onLinkAttachment: (attachment) {
+            setDialogState(() {
+              attachments = [
+                for (final item in attachments)
+                  if (item.id == attachment.id)
+                    item.copyWith(assetId: asset.id)
+                  else
+                    item,
+              ];
+            });
+            _updateAttachments(attachments, _project.categories);
+          },
+          onUnlinkAttachment: (attachment) {
+            setDialogState(() {
+              attachments = [
+                for (final item in attachments)
+                  if (item.id == attachment.id)
+                    item.copyWith(clearAssetId: true)
+                  else
+                    item,
+              ];
+            });
+            _updateAttachments(attachments, _project.categories);
+          },
+        ),
+      ),
     );
     if (editRequested == true && mounted) {
       await widget.onEditAsset(asset);

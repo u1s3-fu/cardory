@@ -3,16 +3,26 @@ import 'package:flutter/material.dart';
 import '../../domain/cardory_models.dart';
 import '../cardory_theme.dart';
 
-/// 资产详情对话框：展示资产字段、标签与变动记录。
+/// 资产详情对话框：展示资产字段、标签、关联附件与变动记录。
 class AssetDetailDialog extends StatelessWidget {
   const AssetDetailDialog({
     super.key,
     required this.asset,
     this.assetTags = const [],
+    this.attachments = const [],
+    this.onLinkAttachment,
+    this.onUnlinkAttachment,
   });
 
   final AssetData asset;
   final List<AssetTag> assetTags;
+
+  /// 当前项目全部附件；仅展示 assetId 匹配本资产的行。
+  final List<AttachmentData> attachments;
+
+  /// 关联/解除关联回调；未传时附件区只读展示。
+  final void Function(AttachmentData attachment)? onLinkAttachment;
+  final void Function(AttachmentData attachment)? onUnlinkAttachment;
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +32,9 @@ class AssetDetailDialog extends StatelessWidget {
       for (final id in asset.tagIds)
         if (tagById[id] case final name?) name,
     ];
+    final linkedAttachments = attachments
+        .where((a) => a.assetId == asset.id)
+        .toList(growable: false);
     return AlertDialog(
       title: Row(
         children: [
@@ -58,6 +71,55 @@ class AssetDetailDialog extends StatelessWidget {
                     : '•' * asset.password.length,
               ),
               _AssetDetailRow(label: '备注 / 用途', value: asset.note),
+              const SizedBox(height: 8),
+              Text('关联附件', style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 8),
+              if (linkedAttachments.isEmpty)
+                Text('暂无关联附件', style: TextStyle(color: CardoryColors.gray500))
+              else
+                for (final att in linkedAttachments)
+                  Row(
+                    children: [
+                      const Icon(Icons.insert_drive_file_outlined, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(att.fileName)),
+                      if (onUnlinkAttachment != null)
+                        IconButton(
+                          key: Key('unlink-attachment-${att.id}'),
+                          icon: const Icon(Icons.link_off, size: 18),
+                          tooltip: '解除关联',
+                          onPressed: () => onUnlinkAttachment!(att),
+                        ),
+                    ],
+                  ),
+              if (onLinkAttachment != null)
+                TextButton.icon(
+                  key: const Key('link-attachment-button'),
+                  onPressed: () async {
+                    final candidates = attachments
+                        .where((a) => a.assetId == null)
+                        .toList(growable: false);
+                    if (candidates.isEmpty) return;
+                    final selected = await showDialog<AttachmentData>(
+                      context: context,
+                      builder: (context) => SimpleDialog(
+                        title: const Text('选择要关联的附件'),
+                        children: [
+                          for (final candidate in candidates)
+                            SimpleDialogOption(
+                              key: Key('link-option-${candidate.id}'),
+                              onPressed: () =>
+                                  Navigator.pop(context, candidate),
+                              child: Text(candidate.fileName),
+                            ),
+                        ],
+                      ),
+                    );
+                    if (selected != null) onLinkAttachment!(selected);
+                  },
+                  icon: const Icon(Icons.add_link, size: 16),
+                  label: const Text('关联附件'),
+                ),
               const SizedBox(height: 8),
               Text('变动记录', style: Theme.of(context).textTheme.labelMedium),
               const SizedBox(height: 8),
