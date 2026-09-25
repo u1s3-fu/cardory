@@ -197,7 +197,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   /// 点击资产条目后按 entityId + 字段标签 + 日期回查到期条目；
-  /// 回调为 null 或找不到时安全忽略。
+  /// 命中后弹操作面板（查看资产 / 加入系统日历）；找不到时安全忽略。
   void _openAssetDueEntry(CalendarEntry entry) {
     final due = widget.assetDues
         .where(
@@ -208,7 +208,70 @@ class _CalendarPageState extends State<CalendarPage> {
         )
         .firstOrNull;
     if (due == null) return;
-    widget.onOpenAssetDue?.call(due);
+    _showAssetDuePanel(due);
+  }
+
+  /// 资产到期操作面板：「查看资产」走 onOpenAssetDue；
+  /// 「加入系统日历」直接写系统日程（systemCalendar 为 null 时隐藏该按钮）。
+  Future<void> _showAssetDuePanel(AssetDueEntry due) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(due.title),
+        content: Text('${due.fieldLabel} · ${formatDate(due.date)}'),
+        actions: [
+          if (widget.systemCalendar != null)
+            TextButton(
+              key: const Key('push-system-calendar-button'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _pushAssetDueToSystemCalendar(due);
+              },
+              child: const Text('加入系统日历'),
+            ),
+          TextButton(
+            key: const Key('view-asset-button'),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              widget.onOpenAssetDue?.call(due);
+            },
+            child: const Text('查看资产'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 把资产到期写入系统日历：title 用条目标题（含资产名），
+  /// start/end 为到期日零点，note 拼资产名与字段标签。
+  Future<void> _pushAssetDueToSystemCalendar(AssetDueEntry due) async {
+    final service = widget.systemCalendar;
+    if (service == null) return;
+    final day = DateTime(due.date.year, due.date.month, due.date.day);
+    try {
+      final write = await service.createEvent(
+        title: due.title,
+        start: day,
+        end: day,
+        note: '${due.assetName} · ${due.fieldLabel}',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            write.success
+                ? '已加入系统日历'
+                : (write.detail.isEmpty ? '加入系统日历失败。' : write.detail),
+          ),
+        ),
+      );
+      await _loadSystemEvents();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('加入系统日历失败：$error')));
+    }
   }
 
   List<CalendarEntry> get _systemEntries => [
@@ -885,8 +948,8 @@ class _DayHourColumn extends StatelessWidget {
     return entry.end.isAfter(dayStart) && entry.start.isBefore(dayEnd);
   }
 
-  /// 条目点击分发：任务条目走任务详情，资产条目走 onOpenAssetDue，
-  /// 系统日程条目（entityType 为 null）不响应点击。
+  /// 条目点击分发：任务条目走任务详情，资产条目弹操作面板
+  /// （见 _openAssetDueEntry），系统日程条目（entityType 为 null）不响应点击。
   void _handleTap(CalendarEntry entry) {
     if (entry.entityType == 'asset') {
       onOpenAssetDue(entry);

@@ -4,6 +4,7 @@
 
 import 'package:cardory/domain/schedule_queries.dart';
 import 'package:cardory/presentation/pages/calendar_page.dart';
+import 'package:cardory/services/system_calendar_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,10 +22,34 @@ AssetDueEntry _dueEntry() => AssetDueEntry(
   title: '到期日 · example.com',
 );
 
+/// 记录 createEvent 调用的假系统日历服务。
+class _FakeSystemCalendarService implements SystemCalendarService {
+  final List<({String title, DateTime start, DateTime end, String note})>
+  created = [];
+
+  @override
+  Future<List<SystemCalendarEvent>> loadEvents(
+    DateTime start,
+    DateTime end,
+  ) async => const [];
+
+  @override
+  Future<SystemCalendarWriteResult> createEvent({
+    required String title,
+    required DateTime start,
+    required DateTime end,
+    String note = '',
+  }) async {
+    created.add((title: title, start: start, end: end, note: note));
+    return const SystemCalendarWriteResult(success: true, detail: '已写入。');
+  }
+}
+
 Widget _host({
   required List<AssetDueEntry> assetDues,
   void Function(AssetDueEntry entry)? onOpenAssetDue,
   required DateTime now,
+  SystemCalendarService? systemCalendar,
 }) {
   return MaterialApp(
     home: Scaffold(
@@ -34,12 +59,25 @@ Widget _host({
           now: now,
           onToggleTodo: (todo) async => todo,
           onOpenTodo: (_) async => null,
+          systemCalendar: systemCalendar,
           assetDues: assetDues,
           onOpenAssetDue: onOpenAssetDue,
         ),
       ),
     ),
   );
+}
+
+/// 进入日视图并点击资产到期条目，返回弹出的操作面板已渲染的页面状态。
+Future<void> _openAssetDuePanel(WidgetTester tester) async {
+  await tester.tap(find.text('日').first);
+  await pumpUiFrames(tester);
+  final chip = find.text('全天 · 到期日 · example.com');
+  expect(chip, findsOneWidget);
+  await tester.ensureVisible(chip);
+  await pumpUiFrames(tester);
+  await tester.tap(chip);
+  await pumpUiFrames(tester);
 }
 
 void main() {
@@ -65,7 +103,7 @@ void main() {
     );
   });
 
-  testWidgets('日视图：点击资产到期条目回调收到同 assetId 与 date', (tester) async {
+  testWidgets('日视图：点击资产条目弹面板，「查看资产」回调收到同 assetId 与 date', (tester) async {
     AssetDueEntry? opened;
     await tester.pumpWidget(
       _host(
@@ -76,21 +114,89 @@ void main() {
     );
     await pumpUiFrames(tester);
 
-    // 切到日视图（取 SegmentedButton 的「日」，排除星期表头同名文本），
-    // 全天条目区出现资产条目。
-    await tester.tap(find.text('日').first);
-    await pumpUiFrames(tester);
-    final chip = find.text('全天 · 到期日 · example.com');
-    expect(chip, findsOneWidget);
+    await _openAssetDuePanel(tester);
+    // 弹层出现，查看资产按钮可见（systemCalendar 为 null）。
+    // 注意同页 _DayEntryList 也有同名条目标题，故限定在 AlertDialog 内断言。
+    final dialog = find.byType(AlertDialog);
+    expect(dialog, findsOneWidget);
+    expect(
+      find.descendant(of: dialog, matching: find.text('到期日 · example.com')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('view-asset-button')), findsOneWidget);
 
-    await tester.ensureVisible(chip);
-    await pumpUiFrames(tester);
-    await tester.tap(chip);
+    await tester.tap(find.byKey(const Key('view-asset-button')));
     await pumpUiFrames(tester);
 
     expect(opened, isNotNull);
     expect(opened!.assetId, 'asset-1');
     expect(opened!.date, DateTime(2026, 10, 15));
+  });
+
+  testWidgets('点击资产条目弹操作面板：显示标题、字段与到期日期及两个动作按钮', (tester) async {
+    final fake = _FakeSystemCalendarService();
+    await tester.pumpWidget(
+      _host(
+        assetDues: [_dueEntry()],
+        now: DateTime(2026, 10, 15, 9),
+        systemCalendar: fake,
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    await _openAssetDuePanel(tester);
+
+    final dialog = find.byType(AlertDialog);
+    expect(dialog, findsOneWidget);
+    expect(
+      find.descendant(of: dialog, matching: find.text('到期日 · example.com')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('到期日 · 2026-10-15')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('view-asset-button')), findsOneWidget);
+    expect(
+      find.byKey(const Key('push-system-calendar-button')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('点「加入系统日历」：createEvent 收到标题/到期日零点/备注，提示已加入系统日历', (tester) async {
+    final fake = _FakeSystemCalendarService();
+    await tester.pumpWidget(
+      _host(
+        assetDues: [_dueEntry()],
+        now: DateTime(2026, 10, 15, 9),
+        systemCalendar: fake,
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    await _openAssetDuePanel(tester);
+    await tester.tap(find.byKey(const Key('push-system-calendar-button')));
+    await pumpUiFrames(tester);
+
+    expect(fake.created, hasLength(1));
+    expect(fake.created.single.title, '到期日 · example.com');
+    expect(fake.created.single.start, DateTime(2026, 10, 15));
+    expect(fake.created.single.end, DateTime(2026, 10, 15));
+    expect(fake.created.single.note, contains('example.com'));
+    expect(fake.created.single.note, contains('到期日'));
+    expect(find.text('已加入系统日历'), findsOneWidget);
+  });
+
+  testWidgets('systemCalendar 为 null 时操作面板只有「查看资产」按钮', (tester) async {
+    await tester.pumpWidget(
+      _host(assetDues: [_dueEntry()], now: DateTime(2026, 10, 15, 9)),
+    );
+    await pumpUiFrames(tester);
+
+    await _openAssetDuePanel(tester);
+
+    expect(find.byKey(const Key('view-asset-button')), findsOneWidget);
+    expect(find.byKey(const Key('push-system-calendar-button')), findsNothing);
   });
 
   testWidgets('assetDues 为空时与现状无差异', (tester) async {
