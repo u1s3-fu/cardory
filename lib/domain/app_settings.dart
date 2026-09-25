@@ -3,6 +3,7 @@
 // 与工作区实体分开维护，使同步提供者与界面配置可以独立演进，
 // 无需改动 CardoryData 聚合。
 
+import 'asset_template.dart';
 import 'cardory_enums.dart';
 
 enum SyncProviderType { none, directory, webdav, selfHosted, s3 }
@@ -32,7 +33,9 @@ class AppSettings {
     this.lastSyncedAt,
     this.configSyncHash,
     this.lastConfigUpdatedAt,
-  });
+    List<AssetTemplate>? assetTemplates,
+    // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头，无法用 this._assetTemplates。
+  }) : _assetTemplates = assetTemplates;
 
   final int themeColorValue;
   final int backgroundColorValue;
@@ -61,6 +64,18 @@ class AppSettings {
 
   /// 本地配置最近一次被修改的时间（用于与云端配置比较新旧）。
   final DateTime? lastConfigUpdatedAt;
+
+  /// 资产类型模板清单；未配置或为空时视为使用内置模板。
+  final List<AssetTemplate>? _assetTemplates;
+
+  /// 资产类型模板清单，未配置时回退到内置模板清单。
+  List<AssetTemplate> get assetTemplates {
+    final templates = _assetTemplates;
+    if (templates == null || templates.isEmpty) {
+      return builtInAssetTemplates();
+    }
+    return templates;
+  }
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
     themeColorValue: json['themeColorValue'] as int? ?? 0xFF6B62DF,
@@ -108,6 +123,10 @@ class AppSettings {
     lastConfigUpdatedAt: DateTime.tryParse(
       json['lastConfigUpdatedAt'] as String? ?? '',
     ),
+    assetTemplates: ((json['assetTemplates'] as List?) ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(AssetTemplate.fromJson)
+        .toList(),
   );
   Map<String, dynamic> toJson() => {
     'themeColorValue': themeColorValue,
@@ -133,6 +152,7 @@ class AppSettings {
     'lastSyncedAt': lastSyncedAt?.toIso8601String(),
     'configSyncHash': configSyncHash,
     'lastConfigUpdatedAt': lastConfigUpdatedAt?.toIso8601String(),
+    'assetTemplates': assetTemplates.map((t) => t.toJson()).toList(),
   };
 
   /// 生成仅包含可云端同步配置字段的 JSON 子集。
@@ -158,6 +178,7 @@ class AppSettings {
     's3Region': s3Region,
     's3Bucket': s3Bucket,
     's3Prefix': s3Prefix,
+    'assetTemplates': assetTemplates.map((t) => t.toJson()).toList(),
   };
 
   /// 应用一份云端配置子集到当前设置。
@@ -183,6 +204,10 @@ class AppSettings {
       s3Region: remote.s3Region,
       s3Bucket: remote.s3Bucket,
       s3Prefix: remote.s3Prefix,
+      // 旧版本云端配置文档不含 assetTemplates 键：保留本地模板，避免被内置清单覆盖。
+      assetTemplates: cloudConfig.containsKey('assetTemplates')
+          ? remote.assetTemplates
+          : assetTemplates,
       pendingAttachmentDeletes: pendingAttachmentDeletes,
       syncRevision: syncRevision,
       syncLocalHash: syncLocalHash,
@@ -216,6 +241,7 @@ class AppSettings {
     DateTime? lastSyncedAt,
     String? configSyncHash,
     DateTime? lastConfigUpdatedAt,
+    List<AssetTemplate>? assetTemplates,
     bool clearSyncState = false,
   }) => AppSettings(
     themeColorValue: themeColorValue ?? this.themeColorValue,
@@ -250,6 +276,7 @@ class AppSettings {
     lastConfigUpdatedAt: clearSyncState
         ? null
         : lastConfigUpdatedAt ?? this.lastConfigUpdatedAt,
+    assetTemplates: assetTemplates ?? _assetTemplates,
   );
   @override
   bool operator ==(Object other) =>
