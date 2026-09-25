@@ -27,6 +27,8 @@ class CalendarEntry {
     this.isDone = false,
     this.priority = ProjectPriority.p2,
     this.note = '',
+    this.entityType,
+    this.entityId,
   });
 
   final String title;
@@ -36,6 +38,11 @@ class CalendarEntry {
   final bool isDone;
   final ProjectPriority priority;
   final String note;
+
+  /// 关联实体的类型与 id（如任务条目为 'todo' + todo.id）；
+  /// 系统日程等非应用内实体为 null。
+  final String? entityType;
+  final String? entityId;
 
   bool get isAllDay =>
       localDayKey(start) == localDayKey(end) &&
@@ -64,6 +71,23 @@ class CalendarPage extends StatefulWidget {
 
   /// 系统日历服务；null 时隐藏系统日程相关功能（仅显示应用内任务）。
   final SystemCalendarService? systemCalendar;
+
+  /// 任务条目构建（公开以便测试与后续复用）：条目携带实体标识，
+  /// 周/日视图点击回查时按 [CalendarEntry.entityId] 匹配任务。
+  static List<CalendarEntry> buildTaskEntries(List<TodoData> todos) => [
+    for (final todo in todos)
+      if (todo.endDate != null)
+        CalendarEntry(
+          title: todo.title,
+          start: todo.endDate!,
+          end: todo.endDate!,
+          isTask: true,
+          isDone: todo.done,
+          priority: todo.priority,
+          entityType: 'todo',
+          entityId: todo.id,
+        ),
+  ];
 
   @override
   State<CalendarPage> createState() => _CalendarPageState();
@@ -138,18 +162,17 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   /// 应用内任务 → 日历条目（截止时刻；0 点视为全天）。
-  List<CalendarEntry> get _taskEntries => [
-    for (final todo in widget.todos)
-      if (todo.endDate != null)
-        CalendarEntry(
-          title: todo.title,
-          start: todo.endDate!,
-          end: todo.endDate!,
-          isTask: true,
-          isDone: todo.done,
-          priority: todo.priority,
-        ),
-  ];
+  List<CalendarEntry> get _taskEntries =>
+      CalendarPage.buildTaskEntries(widget.todos);
+
+  /// 点击任务条目后按 entityId 回查任务；找不到时安全忽略。
+  Future<void> _openTodoEntry(CalendarEntry entry) async {
+    final todo = widget.todos
+        .where((item) => item.id == entry.entityId)
+        .firstOrNull;
+    if (todo == null) return;
+    await widget.onOpenTodo(todo);
+  }
 
   List<CalendarEntry> get _systemEntries => [
     for (final event in _systemEvents)
@@ -246,23 +269,13 @@ class _CalendarPageState extends State<CalendarPage> {
               ],
               entriesFor: entriesOnDay,
               now: widget.now,
-              onOpenTodo: (entry) async {
-                final todo = widget.todos.firstWhere(
-                  (item) => item.endDate == entry.start,
-                );
-                await widget.onOpenTodo(todo);
-              },
+              onOpenTodo: _openTodoEntry,
             ),
             CalendarViewMode.day => _TimeGridView(
               days: [_selectedDay],
               entriesFor: entriesOnDay,
               now: widget.now,
-              onOpenTodo: (entry) async {
-                final todo = widget.todos.firstWhere(
-                  (item) => item.endDate == entry.start,
-                );
-                await widget.onOpenTodo(todo);
-              },
+              onOpenTodo: _openTodoEntry,
             ),
           },
         const SizedBox(height: 16),
@@ -789,6 +802,7 @@ class _DayHourColumn extends StatelessWidget {
                       entry: entry,
                       label: '全天 · ${entry.title}',
                       height: 18,
+                      onTap: () => onOpenTodo(entry),
                     ),
               ],
             ),
@@ -802,6 +816,7 @@ class _DayHourColumn extends StatelessWidget {
                 entry: layout.entry,
                 label: '${_timeText(layout.entry.start)} ${layout.entry.title}',
                 height: layout.height,
+                onTap: () => onOpenTodo(layout.entry),
               ),
             ),
         ],
@@ -866,15 +881,19 @@ class _EntryChip extends StatelessWidget {
     required this.entry,
     required this.label,
     required this.height,
+    this.onTap,
   });
 
   final CalendarEntry entry;
   final String label;
   final double height;
 
+  /// 点击回调（任务条目打开任务详情；null 时仅吸收点击不透传）。
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: entry.isTask ? () {} : null,
+    onTap: onTap ?? (entry.isTask ? () {} : null),
     child: Container(
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 5),
