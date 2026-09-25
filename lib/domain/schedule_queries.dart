@@ -3,6 +3,7 @@
 // “某一天”一律以本地时区的日期分量（年/月/日）判定：任务截止日期可能以
 // UTC 时刻存储（数据库行）或本地时刻解析（JSON），统一 toLocal 后取日期键。
 
+import 'asset_template.dart';
 import 'cardory_models.dart';
 
 /// 本地时区的日期键（丢弃时分秒）。
@@ -111,4 +112,73 @@ List<TodoData> todosWithin(
   final result = todos.where((todo) => isDueWithin(todo, bounds)).toList()
     ..sort(compareTodoForSchedule);
   return result;
+}
+
+/// 资产到期条目：扫描每个资产模板中 remind 的 date 字段。
+/// 一个资产可产出多条（如域名注册到期 + SSL 到期）。
+class AssetDueEntry {
+  const AssetDueEntry({
+    required this.assetId,
+    required this.assetName,
+    required this.date,
+    required this.fieldLabel,
+    required this.title,
+  });
+
+  final String assetId;
+  final String assetName;
+
+  /// 本地日期键（0 点）。
+  final DateTime date;
+
+  /// 字段标签，例：「到期日」。
+  final String fieldLabel;
+
+  /// 展示标题，例：「域名到期 · example.com」。
+  final String title;
+}
+
+/// 生成 [bounds]（含首尾日）内的资产到期条目；bounds 为 null 时返回全部。
+///
+/// 对每个资产按其 templateId 匹配模板，扫描模板中 remind 的 date 字段，
+/// 从 `customFields[key]` 解析 `yyyy-MM-dd`（`DateTime.tryParse`，失败静默跳过）。
+/// 结果按 date 升序、同日按资产名排序。
+List<AssetDueEntry> assetDueEntries(
+  List<AssetData> assets,
+  List<AssetTemplate> templates, {
+  (DateTime start, DateTime end)? bounds,
+}) {
+  final templateById = {
+    for (final template in templates) template.id: template,
+  };
+  final entries = <AssetDueEntry>[];
+  for (final asset in assets) {
+    final template = templateById[asset.templateId];
+    if (template == null) continue;
+    for (final field in template.fields) {
+      if (field.kind != AssetFieldKind.date || !field.remind) continue;
+      final raw = asset.customFields[field.key];
+      if (raw == null || raw.isEmpty) continue;
+      final parsed = DateTime.tryParse(raw);
+      if (parsed == null) continue;
+      final day = localDayKey(parsed);
+      final (start, end) = bounds ?? (day, day);
+      if (day.isBefore(start) || day.isAfter(end)) continue;
+      entries.add(
+        AssetDueEntry(
+          assetId: asset.id,
+          assetName: asset.name,
+          date: day,
+          fieldLabel: field.label,
+          title: '${field.label} · ${asset.name}',
+        ),
+      );
+    }
+  }
+  entries.sort((a, b) {
+    final byDate = a.date.compareTo(b.date);
+    if (byDate != 0) return byDate;
+    return a.assetName.compareTo(b.assetName);
+  });
+  return entries;
 }
