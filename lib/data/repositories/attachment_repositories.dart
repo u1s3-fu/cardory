@@ -192,6 +192,7 @@ class AttachmentRecordRepository {
     List<String> categoryIds = const [],
     String? id,
     int? createdAt,
+    String? assetId,
   }) async {
     final now = _clock();
     final attachmentId = id ?? repositoryUuid.v4();
@@ -203,6 +204,7 @@ class AttachmentRecordRepository {
               id: attachmentId,
               projectId: Value(projectId),
               taskId: Value(taskId),
+              assetId: Value(assetId),
               fileName: fileName,
               storageKey: storageKey,
               sizeBytes: sizeBytes,
@@ -244,6 +246,7 @@ class AttachmentRecordRepository {
         AttachmentsCompanion(
           projectId: Value(attachment.projectId),
           taskId: Value(attachment.taskId),
+          assetId: Value(attachment.assetId),
           fileName: Value(attachment.fileName),
           storageKey: Value(attachment.storageKey),
           sizeBytes: Value(attachment.sizeBytes),

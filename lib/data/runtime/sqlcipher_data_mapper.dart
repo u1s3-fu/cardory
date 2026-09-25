@@ -202,6 +202,7 @@ class SqlCipherDataMapper {
     ),
     note: row.note,
     createdAt: _fromMillis(row.createdAt)!,
+    assetId: row.assetId,
     categoryIds: (jsonDecode(row.categoryIdsJson) as List<dynamic>)
         .whereType<String>()
         .toList(growable: false),

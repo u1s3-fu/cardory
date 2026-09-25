@@ -199,6 +199,7 @@ class DriftRowLevelWorkspaceStore
         a.note == b.note &&
         a.encryptionKey == b.encryptionKey &&
         a.kind == b.kind &&
+        a.assetId == b.assetId &&
         _sameIds(a.categoryIds, b.categoryIds);
 
     final before = {
@@ -227,6 +228,7 @@ class DriftRowLevelWorkspaceStore
           note: attachment.note,
           encryptionKey: attachment.encryptionKey,
           kind: attachment.kind.name,
+          assetId: Value(attachment.assetId),
           categoryIdsJson: jsonEncode(attachment.categoryIds),
         ),
       );
@@ -248,6 +250,7 @@ class DriftRowLevelWorkspaceStore
         note: attachment.note,
         encryptionKey: attachment.encryptionKey,
         categoryIds: attachment.categoryIds,
+        assetId: attachment.assetId,
         id: attachment.id,
         createdAt: _millis(attachment.createdAt),
       );

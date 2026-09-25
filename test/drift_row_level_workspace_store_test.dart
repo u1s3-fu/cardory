@@ -3,9 +3,11 @@
 
 import 'package:cardory/data/db/app_database.dart'
     hide ProjectProgressEntry, AttachmentCategory, AssetTag;
+import 'package:cardory/data/repositories/attachment_repositories.dart';
 import 'package:cardory/data/repositories/drift_row_level_workspace_store.dart';
 import 'package:cardory/data/runtime/sqlcipher_data_mapper.dart';
 import 'package:cardory/domain/cardory_models.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -410,5 +412,105 @@ void main() {
     final entries = await store.loadEntries();
     expect(entries.single.source, 'pomodoro');
     expect(entries.single.durationSeconds, 25 * 60);
+  });
+
+  test('附件行 assetId 写读透传', () async {
+    final db = AppDatabase.inMemory();
+    addTearDown(db.close);
+    final repo = AttachmentRecordRepository(db);
+    await db
+        .into(db.projects)
+        .insert(
+          ProjectsCompanion.insert(
+            id: 'project-1',
+            name: '项目',
+            status: 'planned',
+            priority: 'p2',
+            createdAt: 1,
+            updatedAt: 1,
+          ),
+        );
+    await db
+        .into(db.assets)
+        .insert(
+          AssetsCompanion.insert(
+            id: 'asset-1',
+            type: 'software',
+            title: 'Nginx',
+            createdAt: 1,
+            updatedAt: 1,
+          ),
+        );
+
+    await repo.create(
+      projectId: 'project-1',
+      fileName: '合同.pdf',
+      storageKey: 'k1',
+      sizeBytes: 10,
+      sha256: 'abc',
+      kind: 'document',
+      assetId: 'asset-1',
+    );
+    final rows = await repo.loadVisible();
+    expect(rows.single.assetId, 'asset-1');
+
+    final updated = rows.single.copyWith(assetId: const Value(null));
+    await repo.update(updated);
+    expect((await repo.loadVisible()).single.assetId, isNull);
+  });
+
+  test('updateProject 差异对齐附件 assetId：关联与解除关联', () async {
+    final attachment = AttachmentData(
+      id: 'attachment-1',
+      fileName: 'a.pdf',
+      storageKey: 'attachment-1.cardory-attachment',
+      size: 1,
+      sha256: 'hash',
+      createdAt: DateTime.utc(2026, 9, 1),
+    );
+    final original = project(
+      id: 'project-1',
+      title: '项目',
+    ).copyWith(attachments: [attachment]);
+    await database
+        .into(database.assets)
+        .insert(
+          AssetsCompanion.insert(
+            id: 'asset-1',
+            type: 'software',
+            title: 'Nginx',
+            createdAt: 1,
+            updatedAt: 1,
+          ),
+        );
+    await store.addProject(original);
+
+    // 关联资产。
+    final linked = original.copyWith(
+      attachments: [attachment.copyWith(assetId: 'asset-1')],
+    );
+    await store.updateProject(original, linked);
+    expect(
+      (await SqlCipherDataMapper(database).loadProjects())
+          .single
+          .attachments
+          .single
+          .assetId,
+      'asset-1',
+    );
+
+    // 解除关联。
+    final unlinked = linked.copyWith(
+      attachments: [linked.attachments.single.copyWith(clearAssetId: true)],
+    );
+    await store.updateProject(linked, unlinked);
+    expect(
+      (await SqlCipherDataMapper(database).loadProjects())
+          .single
+          .attachments
+          .single
+          .assetId,
+      isNull,
+    );
   });
 }

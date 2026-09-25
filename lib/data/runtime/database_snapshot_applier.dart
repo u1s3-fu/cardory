@@ -479,6 +479,7 @@ class DatabaseSnapshotApplier {
                 categoryIdsJson: drift.Value(
                   fields['categoryIdsJson']! as String,
                 ),
+                assetId: drift.Value(fields['assetId'] as String?),
                 createdAt: now,
                 updatedAt: now,
               ),
@@ -520,6 +521,7 @@ class DatabaseSnapshotApplier {
     'kind': attachment.kind.name,
     'note': attachment.note,
     'categoryIdsJson': jsonEncode(attachment.categoryIds),
+    'assetId': attachment.assetId,
   };
 
   Future<void> _updateAttachment(
@@ -540,6 +542,7 @@ class DatabaseSnapshotApplier {
         kind: drift.Value(fields['kind']! as String),
         note: drift.Value(fields['note']! as String),
         categoryIdsJson: drift.Value(fields['categoryIdsJson']! as String),
+        assetId: drift.Value(fields['assetId'] as String?),
         updatedAt: drift.Value(now),
       ),
     );

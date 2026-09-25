@@ -96,6 +96,7 @@ class AttachmentData {
     this.note = '',
     required this.createdAt,
     this.categoryIds = const [],
+    this.assetId,
     this.legacyFileBytes,
   }) : kind = kind ?? AttachmentKind.infer(fileName, mimeType);
 
@@ -110,6 +111,9 @@ class AttachmentData {
   final String note;
   final DateTime createdAt;
   final List<String> categoryIds;
+
+  /// 关联的同项目资产 id；null 表示未关联。
+  final String? assetId;
   final String? legacyFileBytes;
 
   bool get needsMigration => storageKey.isEmpty && legacyFileBytes != null;
@@ -154,6 +158,7 @@ class AttachmentData {
     categoryIds: ((json['categoryIds'] as List?) ?? [])
         .whereType<String>()
         .toList(),
+    assetId: json['assetId'] as String?,
     legacyFileBytes: json['fileBytes'] as String?,
   );
 
@@ -169,6 +174,8 @@ class AttachmentData {
     DateTime? createdAt,
     List<String>? categoryIds,
     bool clearCategoryIds = false,
+    String? assetId,
+    bool clearAssetId = false,
     String? legacyFileBytes,
   }) => AttachmentData(
     id: id,
@@ -184,6 +191,7 @@ class AttachmentData {
     categoryIds: clearCategoryIds
         ? const []
         : (categoryIds ?? this.categoryIds),
+    assetId: clearAssetId ? null : (assetId ?? this.assetId),
     legacyFileBytes: legacyFileBytes ?? this.legacyFileBytes,
   );
 
@@ -199,6 +207,7 @@ class AttachmentData {
     'note': note,
     'createdAt': createdAt.toIso8601String(),
     'categoryIds': categoryIds,
+    if (assetId != null) 'assetId': assetId,
     if (needsMigration) 'fileBytes': legacyFileBytes,
   };
 }
