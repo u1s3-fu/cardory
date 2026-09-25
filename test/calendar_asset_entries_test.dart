@@ -2,6 +2,7 @@
 //
 // pump 方式仿 test/widget_test.dart 的日历用例。
 
+import 'package:cardory/domain/cardory_models.dart';
 import 'package:cardory/domain/schedule_queries.dart';
 import 'package:cardory/presentation/pages/calendar_page.dart';
 import 'package:cardory/services/system_calendar_service.dart';
@@ -50,15 +51,17 @@ Widget _host({
   void Function(AssetDueEntry entry)? onOpenAssetDue,
   required DateTime now,
   SystemCalendarService? systemCalendar,
+  List<TodoData> todos = const [],
+  Future<TodoData?> Function(TodoData todo)? onOpenTodo,
 }) {
   return MaterialApp(
     home: Scaffold(
       body: SingleChildScrollView(
         child: CalendarPage(
-          todos: const [],
+          todos: todos,
           now: now,
           onToggleTodo: (todo) async => todo,
-          onOpenTodo: (_) async => null,
+          onOpenTodo: onOpenTodo ?? (_) async => null,
           systemCalendar: systemCalendar,
           assetDues: assetDues,
           onOpenAssetDue: onOpenAssetDue,
@@ -211,5 +214,67 @@ void main() {
     // 月视图正常渲染。
     expect(find.text('2026 年 10 月'), findsOneWidget);
     expect(find.text('15'), findsOneWidget);
+  });
+
+  testWidgets('日视图：底部条目列表中的资产条目可点击并弹出操作面板', (tester) async {
+    AssetDueEntry? opened;
+    await tester.pumpWidget(
+      _host(
+        assetDues: [_dueEntry()],
+        now: DateTime(2026, 10, 15, 12),
+        onOpenAssetDue: (due) => opened = due,
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    await tester.tap(find.text('日').first);
+    await pumpUiFrames(tester);
+
+    // 底部 _DayEntryList 的条目标题不带「全天 ·」前缀，精确匹配时间网格芯片之外的那一个。
+    final listTile = find.text('到期日 · example.com');
+    expect(listTile, findsOneWidget);
+    await tester.ensureVisible(listTile);
+    await pumpUiFrames(tester);
+    await tester.tap(listTile);
+    await pumpUiFrames(tester);
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.tap(find.byKey(const Key('view-asset-button')));
+    await pumpUiFrames(tester);
+    expect(opened?.assetId, 'asset-1');
+  });
+
+  testWidgets('日视图：底部条目列表中的任务条目可点击打开任务', (tester) async {
+    final todo = TodoData(
+      id: 'todo-1',
+      title: '写周报',
+      endDate: DateTime(2026, 10, 15, 10, 0),
+      projectId: 'project-1',
+      projectTitle: '项目',
+      priority: ProjectPriority.p1,
+      done: false,
+    );
+    TodoData? openedTodo;
+    await tester.pumpWidget(
+      _host(
+        assetDues: const [],
+        now: DateTime(2026, 10, 15, 12),
+        todos: [todo],
+        onOpenTodo: (value) async => openedTodo = value,
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    await tester.tap(find.text('日').first);
+    await pumpUiFrames(tester);
+
+    final listTile = find.text('写周报');
+    expect(listTile, findsOneWidget);
+    await tester.ensureVisible(listTile);
+    await pumpUiFrames(tester);
+    await tester.tap(listTile);
+    await pumpUiFrames(tester);
+
+    expect(openedTodo?.id, 'todo-1');
   });
 }

@@ -412,7 +412,8 @@ class _CalendarPageState extends State<CalendarPage> {
           _DayEntryList(
             day: _selectedDay,
             entries: entriesOnDay(_selectedDay),
-            onOpenTodo: widget.onOpenTodo,
+            onOpenTodo: _openTodoEntry,
+            onOpenAssetDue: _openAssetDueEntry,
           ),
         ],
         if (widget.systemCalendar != null) ...[
@@ -1176,11 +1177,23 @@ class _DayEntryList extends StatelessWidget {
     required this.day,
     required this.entries,
     required this.onOpenTodo,
+    required this.onOpenAssetDue,
   });
 
   final DateTime day;
   final List<CalendarEntry> entries;
-  final Future<TodoData?> Function(TodoData todo) onOpenTodo;
+  final Future<void> Function(CalendarEntry entry) onOpenTodo;
+  final void Function(CalendarEntry entry) onOpenAssetDue;
+
+  /// 与 _DayHourColumn._handleTap 相同的分发规则：
+  /// 任务条目走任务详情，资产条目弹操作面板，系统日程条目不响应点击。
+  void _handleTap(CalendarEntry entry) {
+    if (entry.entityType == 'asset') {
+      onOpenAssetDue(entry);
+    } else if (entry.entityType != null) {
+      onOpenTodo(entry);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Container(
@@ -1208,39 +1221,53 @@ class _DayEntryList extends StatelessWidget {
           )
         else
           for (final entry in entries)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: entry.isTask
-                  ? PriorityBadge(priority: entry.priority)
-                  : entry.entityType == 'asset'
-                  ? Icon(
-                      Icons.event_available_outlined,
-                      size: 18,
-                      color: CardoryColors.gray500,
-                    )
-                  : Icon(
-                      Icons.event_outlined,
-                      size: 18,
-                      color: CardoryColors.gray500,
-                    ),
-              title: Text(
-                entry.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: entry.isDone
-                      ? CardoryColors.gray400
-                      : CardoryColors.gray900,
-                  decoration: entry.isDone ? TextDecoration.lineThrough : null,
+            // cardDecoration 容器的背景色会遮住 ListTile 的墨水涟漪，
+            // 包一层透明 Material 承载涟漪（同项目详情页待办条目的处理）。
+            Material(
+              type: MaterialType.transparency,
+              child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                // 仅任务/资产条目响应点击；系统日程条目不响应。
+                onTap: entry.entityType == null
+                    ? null
+                    : () => _handleTap(entry),
+                leading: entry.isTask
+                    ? PriorityBadge(priority: entry.priority)
+                    : entry.entityType == 'asset'
+                    ? Icon(
+                        Icons.event_available_outlined,
+                        size: 18,
+                        color: CardoryColors.gray500,
+                      )
+                    : Icon(
+                        Icons.event_outlined,
+                        size: 18,
+                        color: CardoryColors.gray500,
+                      ),
+                title: Text(
+                  entry.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: entry.isDone
+                        ? CardoryColors.gray400
+                        : CardoryColors.gray900,
+                    decoration: entry.isDone
+                        ? TextDecoration.lineThrough
+                        : null,
+                  ),
                 ),
-              ),
-              subtitle: Text(
-                entry.isAllDay
-                    ? '全天'
-                    : '${entry.start.hour.toString().padLeft(2, '0')}:${entry.start.minute.toString().padLeft(2, '0')}',
-                style: TextStyle(fontSize: 11.5, color: CardoryColors.gray500),
+                subtitle: Text(
+                  entry.isAllDay
+                      ? '全天'
+                      : '${entry.start.hour.toString().padLeft(2, '0')}:${entry.start.minute.toString().padLeft(2, '0')}',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: CardoryColors.gray500,
+                  ),
+                ),
               ),
             ),
       ],
