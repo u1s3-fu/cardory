@@ -10,6 +10,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart' as drift;
 
+import '../../domain/asset_template.dart';
 import '../../domain/cardory_models.dart';
 import '../db/app_database.dart'
     hide AssetTag, AttachmentCategory, ProjectProgressEntry;
@@ -143,7 +144,7 @@ class SqlCipherDataMapper {
               ? const <String, dynamic>{}
               : jsonDecode(row.sensitiveJson!) as Map<String, dynamic>;
           final metadata = jsonDecode(row.metadataJson) as Map<String, dynamic>;
-          return AssetData(
+          final asset = AssetData(
             id: row.id,
             type: AssetType.values.firstWhere(
               (value) => value.name == row.type,
@@ -163,11 +164,17 @@ class SqlCipherDataMapper {
             tagIds: (jsonDecode(row.tagsJson) as List<dynamic>)
                 .whereType<String>()
                 .toList(),
+            templateId: metadata['templateId'] as String? ?? '',
+            customFields: ((metadata['custom'] as Map?) ?? const {}).map(
+              (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+            ),
             activities: (metadata['activities'] as List<dynamic>? ?? const [])
                 .whereType<Map<String, dynamic>>()
                 .map(AssetActivity.fromJson)
                 .toList(growable: false),
           );
+          // 旧数据读时归一化：补齐 templateId 并把旧顶层键透出为 customFields。
+          return normalizeAssetTemplate(asset, builtInAssetTemplates());
         })
         .toList(growable: false);
   }

@@ -486,6 +486,9 @@ class DriftRowLevelWorkspaceStore
     'network': asset.network,
     'serverType': asset.serverType,
     'activities': [for (final activity in asset.activities) activity.toJson()],
+    // 模板信息与旧顶层键同时写入：旧版本读盘仍能拿到 version/port 等旧键。
+    if (asset.templateId.isNotEmpty) 'templateId': asset.templateId,
+    if (asset.customFields.isNotEmpty) 'custom': asset.customFields,
   };
 
   Map<String, dynamic> _assetSensitive(AssetData asset) => {
