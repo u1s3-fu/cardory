@@ -604,9 +604,19 @@ class _HomePageState extends State<HomePage> {
     for (final candidate in _settings.assetTemplates) {
       if (candidate.id == asset.templateId) template = candidate;
     }
+    // 附件挂载在项目上：取资产所属项目的全部附件，详情弹窗内部按
+    // assetId 过滤；资产未归属项目时为空。assetTags 供标签名回查。
+    final project = _data.projects
+        .where((item) => item.id == asset.projectId)
+        .firstOrNull;
     await showDialog<void>(
       context: context,
-      builder: (_) => AssetDetailDialog(asset: asset, template: template),
+      builder: (_) => AssetDetailDialog(
+        asset: asset,
+        assetTags: _data.assetTags,
+        template: template,
+        attachments: project?.attachments ?? const [],
+      ),
     );
   }
 
