@@ -23,6 +23,9 @@ class ProjectAttachmentsPanel extends StatefulWidget {
     this.repository,
     this.renameOnUpload = true,
     this.keepExtensionOnRename = false,
+    this.assets = const [],
+    this.onLinkAsset,
+    this.onUnlinkAsset,
   });
 
   final List<AttachmentData> attachments;
@@ -35,6 +38,11 @@ class ProjectAttachmentsPanel extends StatefulWidget {
   final AttachmentRepository? repository;
   final bool renameOnUpload;
   final bool keepExtensionOnRename;
+
+  /// 本项目资产；「关联资产」选择器只列这些资产（限同项目）。
+  final List<AssetData> assets;
+  final void Function(AttachmentData attachment, AssetData asset)? onLinkAsset;
+  final void Function(AttachmentData attachment)? onUnlinkAsset;
 
   @override
   State<ProjectAttachmentsPanel> createState() =>
@@ -282,6 +290,30 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
           .toList(),
     );
     if (mounted) setState(() => _selectedIds.clear());
+  }
+
+  /// 弹出选择器把附件关联到本项目的某个资产；空列表提示无资产。
+  Future<void> _linkAsset(AttachmentData attachment) async {
+    if (widget.assets.isEmpty) {
+      _showError('本项目暂无资产，请先在资产面板登记。');
+      return;
+    }
+    final asset = await showDialog<AssetData>(
+      context: context,
+      builder: (_) => SimpleDialog(
+        title: const Text('关联到资产'),
+        children: [
+          for (final asset in widget.assets)
+            SimpleDialogOption(
+              key: Key('link-asset-option-${asset.id}'),
+              onPressed: () => Navigator.pop(context, asset),
+              child: Text(asset.name),
+            ),
+        ],
+      ),
+    );
+    if (asset == null) return;
+    widget.onLinkAsset?.call(attachment, asset);
   }
 
   Future<void> _remove(AttachmentData attachment) async {
@@ -565,5 +597,7 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
     onEditCategories: _editCategoriesOne,
     onExport: widget.repository == null ? null : _export,
     onRemove: _remove,
+    onLinkAssetRequest: widget.onLinkAsset == null ? null : _linkAsset,
+    onUnlinkAsset: widget.onUnlinkAsset,
   );
 }

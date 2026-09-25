@@ -21,6 +21,8 @@ class AttachmentRow extends StatelessWidget {
     required this.onEditCategories,
     required this.onExport,
     required this.onRemove,
+    this.onLinkAssetRequest,
+    this.onUnlinkAsset,
   });
 
   final AttachmentData attachment;
@@ -35,6 +37,11 @@ class AttachmentRow extends StatelessWidget {
   final Future<void> Function(AttachmentData attachment)? onExport;
   final Future<void> Function(AttachmentData attachment) onRemove;
 
+  /// 关联/解除关联同项目资产；未传时菜单不出现对应入口。
+  /// [onLinkAssetRequest] 只表示用户发起关联，资产选择器由面板负责弹出。
+  final void Function(AttachmentData attachment)? onLinkAssetRequest;
+  final void Function(AttachmentData attachment)? onUnlinkAsset;
+
   void _handleAction(AttachmentRowAction action) {
     switch (action) {
       case AttachmentRowAction.editNote:
@@ -48,6 +55,12 @@ class AttachmentRow extends StatelessWidget {
         break;
       case AttachmentRowAction.export:
         onExport?.call(attachment);
+        break;
+      case AttachmentRowAction.linkAsset:
+        onLinkAssetRequest?.call(attachment);
+        break;
+      case AttachmentRowAction.unlinkAsset:
+        onUnlinkAsset?.call(attachment);
         break;
       case AttachmentRowAction.remove:
         onRemove(attachment);
@@ -179,6 +192,24 @@ class AttachmentRow extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
+              if (onLinkAssetRequest != null)
+                const PopupMenuItem(
+                  value: AttachmentRowAction.linkAsset,
+                  child: ListTile(
+                    leading: Icon(Icons.add_link),
+                    title: Text('关联资产…'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              if (onUnlinkAsset != null && attachment.assetId != null)
+                const PopupMenuItem(
+                  value: AttachmentRowAction.unlinkAsset,
+                  child: ListTile(
+                    leading: Icon(Icons.link_off),
+                    title: Text('解除关联'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
               const PopupMenuItem(
                 value: AttachmentRowAction.remove,
                 child: ListTile(
@@ -194,7 +225,15 @@ class AttachmentRow extends StatelessWidget {
   }
 }
 
-enum AttachmentRowAction { editNote, rename, editCategories, export, remove }
+enum AttachmentRowAction {
+  editNote,
+  rename,
+  editCategories,
+  export,
+  linkAsset,
+  unlinkAsset,
+  remove,
+}
 
 IconData _iconFor(AttachmentKind kind) => switch (kind) {
   AttachmentKind.image => Icons.image_outlined,

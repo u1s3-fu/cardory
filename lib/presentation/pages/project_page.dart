@@ -267,6 +267,35 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
             renameOnUpload: widget.renameAttachmentsOnUpload,
             keepExtensionOnRename: widget.keepAttachmentExtensionOnRename,
             onChanged: _updateAttachments,
+            assets: widget.assets,
+            onLinkAsset: (attachment, asset) => _updateAttachments(
+              _project
+                  .copyWith(
+                    attachments: [
+                      for (final item in _project.attachments)
+                        if (item.id == attachment.id)
+                          item.copyWith(assetId: asset.id)
+                        else
+                          item,
+                    ],
+                  )
+                  .attachments,
+              _project.categories,
+            ),
+            onUnlinkAsset: (attachment) => _updateAttachments(
+              _project
+                  .copyWith(
+                    attachments: [
+                      for (final item in _project.attachments)
+                        if (item.id == attachment.id)
+                          item.copyWith(clearAssetId: true)
+                        else
+                          item,
+                    ],
+                  )
+                  .attachments,
+              _project.categories,
+            ),
           ),
           const SizedBox(height: 16),
           ProjectAssetsPanel(
