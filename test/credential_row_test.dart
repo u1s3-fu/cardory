@@ -130,4 +130,65 @@ void main() {
     expect(find.byKey(const Key('credential-reveal')), findsNothing);
     expect(find.byKey(const Key('credential-copy')), findsNothing);
   });
+
+  group('资产详情对话框接入', () {
+    Future<void> _pumpDetail(WidgetTester tester) => tester.pumpWidget(
+      _wrap(
+        const AssetDetailDialog(
+          asset: AssetData(
+            id: 'a1',
+            type: AssetType.software,
+            name: 'Nginx',
+            username: 'admin',
+            password: 'secret123',
+          ),
+        ),
+      ),
+    );
+
+    Finder _passwordCopy() => find.descendant(
+      of: find.ancestor(of: find.text('登录密码'), matching: find.byType(CredentialRow)),
+      matching: find.byKey(const Key('credential-copy')),
+    );
+
+    testWidgets('用户名行默认明文可见', (tester) async {
+      await _pumpDetail(tester);
+
+      expect(find.text('admin'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.ancestor(
+            of: find.text('登录用户名'),
+            matching: find.byType(CredentialRow),
+          ),
+          matching: find.byKey(const Key('credential-reveal')),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('密码行默认掩码，点眼睛后明文可见', (tester) async {
+      await _pumpDetail(tester);
+
+      expect(find.text('•••••••••'), findsOneWidget);
+      expect(find.text('secret123'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('credential-reveal')));
+      await tester.pump();
+
+      expect(find.text('secret123'), findsOneWidget);
+    });
+
+    testWidgets('点密码行复制按钮 → 剪贴板为密码原文并弹出提示', (tester) async {
+      await _mockClipboard(tester);
+      await _pumpDetail(tester);
+
+      await tester.tap(_passwordCopy());
+      await tester.pump();
+
+      final data = await Clipboard.getData('text/plain');
+      expect(data?.text, 'secret123');
+      expect(find.text('已复制到剪贴板'), findsOneWidget);
+    });
+  });
 }

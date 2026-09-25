@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/asset_template.dart';
 import '../../domain/cardory_models.dart';
 import '../cardory_theme.dart';
+import 'credential_row.dart';
 
 /// 资产详情对话框：展示资产字段、标签、关联附件与变动记录。
 ///
@@ -83,12 +84,20 @@ class AssetDetailDialog extends StatelessWidget {
                 _AssetDetailRow(label: '服务器序列号', value: asset.serialNumber),
                 _AssetDetailRow(label: '网络', value: asset.network),
               ],
-              _AssetDetailRow(label: '登录用户名', value: asset.username),
-              _AssetDetailRow(
+              CredentialRow(
+                label: '登录用户名',
+                value: asset.username,
+                onCopied: (_) => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已复制到剪贴板')),
+                ),
+              ),
+              CredentialRow(
                 label: '登录密码',
-                value: asset.password.isEmpty
-                    ? ''
-                    : '•' * asset.password.length,
+                value: asset.password,
+                secret: true,
+                onCopied: (_) => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已复制到剪贴板')),
+                ),
               ),
               _AssetDetailRow(label: '备注 / 用途', value: asset.note),
               const SizedBox(height: 8),
