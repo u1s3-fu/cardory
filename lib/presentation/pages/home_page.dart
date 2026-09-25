@@ -541,6 +541,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (_) => AssetDialog(
         projectId: project.id,
+        templates: _settings.assetTemplates,
         serverTypes: _settings.serverTypes,
         assetTags: _data.assetTags,
       ),
@@ -560,6 +561,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (_) => AssetDialog(
         asset: asset,
+        templates: _settings.assetTemplates,
         serverTypes: _settings.serverTypes,
         assetTags: _data.assetTags,
       ),

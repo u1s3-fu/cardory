@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:cardory/main.dart';
 import 'package:cardory/domain/attachment_repository.dart';
+import 'package:cardory/domain/asset_template.dart';
 import 'package:cardory/domain/cardory_repository.dart';
 import 'package:cardory/domain/cardory_models.dart';
 import 'package:cardory/presentation/widgets/sidebar.dart';
@@ -602,8 +603,13 @@ void main() {
 
   testWidgets('asset dialog switches fields by asset type', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: AssetDialog(serverTypes: ['物理服务器'])),
+      MaterialApp(
+        home: Scaffold(
+          body: AssetDialog(
+            templates: builtInAssetTemplates(),
+            serverTypes: ['物理服务器'],
+          ),
+        ),
       ),
     );
 
@@ -612,8 +618,11 @@ void main() {
     expect(find.text('服务器序列号'), findsNothing);
     expect(find.text('上传文件'), findsNothing);
 
-    await tester.tap(find.text('硬件资产'));
-    await pumpUiFrames(tester);
+    // 模板下拉：软件 -> 硬件。
+    await tester.tap(find.text('软件'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('硬件').last);
+    await tester.pumpAndSettle();
 
     expect(find.text('服务器序列号'), findsOneWidget);
     expect(find.text('服务器类型'), findsOneWidget);
