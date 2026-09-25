@@ -134,7 +134,7 @@ class AssetDueEntry {
   /// 字段标签，例：「到期日」。
   final String fieldLabel;
 
-  /// 展示标题，例：「域名到期 · example.com」。
+  /// 展示标题，例：「到期日 · example.com」。
   final String title;
 }
 
