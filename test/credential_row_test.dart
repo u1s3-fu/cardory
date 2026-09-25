@@ -16,8 +16,8 @@ Future<void> _mockClipboard(WidgetTester tester) async {
     (MethodCall call) async {
       switch (call.method) {
         case 'Clipboard.setData':
-          clipboardText = (call.arguments as Map<Object?, Object?>)['text']
-              as String?;
+          clipboardText =
+              (call.arguments as Map<Object?, Object?>)['text'] as String?;
           return null;
         case 'Clipboard.getData':
           return <String, dynamic>{'text': clipboardText};
@@ -32,11 +32,7 @@ void main() {
   testWidgets('secret=true 默认显示等长掩码，明文不可见', (tester) async {
     await tester.pumpWidget(
       _wrap(
-        const CredentialRow(
-          label: '登录密码',
-          value: 'secret123',
-          secret: true,
-        ),
+        const CredentialRow(label: '登录密码', value: 'secret123', secret: true),
       ),
     );
 
@@ -47,11 +43,7 @@ void main() {
   testWidgets('点眼睛揭示明文，30 秒后自动回到掩码态', (tester) async {
     await tester.pumpWidget(
       _wrap(
-        const CredentialRow(
-          label: '登录密码',
-          value: 'secret123',
-          secret: true,
-        ),
+        const CredentialRow(label: '登录密码', value: 'secret123', secret: true),
       ),
     );
 
@@ -70,11 +62,7 @@ void main() {
   testWidgets('揭示期间再点眼睛立即收回', (tester) async {
     await tester.pumpWidget(
       _wrap(
-        const CredentialRow(
-          label: '登录密码',
-          value: 'secret123',
-          secret: true,
-        ),
+        const CredentialRow(label: '登录密码', value: 'secret123', secret: true),
       ),
     );
 
@@ -121,9 +109,7 @@ void main() {
 
   testWidgets('value 为空显示「未填写」且无操作按钮', (tester) async {
     await tester.pumpWidget(
-      _wrap(
-        const CredentialRow(label: '登录密码', value: '', secret: true),
-      ),
+      _wrap(const CredentialRow(label: '登录密码', value: '', secret: true)),
     );
 
     expect(find.text('未填写'), findsOneWidget);
@@ -132,7 +118,7 @@ void main() {
   });
 
   group('资产详情对话框接入', () {
-    Future<void> _pumpDetail(WidgetTester tester) => tester.pumpWidget(
+    Future<void> pumpDetail(WidgetTester tester) => tester.pumpWidget(
       _wrap(
         const AssetDetailDialog(
           asset: AssetData(
@@ -146,13 +132,16 @@ void main() {
       ),
     );
 
-    Finder _passwordCopy() => find.descendant(
-      of: find.ancestor(of: find.text('登录密码'), matching: find.byType(CredentialRow)),
+    Finder passwordCopy() => find.descendant(
+      of: find.ancestor(
+        of: find.text('登录密码'),
+        matching: find.byType(CredentialRow),
+      ),
       matching: find.byKey(const Key('credential-copy')),
     );
 
     testWidgets('用户名行默认明文可见', (tester) async {
-      await _pumpDetail(tester);
+      await pumpDetail(tester);
 
       expect(find.text('admin'), findsOneWidget);
       expect(
@@ -168,7 +157,7 @@ void main() {
     });
 
     testWidgets('密码行默认掩码，点眼睛后明文可见', (tester) async {
-      await _pumpDetail(tester);
+      await pumpDetail(tester);
 
       expect(find.text('•••••••••'), findsOneWidget);
       expect(find.text('secret123'), findsNothing);
@@ -181,9 +170,9 @@ void main() {
 
     testWidgets('点密码行复制按钮 → 剪贴板为密码原文并弹出提示', (tester) async {
       await _mockClipboard(tester);
-      await _pumpDetail(tester);
+      await pumpDetail(tester);
 
-      await tester.tap(_passwordCopy());
+      await tester.tap(passwordCopy());
       await tester.pump();
 
       final data = await Clipboard.getData('text/plain');
