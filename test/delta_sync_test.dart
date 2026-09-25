@@ -223,6 +223,80 @@ void main() {
     expect(row.sensitiveJson, '{"password":"secret"}');
   });
 
+  test('attachment 载荷携带 assetId 应用后保留，旧载荷（无 assetId）不崩', () async {
+    // 外键目标：asset_id REFERENCES assets(id)。
+    await db
+        .into(db.assets)
+        .insert(
+          AssetsCompanion.insert(
+            id: 'asset-1',
+            type: 'software',
+            title: 'Nginx',
+            createdAt: 1,
+            updatedAt: 1,
+          ),
+        );
+
+    Map<String, dynamic> attachmentPayload(
+      String id,
+      String fileName, {
+      required int updatedAt,
+      String? assetId,
+    }) => {
+      'id': id,
+      'projectId': null,
+      'taskId': null,
+      if (assetId != null) 'assetId': assetId,
+      'fileName': fileName,
+      'storageKey': '$id.cardory-attachment',
+      'sizeBytes': 10,
+      'sha256': 'deadbeef',
+      'mimeType': '',
+      'kind': 'document',
+      'note': '',
+      'isLocalOnly': false,
+      'encryptionKey': '',
+      'categoryIdsJson': '[]',
+      'createdAt': 1,
+      'updatedAt': updatedAt,
+    };
+
+    // 新版本载荷：assetId 随行载荷应用并保留。
+    final applied = await applier.apply([
+      _record(
+        'c1',
+        entityType: 'attachment',
+        entityId: 'att-1',
+        payload: attachmentPayload(
+          'att-1',
+          '发票.pdf',
+          updatedAt: 100,
+          assetId: 'asset-1',
+        ),
+      ),
+    ]);
+    expect(applied.applied, 1);
+    final row = await (db.select(
+      db.attachments,
+    )..where((r) => r.id.equals('att-1'))).getSingle();
+    expect(row.assetId, 'asset-1');
+
+    // 旧版本载荷（无 assetId 键）：应用成功，行存在。
+    final legacy = await applier.apply([
+      _record(
+        'c2',
+        entityType: 'attachment',
+        entityId: 'att-2',
+        payload: attachmentPayload('att-2', '旧版.pdf', updatedAt: 100),
+      ),
+    ]);
+    expect(legacy.applied, 1);
+    final legacyRow = await (db.select(
+      db.attachments,
+    )..where((r) => r.id.equals('att-2'))).getSingle();
+    expect(legacyRow.assetId, isNull);
+  });
+
   test('feed 编解码往返与加密互认', () async {
     final codec = const DeltaFeedCodec();
     final records = [
