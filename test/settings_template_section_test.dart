@@ -78,8 +78,10 @@ void main() {
     }
   });
 
-  test('下发过滤回归：AssetDialog 收到的 templates 不含被禁用模板', () {
-    // 表单/详情下发处使用 enabledAssetTemplates 过滤禁用模板。
+  test('下发过滤回归：enabledAssetTemplates 结果不含被禁用模板', () {
+    // 详情/面板下发处（ProjectDetailPage）仍使用 enabledAssetTemplates 过滤；
+    // AssetDialog 的模板过滤责任在其内部（见 asset_dialog_template_test.dart
+    // 的「编辑模板已禁用的存量资产」分组）。
     final templates = [
       ...builtInAssetTemplates().map(
         (t) => t.id == 'tpl-hardware' ? t.copyWith(enabled: false) : t,

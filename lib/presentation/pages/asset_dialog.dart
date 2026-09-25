@@ -24,7 +24,11 @@ class AssetDialog extends StatefulWidget {
   final AssetData? asset;
   final String projectId;
 
-  /// 资产类型模板清单（来自设置；为空时表单无自定义字段）。
+  /// 资产类型模板清单（全部模板，含禁用项；由本对话框内部过滤）。
+  ///
+  /// 下拉可选项只列启用模板；但编辑中的资产自身挂载的模板即使已禁用，
+  /// 也会作为唯一额外可选项出现（label 加「（已禁用）」后缀），
+  /// 以保证存量资产的模板字段数据不被静默改挂清空。
   final List<AssetTemplate> templates;
   final List<String> serverTypes;
   final List<AssetTag> assetTags;
@@ -56,7 +60,23 @@ class _AssetDialogState extends State<AssetDialog> {
     return const AssetTemplate(id: '', name: '', fields: []);
   }
 
-  /// 初始模板：优先资产自身 templateId，其次按旧 AssetType 匹配 typeTag。
+  /// 下拉可选项：启用模板；编辑中的资产若挂载已禁用模板，则额外附加该项。
+  List<AssetTemplate> get _dropdownTemplates {
+    final enabled = widget.templates
+        .where((t) => t.enabled)
+        .toList(growable: false);
+    final asset = widget.asset;
+    if (asset != null && asset.templateId.isNotEmpty) {
+      final ownDisabled = widget.templates.where(
+        (t) => t.id == asset.templateId && !t.enabled,
+      );
+      return [...enabled, ...ownDisabled];
+    }
+    return enabled;
+  }
+
+  /// 初始模板：优先资产自身 templateId（含禁用模板），其次按旧 AssetType
+  /// 匹配启用的 typeTag，最后回退到首个启用模板。
   String _initialTemplateId() {
     final asset = widget.asset;
     if (widget.templates.isEmpty) return '';
@@ -64,12 +84,16 @@ class _AssetDialogState extends State<AssetDialog> {
       final exists = widget.templates.any((t) => t.id == asset.templateId);
       if (exists) return asset.templateId;
     }
+    final enabled = widget.templates
+        .where((t) => t.enabled)
+        .toList(growable: false);
     if (asset != null) {
-      for (final template in widget.templates) {
+      for (final template in enabled) {
         if (template.typeTag == asset.type.name) return template.id;
       }
     }
-    return widget.templates.first.id;
+    if (enabled.isEmpty) return '';
+    return enabled.first.id;
   }
 
   /// 为当前模板字段建控制器；编辑时预填 customFields，
@@ -261,15 +285,19 @@ class _AssetDialogState extends State<AssetDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (widget.templates.isNotEmpty)
+            if (_dropdownTemplates.isNotEmpty)
               DropdownButtonFormField<String>(
                 initialValue: _templateId,
                 decoration: _decoration('资产类型'),
                 items: [
-                  for (final template in widget.templates)
+                  for (final template in _dropdownTemplates)
                     DropdownMenuItem(
                       value: template.id,
-                      child: Text(template.name),
+                      child: Text(
+                        template.enabled
+                            ? template.name
+                            : '${template.name}（已禁用）',
+                      ),
                     ),
                 ],
                 onChanged: _onTemplateChanged,

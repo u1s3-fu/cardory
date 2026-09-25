@@ -542,7 +542,8 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (_) => AssetDialog(
         projectId: project.id,
-        templates: enabledAssetTemplates(_settings.assetTemplates),
+        // 传全量模板：AssetDialog 内部过滤启用项，并兜底编辑场景。
+        templates: _settings.assetTemplates,
         serverTypes: _settings.serverTypes,
         assetTags: _data.assetTags,
       ),
@@ -562,7 +563,8 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (_) => AssetDialog(
         asset: asset,
-        templates: enabledAssetTemplates(_settings.assetTemplates),
+        // 传全量模板：AssetDialog 内部过滤启用项，并兜底编辑场景。
+        templates: _settings.assetTemplates,
         serverTypes: _settings.serverTypes,
         assetTags: _data.assetTags,
       ),
