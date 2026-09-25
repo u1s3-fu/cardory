@@ -87,17 +87,17 @@ class AssetDetailDialog extends StatelessWidget {
               CredentialRow(
                 label: '登录用户名',
                 value: asset.username,
-                onCopied: (_) => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已复制到剪贴板')),
-                ),
+                onCopied: (_) => ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板'))),
               ),
               CredentialRow(
                 label: '登录密码',
                 value: asset.password,
                 secret: true,
-                onCopied: (_) => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已复制到剪贴板')),
-                ),
+                onCopied: (_) => ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板'))),
               ),
               _AssetDetailRow(label: '备注 / 用途', value: asset.note),
               const SizedBox(height: 8),
