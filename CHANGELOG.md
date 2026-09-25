@@ -10,6 +10,7 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 ### 修复（Fixed）
 
+- 甘特页卡片布局：时间线与健康度卡片在内容区收缩为文字自然宽度（其余卡片全宽不一致），统一改为 stretch 对齐撑满。
 - 甘特时间线显示不完整：滚动容器无限宽度约束导致 Stack 裁掉首屏之外的条形（移除 double.infinity、显式给时间轴全宽），条形与里程碑位置夹取到窗口内不再越界；月份表头同样因 Stack 收缩丢标签，已修复。
 - 项目健康度在窄屏下五列互相挤压截断：改为响应式布局（≥640px 保持五列横排，窄屏改为「项目名 + 健康度徽标 / 明细行」两行布局）。
 - 移动端底部导航 7 个入口过于拥挤：收纳为「看板 / 待办 / 日历 / 时间 + 更多」，甘特、项目、设置移入「更多」底部弹层。
@@ -33,19 +34,17 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 - 今日任务聚合与月历视图（阶段 C）：`/calendar` 替换占位页为真实月历页面——月份网格按优先级色标注每日截止任务、周一开头、支持前后翻月与回到今天；任务清单支持「当天 / 本周 / 本月」日期范围筛选；点击任务打开编辑对话框（含开始/截止日期编辑）。工作台首页新增「今日任务」面板：逾期（红色标识）与今日截止两组，按优先级与截止时间排序；侧栏与底部导航新增「日历」入口，日历成为工作台 Shell 子路由（受门禁保护）。
 - 核心界面写入口迁移到 Repository 行级单事务写入（阶段 B）：项目增删改、待办/子待办增删改与完成切换、资产与标签管理、看板拖拽排序全部经 `RowLevelWorkspaceStore` 接口落库（生产实现 `DriftRowLevelWorkspaceStore`，多行差异对齐包在单个外层事务内，行级 updatedAt/tombstone 与 sync_changes 审计同事务提交）；`/projects` 与 `/projects/:projectId` 拆为独立受门禁路由，工作台四分区经 ShellRoute 共享 Shell。
 
-### 构建（Build）
-
-- 发布前本机验证：`flutter build windows --release` 成功；`flutter build apk --release --target-platform android-arm64` 成功。质量门禁：dart format 无变化、flutter analyze 0 问题、flutter test 185 用例全绿（Flutter 3.47.4 / Dart 3.13.3）。
-
 ## [0.1.0-beta.6] - 2026-09-13
 
 ### 变更（Changed）
 
+- 甘特图与里程碑（阶段 E）：`/gantt` 替换占位页为真实页面——甘特时间线（项目/任务起止日期条形排期、里程碑菱形标记、时间窗自适应、点击任务条调整日期）、里程碑管理（新增/编辑/完成/删除，逾期标识）、任务依赖（finish_to_start 前后继关系，拒绝自依赖/重复/循环）、项目健康度（进度、待办完成率、里程碑完成率与 良好/风险/滞后 评估）；侧栏与底部导航新增「甘特」入口，成为工作台 Shell 子路由（受门禁保护）。数据库 schema v1 → v2 新增 `milestones` 表（附迁移测试），行级存储扩展里程碑与任务依赖写入（依赖含环检测）。
+
+## [0.1.0-beta.5] - 2026-09-13
+
+### 变更（Changed）
+
 - 时间记录与番茄钟（阶段 D）：`/time` 替换占位页为真实页面——专注计时器（开始/暂停/继续/结束，墙钟计时支持后台与重启恢复）、番茄钟（专注 25 分钟 / 短休 5 分钟 / 长休 15 分钟，到时自动收尾、可提前结束，完成会话写入 `pomodoro_sessions` 并以 pomodoro 来源写入 `time_entries`）、手动时间记录 CRUD（开始/结束时间选择、关联项目、备注）、耗时统计（今日/本周专注时长与按项目分布）；侧栏与底部导航新增「时间」入口，成为工作台 Shell 子路由（受门禁保护）。运行中的番茄钟会话只写本地行、不产生 sync_changes 审计（结束后补记），不进入同步通道。
-
-### 构建（Build）
-
-- 发布前本机验证：`flutter build windows --release` 成功；`flutter build apk --release --target-platform android-arm64` 成功。质量门禁：dart format 无变化、flutter analyze 0 问题、flutter test 176 用例全绿（Flutter 3.47.4 / Dart 3.13.3）。
 
 ## [0.1.0-beta.4] - 2026-09-13
 
@@ -53,16 +52,10 @@ Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.co
 
 - 今日任务聚合与月历视图（阶段 C）：`/calendar` 替换占位页为真实月历页面——月份网格按优先级色标注每日截止任务、周一开头、支持前后翻月与回到今天；任务清单支持「当天 / 本周 / 本月」日期范围筛选；点击任务打开编辑对话框（含开始/截止日期编辑）。工作台首页新增「今日任务」面板：逾期（红色标识）与今日截止两组，按优先级与截止时间排序；侧栏与底部导航新增「日历」入口，日历成为工作台 Shell 子路由（受门禁保护）。
 
-### 构建（Build）
-
-- 发布前本机验证：`flutter build windows --release` 成功（cardory.exe）；`flutter build apk --release --target-platform android-arm64` 成功（app-release.apk 25.7MB，R8）。质量门禁：dart format 无变化、flutter analyze 0 问题、flutter test 173 用例全绿（Flutter 3.47.4 / Dart 3.13.3）。
-
 ## [0.1.0-beta.3] - 2026-09-13
 
 ### 变更（Changed）
 
-- 看板拖拽排序（阶段 B 第三步）：项目卡片可拖拽跨阶段移动与列内排序，落点插入到目标卡之前或列尾追加；拖拽结果经行级 Repository 写入项目阶段与 `sortOrder`（单事务、仅更新发生变化的行并记录 sync_changes 审计）。
-- 路由拆分（阶段 B 第二步）：`/projects`（项目列表）与 `/projects/:projectId`（项目详情）拆为独立受门禁路由；工作台四个分区（/today、/todos、/projects、/settings）改经 `ShellRoute` 共享同一工作台 Shell（控制器、顶部栏、侧栏、底部导航），侧栏/底部导航改为路由导航，看板与项目列表点击项目改为 `context.go('/projects/:id')`，不再使用 Navigator.push 与路由内重建包装；项目详情页随路由全高渲染，删除路由内 `AnimatedSwitcher`（Shell 子内容含内层 Navigator 的 GlobalKey，交叉动画会在过渡帧复制它触发 Duplicate GlobalKey）。工作台子路由使用 `NoTransitionPage` 瞬时切换。
 - 核心界面写入口迁移到 Repository 行级单事务写入（阶段 B 第一步）：项目增删改、待办/子待办增删改与完成切换、资产与标签管理、看板重排全部经新增的 `RowLevelWorkspaceStore` 接口落库（生产实现 `DriftRowLevelWorkspaceStore` 组合各实体 Repository，多行差异对齐包在单个外层事务内，行级 updatedAt/tombstone 与 sync_changes 审计同事务提交），界面写入不再构建整包 `CardoryData` 快照；`database_snapshot_applier.dart` 仅保留给同步导入路径使用。
 - `WorkspaceController` 写入后统一从数据库回读投影并刷新桌面小组件摘要；行级写入存储未注入时业务写入直接抛错，防止界面悄悄退化回整包快照写入。`TaskRepository.create` 支持可选 `createdAt`/`completedAt` 并接受可空 `projectId`，新增 `setDone`；`AttachmentRecordRepository.create` 支持可选 `createdAt`。
 
