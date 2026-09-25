@@ -243,7 +243,8 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   /// 把资产到期写入系统日历：title 用条目标题（含资产名），
-  /// start/end 为到期日零点，note 拼资产名与字段标签。
+  /// start 为到期日零点、end 为次日零点（满足全天事件判定），
+  /// note 拼资产名与字段标签。
   Future<void> _pushAssetDueToSystemCalendar(AssetDueEntry due) async {
     final service = widget.systemCalendar;
     if (service == null) return;
@@ -252,7 +253,7 @@ class _CalendarPageState extends State<CalendarPage> {
       final write = await service.createEvent(
         title: due.title,
         start: day,
-        end: day,
+        end: day.add(const Duration(days: 1)),
         note: '${due.assetName} · ${due.fieldLabel}',
       );
       if (!mounted) return;

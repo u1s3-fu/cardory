@@ -181,7 +181,7 @@ void main() {
     expect(fake.created, hasLength(1));
     expect(fake.created.single.title, '到期日 · example.com');
     expect(fake.created.single.start, DateTime(2026, 10, 15));
-    expect(fake.created.single.end, DateTime(2026, 10, 15));
+    expect(fake.created.single.end, DateTime(2026, 10, 16));
     expect(fake.created.single.note, contains('example.com'));
     expect(fake.created.single.note, contains('到期日'));
     expect(find.text('已加入系统日历'), findsOneWidget);
