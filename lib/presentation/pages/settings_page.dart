@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../domain/asset_template.dart';
 import '../../domain/cardory_models.dart';
 import '../../domain/sync_credentials.dart';
 import '../model_labels.dart';
@@ -50,6 +51,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
   late bool _autoLockEnabled = widget.settings.autoLockEnabled;
   late final List<String> _serverTypes = [...widget.settings.serverTypes];
   final TextEditingController _newServerType = TextEditingController();
+  late final List<AssetTemplate> _assetTemplates = [
+    ...widget.settings.assetTemplates,
+  ];
 
   // 本地数据分区状态。
   late final TextEditingController _localDataPath = TextEditingController(
@@ -179,6 +183,24 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 .toList(),
           ),
         ],
+        const SizedBox(height: 22),
+        const Text('资产模板', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        const Text('控制登记资产时可用的类型模板，禁用后该类型不再出现。'),
+        const SizedBox(height: 10),
+        for (var index = 0; index < _assetTemplates.length; index++)
+          CheckboxListTile(
+            key: Key('asset-template-${_assetTemplates[index].id}'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(_assetTemplates[index].name),
+            subtitle: Text(_templateFieldSummary(_assetTemplates[index])),
+            value: _assetTemplates[index].enabled,
+            onChanged: (value) => setState(() {
+              _assetTemplates[index] = _assetTemplates[index].copyWith(
+                enabled: value ?? true,
+              );
+            }),
+          ),
       ],
       if (_shows(SettingsCategoryType.security)) ...[
         const SizedBox(height: 22),
@@ -219,6 +241,11 @@ class _SettingsDialogState extends State<SettingsDialog> {
     ],
   );
 
+  static String _templateFieldSummary(AssetTemplate template) =>
+      template.fields.isEmpty
+      ? '无自定义字段'
+      : template.fields.map((f) => f.label).join('、');
+
   SettingsResult _result() {
     final sync = _syncSectionKey.currentState?.collect();
     return SettingsResult(
@@ -231,6 +258,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         keepAttachmentExtensionOnRename: _keepAttachmentExtensionOnRename,
         autoLockEnabled: _autoLockEnabled,
         serverTypes: _serverTypes,
+        assetTemplates: List.of(_assetTemplates),
         syncProvider: sync?.provider == SyncProviderType.selfHosted
             ? SyncProviderType.none
             : sync?.provider ?? widget.settings.syncProvider,

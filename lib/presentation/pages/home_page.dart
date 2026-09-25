@@ -8,6 +8,7 @@ import '../../application/workspace_controller.dart';
 import '../../application/workspace_controller_factory.dart';
 import '../../application/workspace_settings_service.dart';
 import '../../domain/attachment_repository.dart';
+import '../../domain/asset_template.dart';
 import '../../domain/cardory_models.dart';
 import '../../domain/cardory_repository.dart';
 import '../../domain/sync_credentials.dart';
@@ -541,7 +542,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (_) => AssetDialog(
         projectId: project.id,
-        templates: _settings.assetTemplates,
+        templates: enabledAssetTemplates(_settings.assetTemplates),
         serverTypes: _settings.serverTypes,
         assetTags: _data.assetTags,
       ),
@@ -561,7 +562,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (_) => AssetDialog(
         asset: asset,
-        templates: _settings.assetTemplates,
+        templates: enabledAssetTemplates(_settings.assetTemplates),
         serverTypes: _settings.serverTypes,
         assetTags: _data.assetTags,
       ),
@@ -1017,7 +1018,7 @@ class _ProjectDetailContent extends StatelessWidget {
       onAddTodo: state._addProjectTodo,
       onDeleteTodo: state._deleteTodo,
       assetTags: state._data.assetTags,
-      templates: state._settings.assetTemplates,
+      templates: enabledAssetTemplates(state._settings.assetTemplates),
       onUpdateAssetsTags: (assetIds, tagIds) =>
           state._controller.updateAssetsTags(assetIds, tagIds),
       onAddAssetTag: (tag) => state._controller.addAssetTag(tag),

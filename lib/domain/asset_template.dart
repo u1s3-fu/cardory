@@ -73,6 +73,7 @@ class AssetTemplate {
     this.typeTag,
     required this.fields,
     this.builtIn = false,
+    this.enabled = true,
   });
 
   /// 内置固定 id：tpl-software / tpl-hardware / tpl-domain / tpl-cert。
@@ -84,12 +85,16 @@ class AssetTemplate {
   final List<AssetTemplateField> fields;
   final bool builtIn;
 
+  /// 是否启用；禁用模板不在表单/详情中下发，但保留定义以便随时恢复。
+  final bool enabled;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
     'id': id,
     'name': name,
     if (typeTag != null) 'typeTag': typeTag,
     'fields': fields.map((f) => f.toJson()).toList(),
     'builtIn': builtIn,
+    'enabled': enabled,
   };
 
   factory AssetTemplate.fromJson(Map<String, dynamic> json) {
@@ -102,6 +107,7 @@ class AssetTemplate {
           .map(AssetTemplateField.fromJson)
           .toList(growable: false),
       builtIn: (json['builtIn'] as bool?) ?? false,
+      enabled: (json['enabled'] as bool?) ?? true,
     );
   }
 
@@ -112,6 +118,7 @@ class AssetTemplate {
     bool clearTypeTag = false,
     List<AssetTemplateField>? fields,
     bool? builtIn,
+    bool? enabled,
   }) {
     return AssetTemplate(
       id: id ?? this.id,
@@ -119,9 +126,14 @@ class AssetTemplate {
       typeTag: clearTypeTag ? null : (typeTag ?? this.typeTag),
       fields: fields ?? this.fields,
       builtIn: builtIn ?? this.builtIn,
+      enabled: enabled ?? this.enabled,
     );
   }
 }
+
+/// 过滤出启用状态的模板；表单与详情的模板下发处使用，禁用模板不出现在可选清单。
+List<AssetTemplate> enabledAssetTemplates(List<AssetTemplate> templates) =>
+    templates.where((t) => t.enabled).toList(growable: false);
 
 /// 内置模板清单（每处调用返回新实例，防止共享可变状态）。
 List<AssetTemplate> builtInAssetTemplates() => [
