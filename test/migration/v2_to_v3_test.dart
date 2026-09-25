@@ -87,18 +87,19 @@ void main() {
     final db = AppDatabase.encrypted(dbFile, key: 'test-key');
     addTearDown(db.close);
 
-    final row = await (db.select(db.attachments)
-          ..where((r) => r.id.equals('att-1')))
-        .getSingle();
+    final row = await (db.select(
+      db.attachments,
+    )..where((r) => r.id.equals('att-1'))).getSingle();
     expect(row.fileName, '发票.pdf');
     expect(row.assetId, isNull);
 
     // 新列可写。
-    await (db.update(db.attachments)..where((r) => r.id.equals('att-1')))
-        .write(AttachmentsCompanion(assetId: const Value('asset-1')));
-    final updated = await (db.select(db.attachments)
-          ..where((r) => r.id.equals('att-1')))
-        .getSingle();
+    await (db.update(db.attachments)..where((r) => r.id.equals('att-1'))).write(
+      AttachmentsCompanion(assetId: const Value('asset-1')),
+    );
+    final updated = await (db.select(
+      db.attachments,
+    )..where((r) => r.id.equals('att-1'))).getSingle();
     expect(updated.assetId, 'asset-1');
   });
 }

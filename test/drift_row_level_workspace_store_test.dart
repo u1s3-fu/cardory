@@ -491,11 +491,9 @@ void main() {
     );
     await store.updateProject(original, linked);
     expect(
-      (await SqlCipherDataMapper(database).loadProjects())
-          .single
-          .attachments
-          .single
-          .assetId,
+      (await SqlCipherDataMapper(
+        database,
+      ).loadProjects()).single.attachments.single.assetId,
       'asset-1',
     );
 
@@ -505,11 +503,9 @@ void main() {
     );
     await store.updateProject(linked, unlinked);
     expect(
-      (await SqlCipherDataMapper(database).loadProjects())
-          .single
-          .attachments
-          .single
-          .assetId,
+      (await SqlCipherDataMapper(
+        database,
+      ).loadProjects()).single.attachments.single.assetId,
       isNull,
     );
   });
