@@ -60,6 +60,8 @@ class CalendarPage extends StatefulWidget {
     required this.onToggleTodo,
     required this.onOpenTodo,
     this.systemCalendar,
+    this.assetDues = const [],
+    this.onOpenAssetDue,
   });
 
   final List<TodoData> todos;
@@ -71,6 +73,12 @@ class CalendarPage extends StatefulWidget {
 
   /// 系统日历服务；null 时隐藏系统日程相关功能（仅显示应用内任务）。
   final SystemCalendarService? systemCalendar;
+
+  /// 资产到期条目（P3 数据源，见 assetDueEntries）；并入三视图的全天条目区。
+  final List<AssetDueEntry> assetDues;
+
+  /// 点击资产到期条目回调；null 时安全忽略。
+  final void Function(AssetDueEntry entry)? onOpenAssetDue;
 
   /// 任务条目构建（公开以便测试与后续复用）：条目携带实体标识，
   /// 周/日视图点击回查时按 [CalendarEntry.entityId] 匹配任务。
@@ -165,6 +173,20 @@ class _CalendarPageState extends State<CalendarPage> {
   List<CalendarEntry> get _taskEntries =>
       CalendarPage.buildTaskEntries(widget.todos);
 
+  /// 资产到期 → 全天日历条目（entityType 'asset'，中性色渲染，不占优先级色）。
+  List<CalendarEntry> get _assetEntries => [
+    for (final due in widget.assetDues)
+      CalendarEntry(
+        title: due.title,
+        start: due.date,
+        end: due.date,
+        isTask: false,
+        note: due.fieldLabel,
+        entityType: 'asset',
+        entityId: due.assetId,
+      ),
+  ];
+
   /// 点击任务条目后按 entityId 回查任务；找不到时安全忽略。
   Future<void> _openTodoEntry(CalendarEntry entry) async {
     final todo = widget.todos
@@ -172,6 +194,21 @@ class _CalendarPageState extends State<CalendarPage> {
         .firstOrNull;
     if (todo == null) return;
     await widget.onOpenTodo(todo);
+  }
+
+  /// 点击资产条目后按 entityId + 字段标签 + 日期回查到期条目；
+  /// 回调为 null 或找不到时安全忽略。
+  void _openAssetDueEntry(CalendarEntry entry) {
+    final due = widget.assetDues
+        .where(
+          (item) =>
+              item.assetId == entry.entityId &&
+              item.fieldLabel == entry.note &&
+              localDayKey(item.date) == localDayKey(entry.start),
+        )
+        .firstOrNull;
+    if (due == null) return;
+    widget.onOpenAssetDue?.call(due);
   }
 
   List<CalendarEntry> get _systemEntries => [
@@ -188,6 +225,7 @@ class _CalendarPageState extends State<CalendarPage> {
   List<CalendarEntry> entriesOnDay(DateTime day) {
     final entries = [
       ..._taskEntries.where((entry) => isDueOnTask(entry, day)),
+      ..._assetEntries.where((entry) => isDueOnTask(entry, day)),
       ..._systemEntries.where((entry) => overlapsDay(entry, day)),
     ]..sort((a, b) => a.start.compareTo(b.start));
     return entries;
@@ -255,8 +293,12 @@ class _CalendarPageState extends State<CalendarPage> {
               selectedDay: _selectedDay,
               today: _now,
               taskEntries: _taskEntries,
-              hasSystemEntries: (day) =>
-                  entriesOnDay(day).any((entry) => !entry.isTask),
+              assetEntries: _assetEntries,
+              hasSystemEntries: (day) => entriesOnDay(
+                day,
+              ).any((entry) => !entry.isTask && entry.entityType == null),
+              showAssetLegend: widget.assetDues.isNotEmpty,
+              hasSystemCalendar: widget.systemCalendar != null,
               onSelectDay: _selectDay,
             ),
             CalendarViewMode.week => _TimeGridView(
@@ -270,12 +312,14 @@ class _CalendarPageState extends State<CalendarPage> {
               entriesFor: entriesOnDay,
               now: widget.now,
               onOpenTodo: _openTodoEntry,
+              onOpenAssetDue: _openAssetDueEntry,
             ),
             CalendarViewMode.day => _TimeGridView(
               days: [_selectedDay],
               entriesFor: entriesOnDay,
               now: widget.now,
               onOpenTodo: _openTodoEntry,
+              onOpenAssetDue: _openAssetDueEntry,
             ),
           },
         const SizedBox(height: 16),
@@ -429,7 +473,10 @@ class _MonthView extends StatelessWidget {
     required this.selectedDay,
     required this.today,
     required this.taskEntries,
+    required this.assetEntries,
     required this.hasSystemEntries,
+    required this.showAssetLegend,
+    required this.hasSystemCalendar,
     required this.onSelectDay,
   });
 
@@ -437,7 +484,10 @@ class _MonthView extends StatelessWidget {
   final DateTime selectedDay;
   final DateTime today;
   final List<CalendarEntry> taskEntries;
+  final List<CalendarEntry> assetEntries;
   final bool Function(DateTime day) hasSystemEntries;
+  final bool showAssetLegend;
+  final bool hasSystemCalendar;
   final ValueChanged<DateTime> onSelectDay;
 
   static const _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
@@ -450,9 +500,18 @@ class _MonthView extends StatelessWidget {
     return byDay;
   }
 
+  Map<DateTime, List<CalendarEntry>> get _assetEntriesByDay {
+    final byDay = <DateTime, List<CalendarEntry>>{};
+    for (final entry in assetEntries) {
+      byDay.putIfAbsent(localDayKey(entry.start), () => []).add(entry);
+    }
+    return byDay;
+  }
+
   @override
   Widget build(BuildContext context) {
     final byDay = _entriesByDay;
+    final assetByDay = _assetEntriesByDay;
     final firstOfMonth = DateTime(month.year, month.month);
     final leadingBlanks = firstOfMonth.weekday - 1;
     final dayCount = DateTime(
@@ -503,6 +562,7 @@ class _MonthView extends StatelessWidget {
                         isSelected: day == selectedDay,
                         isToday: day == today,
                         entries: byDay[day] ?? const [],
+                        assetEntries: assetByDay[day] ?? const [],
                         hasSystemEntries: hasSystemEntries(day),
                         onSelect: () => onSelectDay(day),
                       ),
@@ -510,10 +570,67 @@ class _MonthView extends StatelessWidget {
                   ),
               ],
             ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _LegendDot(color: ProjectPriority.p0.color, label: '任务'),
+              if (hasSystemCalendar) ...[
+                const SizedBox(width: 12),
+                _LegendDot(color: CardoryColors.gray500, label: '系统日程'),
+              ],
+              if (showAssetLegend) ...[
+                const SizedBox(width: 12),
+                const _LegendAsset(label: '资产到期'),
+              ],
+            ],
+          ),
         ],
       ),
     );
   }
+}
+
+/// 月视图图例：色点 + 标签。
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      ),
+      const SizedBox(width: 4),
+      Text(label, style: TextStyle(fontSize: 11, color: CardoryColors.gray500)),
+    ],
+  );
+}
+
+/// 月视图图例：资产到期（中性色小图标，不占任务优先级色）。
+class _LegendAsset extends StatelessWidget {
+  const _LegendAsset({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(
+        Icons.event_available_outlined,
+        size: 12,
+        color: CardoryColors.gray500,
+      ),
+      const SizedBox(width: 4),
+      Text(label, style: TextStyle(fontSize: 11, color: CardoryColors.gray500)),
+    ],
+  );
 }
 
 class _DayCell extends StatelessWidget {
@@ -523,6 +640,7 @@ class _DayCell extends StatelessWidget {
     required this.isSelected,
     required this.isToday,
     required this.entries,
+    required this.assetEntries,
     required this.hasSystemEntries,
     required this.onSelect,
   });
@@ -531,6 +649,9 @@ class _DayCell extends StatelessWidget {
   final bool isSelected;
   final bool isToday;
   final List<CalendarEntry> entries;
+
+  /// 当日资产到期条目（中性色小图标标记）。
+  final List<CalendarEntry> assetEntries;
   final bool hasSystemEntries;
   final VoidCallback onSelect;
 
@@ -571,7 +692,9 @@ class _DayCell extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 3),
-            if (entries.isNotEmpty || hasSystemEntries)
+            if (entries.isNotEmpty ||
+                assetEntries.isNotEmpty ||
+                hasSystemEntries)
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -585,6 +708,15 @@ class _DayCell extends StatelessWidget {
                         color: entry.isDone
                             ? CardoryColors.gray300
                             : entry.priority.color,
+                      ),
+                    ),
+                  for (final _ in assetEntries.take(2))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 1),
+                      child: Icon(
+                        Icons.event_available_outlined,
+                        size: 11,
+                        color: CardoryColors.gray500,
                       ),
                     ),
                   if (hasSystemEntries)
@@ -616,12 +748,14 @@ class _TimeGridView extends StatelessWidget {
     required this.entriesFor,
     required this.now,
     required this.onOpenTodo,
+    required this.onOpenAssetDue,
   });
 
   final List<DateTime> days;
   final List<CalendarEntry> Function(DateTime day) entriesFor;
   final DateTime now;
   final Future<void> Function(CalendarEntry entry) onOpenTodo;
+  final void Function(CalendarEntry entry) onOpenAssetDue;
 
   static const _hourHeight = 46.0;
   static const _minColumnWidth = 130.0;
@@ -704,6 +838,7 @@ class _TimeGridView extends StatelessWidget {
                           now: now,
                           hourHeight: _hourHeight,
                           onOpenTodo: onOpenTodo,
+                          onOpenAssetDue: onOpenAssetDue,
                         ),
                       ),
                   ],
@@ -734,6 +869,7 @@ class _DayHourColumn extends StatelessWidget {
     required this.now,
     required this.hourHeight,
     required this.onOpenTodo,
+    required this.onOpenAssetDue,
   });
 
   final DateTime day;
@@ -741,11 +877,22 @@ class _DayHourColumn extends StatelessWidget {
   final DateTime now;
   final double hourHeight;
   final Future<void> Function(CalendarEntry entry) onOpenTodo;
+  final void Function(CalendarEntry entry) onOpenAssetDue;
 
   static bool overlapsDay(CalendarEntry entry, DateTime day) {
     final dayStart = DateTime(day.year, day.month, day.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
     return entry.end.isAfter(dayStart) && entry.start.isBefore(dayEnd);
+  }
+
+  /// 条目点击分发：任务条目走任务详情，资产条目走 onOpenAssetDue，
+  /// 系统日程条目（entityType 为 null）不响应点击。
+  void _handleTap(CalendarEntry entry) {
+    if (entry.entityType == 'asset') {
+      onOpenAssetDue(entry);
+    } else if (entry.entityType != null) {
+      onOpenTodo(entry);
+    }
   }
 
   @override
@@ -802,7 +949,10 @@ class _DayHourColumn extends StatelessWidget {
                       entry: entry,
                       label: '全天 · ${entry.title}',
                       height: 18,
-                      onTap: () => onOpenTodo(entry),
+                      // 仅任务/资产条目响应点击；系统日程透传（onTap: null）。
+                      onTap: entry.entityType == null
+                          ? null
+                          : () => _handleTap(entry),
                     ),
               ],
             ),
@@ -816,7 +966,10 @@ class _DayHourColumn extends StatelessWidget {
                 entry: layout.entry,
                 label: '${_timeText(layout.entry.start)} ${layout.entry.title}',
                 height: layout.height,
-                onTap: () => onOpenTodo(layout.entry),
+                // 仅任务/资产条目响应点击；系统日程透传（onTap: null）。
+                onTap: layout.entry.entityType == null
+                    ? null
+                    : () => _handleTap(layout.entry),
               ),
             ),
         ],
@@ -892,38 +1045,64 @@ class _EntryChip extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap ?? (entry.isTask ? () {} : null),
-    child: Container(
-      height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 5),
-      decoration: BoxDecoration(
-        color: entry.isTask
-            ? entry.priority.color.withValues(alpha: 0.18)
-            : CardoryColors.primarySoft,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: entry.isTask
-              ? entry.priority.color.withValues(alpha: 0.5)
-              : CardoryColors.gray300,
-          width: 0.6,
-        ),
-      ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 10.5,
-            decoration: entry.isDone ? TextDecoration.lineThrough : null,
-            color: entry.isTask ? CardoryColors.gray800 : CardoryColors.gray700,
+  Widget build(BuildContext context) {
+    final isAsset = entry.entityType == 'asset';
+    return GestureDetector(
+      onTap: onTap ?? (entry.isTask ? () {} : null),
+      child: Container(
+        height: height,
+        padding: const EdgeInsets.symmetric(horizontal: 5),
+        decoration: BoxDecoration(
+          // 资产条目用中性色，不占用任务优先级色。
+          color: isAsset
+              ? CardoryColors.gray100
+              : entry.isTask
+              ? entry.priority.color.withValues(alpha: 0.18)
+              : CardoryColors.primarySoft,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isAsset
+                ? CardoryColors.gray300
+                : entry.isTask
+                ? entry.priority.color.withValues(alpha: 0.5)
+                : CardoryColors.gray300,
+            width: 0.6,
           ),
         ),
+        child: Row(
+          children: [
+            if (isAsset) ...[
+              Icon(
+                Icons.event_available_outlined,
+                size: 11,
+                color: CardoryColors.gray500,
+              ),
+              const SizedBox(width: 3),
+            ],
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    decoration: entry.isDone
+                        ? TextDecoration.lineThrough
+                        : null,
+                    color: entry.isTask
+                        ? CardoryColors.gray800
+                        : CardoryColors.gray700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 // ---- 选中日条目清单 ----
@@ -970,6 +1149,12 @@ class _DayEntryList extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: entry.isTask
                   ? PriorityBadge(priority: entry.priority)
+                  : entry.entityType == 'asset'
+                  ? Icon(
+                      Icons.event_available_outlined,
+                      size: 18,
+                      color: CardoryColors.gray500,
+                    )
                   : Icon(
                       Icons.event_outlined,
                       size: 18,

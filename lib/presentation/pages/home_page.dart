@@ -11,6 +11,7 @@ import '../../domain/attachment_repository.dart';
 import '../../domain/asset_template.dart';
 import '../../domain/cardory_models.dart';
 import '../../domain/cardory_repository.dart';
+import '../../domain/schedule_queries.dart';
 import '../../domain/sync_credentials.dart';
 import '../../domain/sync_status.dart';
 import '../../routing/app_router.dart';
@@ -23,6 +24,7 @@ import '../dialogs/security_dialogs.dart';
 import '../dialogs/update_dialog.dart';
 import '../settings_models.dart';
 import '../widgets/app_top_bar.dart';
+import '../widgets/asset_detail_dialog.dart';
 import '../widgets/confirm_dialogs.dart';
 import '../widgets/hero_header.dart';
 import '../widgets/kanban_board.dart';
@@ -591,6 +593,23 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// 日历中点击资产到期条目：按 assetId 回查资产，模板按 templateId
+  /// 从全部资产模板中取，打开只读资产详情。找不到资产时安全忽略。
+  Future<void> _openAssetDue(AssetDueEntry due) async {
+    final asset = _data.assets
+        .where((item) => item.id == due.assetId)
+        .firstOrNull;
+    if (asset == null || !mounted) return;
+    AssetTemplate? template;
+    for (final candidate in _settings.assetTemplates) {
+      if (candidate.id == asset.templateId) template = candidate;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AssetDetailDialog(asset: asset, template: template),
+    );
+  }
+
   void _selectSection(AppSection section) {
     final target = switch (section) {
       AppSection.home => workbenchRoutePath,
@@ -887,6 +906,12 @@ class _CalendarSectionContent extends StatelessWidget {
     onToggleTodo: state._toggleTodo,
     onOpenTodo: state._openTodo,
     systemCalendar: state.widget.systemCalendar,
+    // 传全部模板：assetDueEntries 内部按 templateId 解析不到时自动跳过。
+    assetDues: assetDueEntries(
+      state._data.assets,
+      state._settings.assetTemplates,
+    ),
+    onOpenAssetDue: state._openAssetDue,
   );
 }
 
