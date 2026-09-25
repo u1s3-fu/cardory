@@ -54,7 +54,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -72,12 +72,14 @@ class AppDatabase extends _$AppDatabase {
 
   /// 从 [from] 版本迁移到下一个版本。
   ///
-  /// schemaVersion 当前为 2。v1 → v2 新增里程碑表（甘特/里程碑模块）；
-  /// v1 库中不存在里程碑数据，无需回填。
+  /// v1 → v2 新增里程碑表（甘特/里程碑模块），v1 库中不存在里程碑数据，无需回填；
+  /// v2 → v3 attachments 新增可空列 asset_id（附件关联资产），历史行为 NULL 无需回填。
   Future<void> _upgradeFrom(Migrator migrator, int from) async {
     switch (from) {
       case 1:
         await migrator.createTable(milestones);
+      case 2:
+        await migrator.addColumn(attachments, attachments.assetId);
       default:
         throw StateError('未知的数据库版本来源：$from');
     }
@@ -188,6 +190,9 @@ class Attachments extends Table {
   TextColumn get id => text()();
   TextColumn get projectId => text().nullable().references(Projects, #id)();
   TextColumn get taskId => text().nullable().references(Tasks, #id)();
+
+  /// 关联的同项目资产；null 表示未关联。
+  TextColumn get assetId => text().nullable().references(Assets, #id)();
   TextColumn get fileName => text()();
   TextColumn get storageKey => text()();
   IntColumn get sizeBytes => integer()();

@@ -3811,6 +3811,20 @@ class $AttachmentsTable extends Attachments
       'REFERENCES tasks (id)',
     ),
   );
+  static const VerificationMeta _assetIdMeta = const VerificationMeta(
+    'assetId',
+  );
+  @override
+  late final GeneratedColumn<String> assetId = GeneratedColumn<String>(
+    'asset_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES assets (id)',
+    ),
+  );
   static const VerificationMeta _fileNameMeta = const VerificationMeta(
     'fileName',
   );
@@ -3961,6 +3975,7 @@ class $AttachmentsTable extends Attachments
     id,
     projectId,
     taskId,
+    assetId,
     fileName,
     storageKey,
     sizeBytes,
@@ -4002,6 +4017,12 @@ class $AttachmentsTable extends Attachments
       context.handle(
         _taskIdMeta,
         taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta),
+      );
+    }
+    if (data.containsKey('asset_id')) {
+      context.handle(
+        _assetIdMeta,
+        assetId.isAcceptableOrUnknown(data['asset_id']!, _assetIdMeta),
       );
     }
     if (data.containsKey('file_name')) {
@@ -4126,6 +4147,10 @@ class $AttachmentsTable extends Attachments
         DriftSqlType.string,
         data['${effectivePrefix}task_id'],
       ),
+      assetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}asset_id'],
+      ),
       fileName: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}file_name'],
@@ -4191,6 +4216,9 @@ class Attachment extends DataClass implements Insertable<Attachment> {
   final String id;
   final String? projectId;
   final String? taskId;
+
+  /// 关联的同项目资产；null 表示未关联。
+  final String? assetId;
   final String fileName;
   final String storageKey;
   final int sizeBytes;
@@ -4210,6 +4238,7 @@ class Attachment extends DataClass implements Insertable<Attachment> {
     required this.id,
     this.projectId,
     this.taskId,
+    this.assetId,
     required this.fileName,
     required this.storageKey,
     required this.sizeBytes,
@@ -4233,6 +4262,9 @@ class Attachment extends DataClass implements Insertable<Attachment> {
     }
     if (!nullToAbsent || taskId != null) {
       map['task_id'] = Variable<String>(taskId);
+    }
+    if (!nullToAbsent || assetId != null) {
+      map['asset_id'] = Variable<String>(assetId);
     }
     map['file_name'] = Variable<String>(fileName);
     map['storage_key'] = Variable<String>(storageKey);
@@ -4261,6 +4293,9 @@ class Attachment extends DataClass implements Insertable<Attachment> {
       taskId: taskId == null && nullToAbsent
           ? const Value.absent()
           : Value(taskId),
+      assetId: assetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assetId),
       fileName: Value(fileName),
       storageKey: Value(storageKey),
       sizeBytes: Value(sizeBytes),
@@ -4288,6 +4323,7 @@ class Attachment extends DataClass implements Insertable<Attachment> {
       id: serializer.fromJson<String>(json['id']),
       projectId: serializer.fromJson<String?>(json['projectId']),
       taskId: serializer.fromJson<String?>(json['taskId']),
+      assetId: serializer.fromJson<String?>(json['assetId']),
       fileName: serializer.fromJson<String>(json['fileName']),
       storageKey: serializer.fromJson<String>(json['storageKey']),
       sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
@@ -4310,6 +4346,7 @@ class Attachment extends DataClass implements Insertable<Attachment> {
       'id': serializer.toJson<String>(id),
       'projectId': serializer.toJson<String?>(projectId),
       'taskId': serializer.toJson<String?>(taskId),
+      'assetId': serializer.toJson<String?>(assetId),
       'fileName': serializer.toJson<String>(fileName),
       'storageKey': serializer.toJson<String>(storageKey),
       'sizeBytes': serializer.toJson<int>(sizeBytes),
@@ -4330,6 +4367,7 @@ class Attachment extends DataClass implements Insertable<Attachment> {
     String? id,
     Value<String?> projectId = const Value.absent(),
     Value<String?> taskId = const Value.absent(),
+    Value<String?> assetId = const Value.absent(),
     String? fileName,
     String? storageKey,
     int? sizeBytes,
@@ -4347,6 +4385,7 @@ class Attachment extends DataClass implements Insertable<Attachment> {
     id: id ?? this.id,
     projectId: projectId.present ? projectId.value : this.projectId,
     taskId: taskId.present ? taskId.value : this.taskId,
+    assetId: assetId.present ? assetId.value : this.assetId,
     fileName: fileName ?? this.fileName,
     storageKey: storageKey ?? this.storageKey,
     sizeBytes: sizeBytes ?? this.sizeBytes,
@@ -4366,6 +4405,7 @@ class Attachment extends DataClass implements Insertable<Attachment> {
       id: data.id.present ? data.id.value : this.id,
       projectId: data.projectId.present ? data.projectId.value : this.projectId,
       taskId: data.taskId.present ? data.taskId.value : this.taskId,
+      assetId: data.assetId.present ? data.assetId.value : this.assetId,
       fileName: data.fileName.present ? data.fileName.value : this.fileName,
       storageKey: data.storageKey.present
           ? data.storageKey.value
@@ -4396,6 +4436,7 @@ class Attachment extends DataClass implements Insertable<Attachment> {
           ..write('id: $id, ')
           ..write('projectId: $projectId, ')
           ..write('taskId: $taskId, ')
+          ..write('assetId: $assetId, ')
           ..write('fileName: $fileName, ')
           ..write('storageKey: $storageKey, ')
           ..write('sizeBytes: $sizeBytes, ')
@@ -4418,6 +4459,7 @@ class Attachment extends DataClass implements Insertable<Attachment> {
     id,
     projectId,
     taskId,
+    assetId,
     fileName,
     storageKey,
     sizeBytes,
@@ -4439,6 +4481,7 @@ class Attachment extends DataClass implements Insertable<Attachment> {
           other.id == this.id &&
           other.projectId == this.projectId &&
           other.taskId == this.taskId &&
+          other.assetId == this.assetId &&
           other.fileName == this.fileName &&
           other.storageKey == this.storageKey &&
           other.sizeBytes == this.sizeBytes &&
@@ -4458,6 +4501,7 @@ class AttachmentsCompanion extends UpdateCompanion<Attachment> {
   final Value<String> id;
   final Value<String?> projectId;
   final Value<String?> taskId;
+  final Value<String?> assetId;
   final Value<String> fileName;
   final Value<String> storageKey;
   final Value<int> sizeBytes;
@@ -4476,6 +4520,7 @@ class AttachmentsCompanion extends UpdateCompanion<Attachment> {
     this.id = const Value.absent(),
     this.projectId = const Value.absent(),
     this.taskId = const Value.absent(),
+    this.assetId = const Value.absent(),
     this.fileName = const Value.absent(),
     this.storageKey = const Value.absent(),
     this.sizeBytes = const Value.absent(),
@@ -4495,6 +4540,7 @@ class AttachmentsCompanion extends UpdateCompanion<Attachment> {
     required String id,
     this.projectId = const Value.absent(),
     this.taskId = const Value.absent(),
+    this.assetId = const Value.absent(),
     required String fileName,
     required String storageKey,
     required int sizeBytes,
@@ -4521,6 +4567,7 @@ class AttachmentsCompanion extends UpdateCompanion<Attachment> {
     Expression<String>? id,
     Expression<String>? projectId,
     Expression<String>? taskId,
+    Expression<String>? assetId,
     Expression<String>? fileName,
     Expression<String>? storageKey,
     Expression<int>? sizeBytes,
@@ -4540,6 +4587,7 @@ class AttachmentsCompanion extends UpdateCompanion<Attachment> {
       if (id != null) 'id': id,
       if (projectId != null) 'project_id': projectId,
       if (taskId != null) 'task_id': taskId,
+      if (assetId != null) 'asset_id': assetId,
       if (fileName != null) 'file_name': fileName,
       if (storageKey != null) 'storage_key': storageKey,
       if (sizeBytes != null) 'size_bytes': sizeBytes,
@@ -4561,6 +4609,7 @@ class AttachmentsCompanion extends UpdateCompanion<Attachment> {
     Value<String>? id,
     Value<String?>? projectId,
     Value<String?>? taskId,
+    Value<String?>? assetId,
     Value<String>? fileName,
     Value<String>? storageKey,
     Value<int>? sizeBytes,
@@ -4580,6 +4629,7 @@ class AttachmentsCompanion extends UpdateCompanion<Attachment> {
       id: id ?? this.id,
       projectId: projectId ?? this.projectId,
       taskId: taskId ?? this.taskId,
+      assetId: assetId ?? this.assetId,
       fileName: fileName ?? this.fileName,
       storageKey: storageKey ?? this.storageKey,
       sizeBytes: sizeBytes ?? this.sizeBytes,
@@ -4608,6 +4658,9 @@ class AttachmentsCompanion extends UpdateCompanion<Attachment> {
     }
     if (taskId.present) {
       map['task_id'] = Variable<String>(taskId.value);
+    }
+    if (assetId.present) {
+      map['asset_id'] = Variable<String>(assetId.value);
     }
     if (fileName.present) {
       map['file_name'] = Variable<String>(fileName.value);
@@ -4660,6 +4713,7 @@ class AttachmentsCompanion extends UpdateCompanion<Attachment> {
           ..write('id: $id, ')
           ..write('projectId: $projectId, ')
           ..write('taskId: $taskId, ')
+          ..write('assetId: $assetId, ')
           ..write('fileName: $fileName, ')
           ..write('storageKey: $storageKey, ')
           ..write('sizeBytes: $sizeBytes, ')
@@ -10838,6 +10892,24 @@ final class $$AssetsTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static MultiTypedResultKey<$AttachmentsTable, List<Attachment>>
+  _attachmentsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.attachments,
+    aliasName: 'assets__id__attachments__asset_id',
+  );
+
+  $$AttachmentsTableProcessedTableManager get attachmentsRefs {
+    final manager = $$AttachmentsTableTableManager(
+      $_db,
+      $_db.attachments,
+    ).filter((f) => f.assetId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_attachmentsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$AssetsTableFilterComposer
@@ -10953,6 +11025,31 @@ class $$AssetsTableFilterComposer
           ),
     );
     return composer;
+  }
+
+  Expression<bool> attachmentsRefs(
+    Expression<bool> Function($$AttachmentsTableFilterComposer f) f,
+  ) {
+    final $$AttachmentsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.attachments,
+      getReferencedColumn: (t) => t.assetId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AttachmentsTableFilterComposer(
+            $db: $db,
+            $table: $db.attachments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 }
 
@@ -11168,6 +11265,31 @@ class $$AssetsTableAnnotationComposer
     );
     return composer;
   }
+
+  Expression<T> attachmentsRefs<T extends Object>(
+    Expression<T> Function($$AttachmentsTableAnnotationComposer a) f,
+  ) {
+    final $$AttachmentsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.attachments,
+      getReferencedColumn: (t) => t.assetId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AttachmentsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.attachments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$AssetsTableTableManager
@@ -11183,7 +11305,11 @@ class $$AssetsTableTableManager
           $$AssetsTableUpdateCompanionBuilder,
           (Asset, $$AssetsTableReferences),
           Asset,
-          PrefetchHooks Function({bool projectId, bool taskId})
+          PrefetchHooks Function({
+            bool projectId,
+            bool taskId,
+            bool attachmentsRefs,
+          })
         > {
   $$AssetsTableTableManager(_$AppDatabase db, $AssetsTable table)
     : super(
@@ -11272,60 +11398,85 @@ class $$AssetsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({projectId = false, taskId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (projectId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.projectId,
-                                referencedTable: $$AssetsTableReferences
-                                    ._projectIdTable(db),
-                                referencedColumn: $$AssetsTableReferences
-                                    ._projectIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-                    if (taskId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.taskId,
-                                referencedTable: $$AssetsTableReferences
-                                    ._taskIdTable(db),
-                                referencedColumn: $$AssetsTableReferences
-                                    ._taskIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({projectId = false, taskId = false, attachmentsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (attachmentsRefs) db.attachments,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (projectId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.projectId,
+                                    referencedTable: $$AssetsTableReferences
+                                        ._projectIdTable(db),
+                                    referencedColumn: $$AssetsTableReferences
+                                        ._projectIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (taskId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.taskId,
+                                    referencedTable: $$AssetsTableReferences
+                                        ._taskIdTable(db),
+                                    referencedColumn: $$AssetsTableReferences
+                                        ._taskIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (attachmentsRefs)
+                        await $_getPrefetchedData<
+                          Asset,
+                          $AssetsTable,
+                          Attachment
+                        >(
+                          currentTable: table,
+                          referencedTable: $$AssetsTableReferences
+                              ._attachmentsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$AssetsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).attachmentsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.assetId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -11342,7 +11493,11 @@ typedef $$AssetsTableProcessedTableManager =
       $$AssetsTableUpdateCompanionBuilder,
       (Asset, $$AssetsTableReferences),
       Asset,
-      PrefetchHooks Function({bool projectId, bool taskId})
+      PrefetchHooks Function({
+        bool projectId,
+        bool taskId,
+        bool attachmentsRefs,
+      })
     >;
 typedef $$AssetTagsTableCreateCompanionBuilder =
     AssetTagsCompanion Function({
@@ -11909,6 +12064,7 @@ typedef $$AttachmentsTableCreateCompanionBuilder =
       required String id,
       Value<String?> projectId,
       Value<String?> taskId,
+      Value<String?> assetId,
       required String fileName,
       required String storageKey,
       required int sizeBytes,
@@ -11929,6 +12085,7 @@ typedef $$AttachmentsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String?> projectId,
       Value<String?> taskId,
+      Value<String?> assetId,
       Value<String> fileName,
       Value<String> storageKey,
       Value<int> sizeBytes,
@@ -11977,6 +12134,23 @@ final class $$AttachmentsTableReferences
       $_db.tasks,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_taskIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $AssetsTable _assetIdTable(_$AppDatabase db) =>
+      db.assets.createAlias('attachments__asset_id__assets__id');
+
+  $$AssetsTableProcessedTableManager? get assetId {
+    final $_column = $_itemColumn<String>('asset_id');
+    if ($_column == null) return null;
+    final manager = $$AssetsTableTableManager(
+      $_db,
+      $_db.assets,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_assetIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -12100,6 +12274,29 @@ class $$AttachmentsTableFilterComposer
           }) => $$TasksTableFilterComposer(
             $db: $db,
             $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AssetsTableFilterComposer get assetId {
+    final $$AssetsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.assetId,
+      referencedTable: $db.assets,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AssetsTableFilterComposer(
+            $db: $db,
+            $table: $db.assets,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -12234,6 +12431,29 @@ class $$AttachmentsTableOrderingComposer
     );
     return composer;
   }
+
+  $$AssetsTableOrderingComposer get assetId {
+    final $$AssetsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.assetId,
+      referencedTable: $db.assets,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AssetsTableOrderingComposer(
+            $db: $db,
+            $table: $db.assets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$AttachmentsTableAnnotationComposer
@@ -12340,6 +12560,29 @@ class $$AttachmentsTableAnnotationComposer
     );
     return composer;
   }
+
+  $$AssetsTableAnnotationComposer get assetId {
+    final $$AssetsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.assetId,
+      referencedTable: $db.assets,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AssetsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.assets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$AttachmentsTableTableManager
@@ -12355,7 +12598,7 @@ class $$AttachmentsTableTableManager
           $$AttachmentsTableUpdateCompanionBuilder,
           (Attachment, $$AttachmentsTableReferences),
           Attachment,
-          PrefetchHooks Function({bool projectId, bool taskId})
+          PrefetchHooks Function({bool projectId, bool taskId, bool assetId})
         > {
   $$AttachmentsTableTableManager(_$AppDatabase db, $AttachmentsTable table)
     : super(
@@ -12373,6 +12616,7 @@ class $$AttachmentsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String?> projectId = const Value.absent(),
                 Value<String?> taskId = const Value.absent(),
+                Value<String?> assetId = const Value.absent(),
                 Value<String> fileName = const Value.absent(),
                 Value<String> storageKey = const Value.absent(),
                 Value<int> sizeBytes = const Value.absent(),
@@ -12391,6 +12635,7 @@ class $$AttachmentsTableTableManager
                 id: id,
                 projectId: projectId,
                 taskId: taskId,
+                assetId: assetId,
                 fileName: fileName,
                 storageKey: storageKey,
                 sizeBytes: sizeBytes,
@@ -12411,6 +12656,7 @@ class $$AttachmentsTableTableManager
                 required String id,
                 Value<String?> projectId = const Value.absent(),
                 Value<String?> taskId = const Value.absent(),
+                Value<String?> assetId = const Value.absent(),
                 required String fileName,
                 required String storageKey,
                 required int sizeBytes,
@@ -12429,6 +12675,7 @@ class $$AttachmentsTableTableManager
                 id: id,
                 projectId: projectId,
                 taskId: taskId,
+                assetId: assetId,
                 fileName: fileName,
                 storageKey: storageKey,
                 sizeBytes: sizeBytes,
@@ -12452,60 +12699,80 @@ class $$AttachmentsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({projectId = false, taskId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (projectId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.projectId,
-                                referencedTable: $$AttachmentsTableReferences
-                                    ._projectIdTable(db),
-                                referencedColumn: $$AttachmentsTableReferences
-                                    ._projectIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-                    if (taskId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.taskId,
-                                referencedTable: $$AttachmentsTableReferences
-                                    ._taskIdTable(db),
-                                referencedColumn: $$AttachmentsTableReferences
-                                    ._taskIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({projectId = false, taskId = false, assetId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (projectId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.projectId,
+                                    referencedTable:
+                                        $$AttachmentsTableReferences
+                                            ._projectIdTable(db),
+                                    referencedColumn:
+                                        $$AttachmentsTableReferences
+                                            ._projectIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (taskId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.taskId,
+                                    referencedTable:
+                                        $$AttachmentsTableReferences
+                                            ._taskIdTable(db),
+                                    referencedColumn:
+                                        $$AttachmentsTableReferences
+                                            ._taskIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (assetId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.assetId,
+                                    referencedTable:
+                                        $$AttachmentsTableReferences
+                                            ._assetIdTable(db),
+                                    referencedColumn:
+                                        $$AttachmentsTableReferences
+                                            ._assetIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -12522,7 +12789,7 @@ typedef $$AttachmentsTableProcessedTableManager =
       $$AttachmentsTableUpdateCompanionBuilder,
       (Attachment, $$AttachmentsTableReferences),
       Attachment,
-      PrefetchHooks Function({bool projectId, bool taskId})
+      PrefetchHooks Function({bool projectId, bool taskId, bool assetId})
     >;
 typedef $$TimeEntriesTableCreateCompanionBuilder =
     TimeEntriesCompanion Function({

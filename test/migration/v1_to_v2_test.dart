@@ -26,6 +26,28 @@ CREATE TABLE IF NOT EXISTS "projects" (
 );
 ''';
 
+/// v1 的 attachments 表 DDL（与 v2 中该表定义一致，v3 才加 asset_id 列）。
+const _v1AttachmentsDdl = '''
+CREATE TABLE IF NOT EXISTS "attachments" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "project_id" TEXT NULL,
+  "task_id" TEXT NULL,
+  "file_name" TEXT NOT NULL,
+  "storage_key" TEXT NOT NULL,
+  "size_bytes" INTEGER NOT NULL,
+  "sha256" TEXT NOT NULL,
+  "mime_type" TEXT NOT NULL DEFAULT '',
+  "kind" TEXT NOT NULL,
+  "note" TEXT NOT NULL DEFAULT '',
+  "is_local_only" INTEGER NOT NULL DEFAULT 0,
+  "encryption_key" TEXT NOT NULL DEFAULT '',
+  "category_ids_json" TEXT NOT NULL DEFAULT '[]',
+  "created_at" INTEGER NOT NULL,
+  "updated_at" INTEGER NOT NULL,
+  "deleted_at" INTEGER NULL
+);
+''';
+
 void main() {
   late Directory tempDir;
   late File dbFile;
@@ -37,6 +59,7 @@ void main() {
     final raw = sqlite3.open(dbFile.path);
     raw.execute("PRAGMA key = 'test-key'");
     raw.execute(_v1ProjectsDdl);
+    raw.execute(_v1AttachmentsDdl);
     raw.execute(
       "INSERT INTO projects (id, name, description, status, priority, "
       "sort_order, pinned, current_progress, created_at, updated_at) "
@@ -58,7 +81,8 @@ void main() {
     final db = AppDatabase.encrypted(dbFile, key: 'test-key');
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 2);
+    // v1 库逐版本推进：经 v2（里程碑表）一直迁到当前版本。
+    expect(db.schemaVersion, 3);
 
     // 历史数据在迁移后仍可读。
     final projects = await db.select(db.projects).get();
