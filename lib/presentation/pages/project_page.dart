@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../domain/asset_template.dart';
 import '../../domain/attachment_repository.dart';
 import '../../domain/cardory_models.dart';
 import '../cardory_theme.dart';
@@ -32,6 +33,7 @@ class ProjectDetailPage extends StatefulWidget {
     required this.onAddTodo,
     required this.onDeleteTodo,
     this.assetTags = const [],
+    this.templates = const [],
     this.onUpdateAssetsTags,
     this.onAddAssetTag,
     this.onUpdateAssetTag,
@@ -45,6 +47,7 @@ class ProjectDetailPage extends StatefulWidget {
   final List<TodoData> todos;
   final List<AssetData> assets;
   final List<AssetTag> assetTags;
+  final List<AssetTemplate> templates;
   final Future<void> Function(ProjectData project) onUpdateProject;
   final Future<AssetData?> Function() onAddAsset;
   final Future<AssetData?> Function(AssetData asset) onEditAsset;
@@ -148,12 +151,20 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
 
   Future<void> _viewAsset(AssetData asset) async {
     var attachments = List<AttachmentData>.of(_project.attachments);
+    // 读时归一化后按 templateId 找到模板，供详情按模板字段渲染。
+    final templates = [...widget.templates, ...builtInAssetTemplates()];
+    final normalized = normalizeAssetTemplate(asset, templates);
+    AssetTemplate? template;
+    for (final candidate in templates) {
+      if (candidate.id == normalized.templateId) template = candidate;
+    }
     final editRequested = await showDialog<bool>(
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (context, setDialogState) => AssetDetailDialog(
           asset: asset,
           assetTags: widget.assetTags,
+          template: template,
           attachments: attachments,
           onLinkAttachment: (attachment) {
             setDialogState(() {
@@ -301,6 +312,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           ProjectAssetsPanel(
             assets: widget.assets,
             assetTags: widget.assetTags,
+            templates: widget.templates,
             onAdd: () async {
               await widget.onAddAsset();
             },

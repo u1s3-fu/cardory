@@ -1017,6 +1017,7 @@ class _ProjectDetailContent extends StatelessWidget {
       onAddTodo: state._addProjectTodo,
       onDeleteTodo: state._deleteTodo,
       assetTags: state._data.assetTags,
+      templates: state._settings.assetTemplates,
       onUpdateAssetsTags: (assetIds, tagIds) =>
           state._controller.updateAssetsTags(assetIds, tagIds),
       onAddAssetTag: (tag) => state._controller.addAssetTag(tag),

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../domain/asset_template.dart';
 import '../../domain/cardory_models.dart';
 import '../cardory_theme.dart';
 import 'asset_tag_dialogs.dart';
@@ -16,6 +17,7 @@ class ProjectAssetsPanel extends StatefulWidget {
     super.key,
     required this.assets,
     required this.assetTags,
+    this.templates = const [],
     required this.onAdd,
     required this.onView,
     required this.onDelete,
@@ -27,6 +29,9 @@ class ProjectAssetsPanel extends StatefulWidget {
 
   final List<AssetData> assets;
   final List<AssetTag> assetTags;
+
+  /// 资产类型模板清单（含用户自定义）；解析摘要行时与内置模板合并。
+  final List<AssetTemplate> templates;
   final Future<void> Function() onAdd;
   final Future<void> Function(AssetData asset) onView;
   final Future<void> Function(AssetData asset) onDelete;
@@ -228,6 +233,35 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
     );
   }
 
+  /// 资产摘要行：有模板时 `模板名 · 第一个非空字段 label value`，
+  /// 否则回退旧的 software/hardware 分支。
+  String _assetSummary(AssetData asset) {
+    final templates = [...widget.templates, ...builtInAssetTemplates()];
+    final normalized = normalizeAssetTemplate(asset, templates);
+    AssetTemplate? template;
+    for (final candidate in templates) {
+      if (candidate.id == normalized.templateId) template = candidate;
+    }
+    if (template != null) {
+      for (final field in template.fields) {
+        final value = normalized.customFields[field.key] ?? '';
+        if (value.isNotEmpty) return '${template.name} · ${field.label} $value';
+      }
+      return template.name;
+    }
+    return asset.type == AssetType.software
+        ? [
+            if (asset.version.isNotEmpty) '版本 ${asset.version}',
+            if (asset.port.isNotEmpty) '端口 ${asset.port}',
+            if (asset.path.isNotEmpty) asset.path,
+          ].join(' · ')
+        : [
+            if (asset.serverType.isNotEmpty) asset.serverType,
+            if (asset.serialNumber.isNotEmpty) '序列号 ${asset.serialNumber}',
+            if (asset.network.isNotEmpty) asset.network,
+          ].join(' · ');
+  }
+
   Widget _filterChip(String label, String? id) {
     final selected = _filterTagId == id;
     return Padding(
@@ -294,58 +328,50 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
             ),
           ],
           Expanded(
-            child: ListTile(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              onTap: () => widget.onView(asset),
-              leading: Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: cardoryTint(accent, 0.88),
-                  borderRadius: BorderRadius.circular(10),
+            // 卡片底色在 DecoratedBox 上：为 ListTile 补一层透明 Material，
+            // 避免调试模式下背景/水波纹不可见断言。
+            child: Material(
+              type: MaterialType.transparency,
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  asset.type == AssetType.software
-                      ? Icons.apps_outlined
-                      : Icons.dns_outlined,
-                  color: accent,
-                  size: 19,
-                ),
-              ),
-              title: Text(asset.name),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    asset.type == AssetType.software
-                        ? [
-                            if (asset.version.isNotEmpty) '版本 ${asset.version}',
-                            if (asset.port.isNotEmpty) '端口 ${asset.port}',
-                            if (asset.path.isNotEmpty) asset.path,
-                          ].join(' · ')
-                        : [
-                            if (asset.serverType.isNotEmpty) asset.serverType,
-                            if (asset.serialNumber.isNotEmpty)
-                              '序列号 ${asset.serialNumber}',
-                            if (asset.network.isNotEmpty) asset.network,
-                          ].join(' · '),
+                onTap: () => widget.onView(asset),
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: cardoryTint(accent, 0.88),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  if (tagNames.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      '标签：${tagNames.join('、')}',
-                      style: TextStyle(
-                        color: CardoryColors.gray600,
-                        fontSize: 11,
+                  child: Icon(
+                    asset.type == AssetType.software
+                        ? Icons.apps_outlined
+                        : Icons.dns_outlined,
+                    color: accent,
+                    size: 19,
+                  ),
+                ),
+                title: Text(asset.name),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_assetSummary(asset)),
+                    if (tagNames.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '标签：${tagNames.join('、')}',
+                        style: TextStyle(
+                          color: CardoryColors.gray600,
+                          fontSize: 11,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
+                isThreeLine: tagNames.isNotEmpty,
               ),
-              isThreeLine: tagNames.isNotEmpty,
             ),
           ),
           if (_selectedIds.isEmpty)

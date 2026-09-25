@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/asset_template.dart';
 import '../../domain/cardory_models.dart';
 import '../cardory_theme.dart';
 
 /// 资产详情对话框：展示资产字段、标签、关联附件与变动记录。
+///
+/// 传入 [template] 时按模板字段渲染自定义字段；为 null 时回退旧的
+/// software/hardware 分支渲染（保底兼容旧调用点）。
 class AssetDetailDialog extends StatelessWidget {
   const AssetDetailDialog({
     super.key,
     required this.asset,
     this.assetTags = const [],
+    this.template,
     this.attachments = const [],
     this.onLinkAttachment,
     this.onUnlinkAttachment,
@@ -16,6 +21,9 @@ class AssetDetailDialog extends StatelessWidget {
 
   final AssetData asset;
   final List<AssetTag> assetTags;
+
+  /// 资产所属模板；null 时回退旧类型分支渲染。
+  final AssetTemplate? template;
 
   /// 当前项目全部附件；仅展示 assetId 匹配本资产的行。
   final List<AttachmentData> attachments;
@@ -27,6 +35,12 @@ class AssetDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSoftware = asset.type == AssetType.software;
+    final template = this.template;
+    // 读时归一化：补齐 templateId 并从旧顶层键回填 customFields。
+    final normalized = normalizeAssetTemplate(asset, [
+      if (template != null) template,
+      ...builtInAssetTemplates(),
+    ]);
     final tagById = {for (final tag in assetTags) tag.id: tag.name};
     final tagNames = [
       for (final id in asset.tagIds)
@@ -54,7 +68,13 @@ class AssetDetailDialog extends StatelessWidget {
               if (tagNames.isNotEmpty)
                 _AssetDetailRow(label: '标签', value: tagNames.join('、')),
               const SizedBox(height: 12),
-              if (isSoftware) ...[
+              if (template case final AssetTemplate assetTemplate?)
+                for (final field in assetTemplate.fields)
+                  _AssetDetailRow(
+                    label: field.label,
+                    value: normalized.customFields[field.key] ?? '',
+                  )
+              else if (isSoftware) ...[
                 _AssetDetailRow(label: '版本', value: asset.version),
                 _AssetDetailRow(label: '端口', value: asset.port),
                 _AssetDetailRow(label: '路径', value: asset.path),
