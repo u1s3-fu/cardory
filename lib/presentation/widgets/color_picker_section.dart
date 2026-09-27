@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../cardory_theme.dart';
 
-/// 背景色 / 强调色编辑区。
+/// 背景色 / 强调色切换式编辑区。
 ///
-/// 内部管理两个主题色的预设色点、三通道滑块与十六进制输入，
+/// 顶部 SegmentedButton 切换编辑目标，下方只渲染一份预设色点、
+/// 三通道滑块与十六进制输入，作用于当前选中的颜色；
 /// 颜色变化时通过 [onChanged] 实时上报（供外层在保存时读取）。
 class ColorPickerSection extends StatefulWidget {
   const ColorPickerSection({
@@ -26,6 +27,9 @@ class ColorPickerSection extends StatefulWidget {
   State<ColorPickerSection> createState() => _ColorPickerSectionState();
 }
 
+/// 当前编辑目标。
+enum _ColorTarget { background, accent }
+
 class _ColorPickerSectionState extends State<ColorPickerSection> {
   late int _backgroundColorValue = widget.initialBackgroundColor;
   late int _themeColorValue = widget.initialThemeColor;
@@ -35,6 +39,7 @@ class _ColorPickerSectionState extends State<ColorPickerSection> {
   late final TextEditingController _themeHex = TextEditingController(
     text: _themeColorHex(_themeColorValue),
   );
+  _ColorTarget _target = _ColorTarget.background;
 
   // 强调色预设（品牌主色）。
   static const _colors = [
@@ -57,64 +62,91 @@ class _ColorPickerSectionState extends State<ColorPickerSection> {
     0xFF161B22,
   ];
 
-  int _colorChannel(double value) =>
-      (value * 255).round().clamp(0, 255).toInt();
+  int get _activeValue => switch (_target) {
+    _ColorTarget.background => _backgroundColorValue,
+    _ColorTarget.accent => _themeColorValue,
+  };
+  List<int> get _activePresets => switch (_target) {
+    _ColorTarget.background => _backgroundColors,
+    _ColorTarget.accent => _colors,
+  };
+  TextEditingController get _activeHex => switch (_target) {
+    _ColorTarget.background => _backgroundHex,
+    _ColorTarget.accent => _themeHex,
+  };
+  String get _activeHexLabel =>
+      _target == _ColorTarget.background ? '背景色十六进制' : '强调色十六进制';
+  String get _activeHexHint =>
+      _target == _ColorTarget.background ? '#F5F6FC' : '#6B62DF';
+  String get _activeKeyPrefix =>
+      _target == _ColorTarget.background ? 'background-color' : 'theme-color';
 
-  void _notify() =>
-      widget.onChanged?.call(_backgroundColorValue, _themeColorValue);
-
-  void _setThemeColor(int value, {bool updateHex = true}) {
-    setState(() => _themeColorValue = value);
-    if (updateHex) _themeHex.text = _themeColorHex(value);
-    _notify();
+  void _setActiveColor(int value) {
+    if (_target == _ColorTarget.background) {
+      _setBackgroundColor(value);
+    } else {
+      _setThemeColor(value);
+    }
   }
 
-  void _setThemeChannel({int? red, int? green, int? blue}) {
-    final current = Color(_themeColorValue);
-    _setThemeColor(
-      Color.fromARGB(
-        255,
-        red ?? _colorChannel(current.r),
-        green ?? _colorChannel(current.g),
-        blue ?? _colorChannel(current.b),
-      ).toARGB32(),
-    );
+  void _setActiveHex(String hex) {
+    if (_target == _ColorTarget.background) {
+      _setBackgroundHex(hex);
+    } else {
+      _setThemeHex(hex);
+    }
   }
 
-  void _setThemeHex(String value) {
-    final normalized = value.replaceFirst('#', '');
-    if (!RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(normalized)) return;
-    _setThemeColor(
-      0xFF000000 | int.parse(normalized, radix: 16),
-      updateHex: false,
-    );
+  void _setActiveChannel({int? red, int? green, int? blue}) {
+    if (_target == _ColorTarget.background) {
+      _setBackgroundChannel(red: red, green: green, blue: blue);
+    } else {
+      _setThemeChannel(red: red, green: green, blue: blue);
+    }
   }
 
-  void _setBackgroundColor(int value, {bool updateHex = true}) {
-    setState(() => _backgroundColorValue = value);
-    if (updateHex) _backgroundHex.text = _themeColorHex(value);
-    _notify();
+  void _setBackgroundColor(int value) {
+    setState(() {
+      _backgroundColorValue = value;
+      _backgroundHex.value = TextEditingValue(
+        text: _themeColorHex(value),
+        selection: TextSelection.collapsed(offset: 7),
+      );
+    });
+    widget.onChanged?.call(_backgroundColorValue, _themeColorValue);
+  }
+
+  void _setThemeColor(int value) {
+    setState(() {
+      _themeColorValue = value;
+      _themeHex.value = TextEditingValue(
+        text: _themeColorHex(value),
+        selection: TextSelection.collapsed(offset: 7),
+      );
+    });
+    widget.onChanged?.call(_backgroundColorValue, _themeColorValue);
   }
 
   void _setBackgroundChannel({int? red, int? green, int? blue}) {
     final current = Color(_backgroundColorValue);
     _setBackgroundColor(
-      Color.fromARGB(
-        255,
-        red ?? _colorChannel(current.r),
-        green ?? _colorChannel(current.g),
-        blue ?? _colorChannel(current.b),
-      ).toARGB32(),
+      _withChannels(current, red: red, green: green, blue: blue),
     );
   }
 
-  void _setBackgroundHex(String value) {
-    final normalized = value.replaceFirst('#', '');
-    if (!RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(normalized)) return;
-    _setBackgroundColor(
-      0xFF000000 | int.parse(normalized, radix: 16),
-      updateHex: false,
-    );
+  void _setThemeChannel({int? red, int? green, int? blue}) {
+    final current = Color(_themeColorValue);
+    _setThemeColor(_withChannels(current, red: red, green: green, blue: blue));
+  }
+
+  void _setBackgroundHex(String hex) {
+    final value = _parseHex(hex);
+    if (value != null) _setBackgroundColor(value);
+  }
+
+  void _setThemeHex(String hex) {
+    final value = _parseHex(hex);
+    if (value != null) _setThemeColor(value);
   }
 
   @override
@@ -136,12 +168,23 @@ class _ColorPickerSectionState extends State<ColorPickerSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('背景色', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text('主题色与背景', style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
+          SegmentedButton<_ColorTarget>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: _ColorTarget.background, label: Text('背景色')),
+              ButtonSegment(value: _ColorTarget.accent, label: Text('强调色')),
+            ],
+            selected: {_target},
+            onSelectionChanged: (selection) =>
+                setState(() => _target = selection.first),
+          ),
+          const SizedBox(height: 12),
           Container(
             height: 40,
             decoration: BoxDecoration(
-              color: Color(_backgroundColorValue),
+              color: Color(_activeValue),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: CardoryColors.gray200),
             ),
@@ -151,11 +194,11 @@ class _ColorPickerSectionState extends State<ColorPickerSection> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final color in _backgroundColors)
+              for (final color in _activePresets)
                 _ColorDot(
                   color: color,
-                  selected: _backgroundColorValue == color,
-                  onTap: () => _setBackgroundColor(color),
+                  selected: _activeValue == color,
+                  onTap: () => _setActiveColor(color),
                 ),
             ],
           ),
@@ -163,100 +206,58 @@ class _ColorPickerSectionState extends State<ColorPickerSection> {
           _ColorChannelSlider(
             channel: 'red',
             label: '红',
-            value: _colorChannel(Color(_backgroundColorValue).r),
+            value: _colorChannel(Color(_activeValue).r),
             color: Colors.red,
-            keyPrefix: 'background-color',
-            onChanged: (value) => _setBackgroundChannel(red: value),
+            keyPrefix: _activeKeyPrefix,
+            onChanged: (value) => _setActiveChannel(red: value),
           ),
           _ColorChannelSlider(
             channel: 'green',
             label: '绿',
-            value: _colorChannel(Color(_backgroundColorValue).g),
+            value: _colorChannel(Color(_activeValue).g),
             color: Colors.green,
-            keyPrefix: 'background-color',
-            onChanged: (value) => _setBackgroundChannel(green: value),
+            keyPrefix: _activeKeyPrefix,
+            onChanged: (value) => _setActiveChannel(green: value),
           ),
           _ColorChannelSlider(
             channel: 'blue',
             label: '蓝',
-            value: _colorChannel(Color(_backgroundColorValue).b),
+            value: _colorChannel(Color(_activeValue).b),
             color: Colors.blue,
-            keyPrefix: 'background-color',
-            onChanged: (value) => _setBackgroundChannel(blue: value),
+            keyPrefix: _activeKeyPrefix,
+            onChanged: (value) => _setActiveChannel(blue: value),
           ),
           TextField(
-            controller: _backgroundHex,
+            controller: _activeHex,
             maxLength: 7,
-            decoration: const InputDecoration(
-              labelText: '背景色十六进制',
-              hintText: '#F5F6FC',
+            decoration: InputDecoration(
+              labelText: _activeHexLabel,
+              hintText: _activeHexHint,
               counterText: '',
             ),
-            onChanged: _setBackgroundHex,
-          ),
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 16),
-          const Text('强调色', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 10),
-          Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: Color(_themeColorValue),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: CardoryColors.gray200),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final color in _colors)
-                _ColorDot(
-                  color: color,
-                  selected: _themeColorValue == color,
-                  onTap: () => _setThemeColor(color),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _ColorChannelSlider(
-            channel: 'red',
-            label: '红',
-            value: _colorChannel(Color(_themeColorValue).r),
-            color: Colors.red,
-            onChanged: (value) => _setThemeChannel(red: value),
-          ),
-          _ColorChannelSlider(
-            channel: 'green',
-            label: '绿',
-            value: _colorChannel(Color(_themeColorValue).g),
-            color: Colors.green,
-            onChanged: (value) => _setThemeChannel(green: value),
-          ),
-          _ColorChannelSlider(
-            channel: 'blue',
-            label: '蓝',
-            value: _colorChannel(Color(_themeColorValue).b),
-            color: Colors.blue,
-            onChanged: (value) => _setThemeChannel(blue: value),
-          ),
-          TextField(
-            controller: _themeHex,
-            maxLength: 7,
-            decoration: const InputDecoration(
-              labelText: '强调色十六进制',
-              hintText: '#6B62DF',
-              counterText: '',
-            ),
-            onChanged: _setThemeHex,
+            onChanged: _setActiveHex,
           ),
         ],
       ),
     );
   }
 }
+
+int _colorChannel(double value) => (value * 255).round().clamp(0, 255).toInt();
+
+int? _parseHex(String hex) {
+  final normalized = hex.trim().replaceFirst('#', '').toUpperCase();
+  if (normalized.length != 6) return null;
+  final value = int.tryParse(normalized, radix: 16);
+  if (value == null) return null;
+  return 0xFF000000 | value;
+}
+
+int _withChannels(Color color, {int? red, int? green, int? blue}) =>
+    (0xFF << 24) |
+    ((red ?? _colorChannel(color.r)) << 16) |
+    ((green ?? _colorChannel(color.g)) << 8) |
+    (blue ?? _colorChannel(color.b));
 
 /// 可点的预设色圆点，用于颜色快捷选择。
 class _ColorDot extends StatelessWidget {

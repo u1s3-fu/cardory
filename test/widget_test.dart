@@ -920,6 +920,9 @@ void main() {
     expect(find.text('自动设置子任务提醒时间'), findsNothing);
 
     expect(find.text('自定义主题颜色'), findsNothing);
+    // 切换式颜色编辑区默认编辑背景色，先切到「强调色」标签再拖滑条。
+    await tester.tap(find.text('强调色'));
+    await tester.pump();
     final redSlider = find.byKey(const Key('theme-color-red-slider'));
     await tester.ensureVisible(redSlider);
     final redBefore = tester.widget<Slider>(redSlider).value;
