@@ -1,4 +1,4 @@
-// AppSettings 承载资产模板清单：默认内置模板、JSON 往返、copyWith 与配置同步。
+// AppSettings 承载资产模板清单：默认内置种子、JSON 往返、copyWith 与配置同步。
 
 import 'package:cardory/domain/app_settings.dart';
 import 'package:cardory/domain/asset_template.dart';
@@ -6,13 +6,19 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('AppSettings.assetTemplates', () {
-    test('assetTemplates 默认内置模板，JSON 往返无损', () {
+    test('assetTemplates 默认内置种子（软件/硬件），JSON 往返无损', () {
       const settings = AppSettings();
 
-      expect(settings.assetTemplates.length, 4);
+      expect(settings.assetTemplates.map((t) => t.id), [
+        'tpl-software',
+        'tpl-hardware',
+      ]);
       final json = settings.toJson();
       final restored = AppSettings.fromJson(json);
-      expect(restored.assetTemplates.length, 4);
+      expect(restored.assetTemplates.map((t) => t.id), [
+        'tpl-software',
+        'tpl-hardware',
+      ]);
       expect(restored.assetTemplates.first.id, 'tpl-software');
     });
 
@@ -36,14 +42,12 @@ void main() {
       expect(settings.assetTemplates.single.fields.single.key, 'owner');
     });
 
-    test('fromJson 空 assetTemplates 回退内置模板', () {
+    test('fromJson 空 assetTemplates 保持为空（用户已删光，不被内置种子复活）', () {
       final settings = AppSettings.fromJson(const {
         'assetTemplates': <Map<String, dynamic>>[],
       });
 
-      expect(settings.assetTemplates.length, 4);
-      expect(settings.assetTemplates.every((t) => t.builtIn), isTrue);
-      expect(settings.assetTemplates.first.id, 'tpl-software');
+      expect(settings.assetTemplates, isEmpty);
     });
 
     test('copyWith 可替换 assetTemplates', () {
@@ -54,7 +58,7 @@ void main() {
 
       expect(updated.assetTemplates, same(custom));
       // 原设置不受影响。
-      expect(settings.assetTemplates.length, 4);
+      expect(settings.assetTemplates.length, 2);
     });
 
     test('toSyncConfigJson 携带 assetTemplates', () {
@@ -63,7 +67,7 @@ void main() {
       final syncJson = settings.toSyncConfigJson();
 
       expect(syncJson['assetTemplates'], isA<List>());
-      expect((syncJson['assetTemplates'] as List), hasLength(4));
+      expect((syncJson['assetTemplates'] as List), hasLength(2));
     });
 
     test('applySyncConfig 应用云端模板清单', () {

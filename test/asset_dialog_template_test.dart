@@ -4,6 +4,23 @@ import 'package:cardory/presentation/pages/asset_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// 域名模板不再内置（内置默认仅软件/硬件），测试以自定义模板等价复刻。
+const _domainTemplate = AssetTemplate(
+  id: 'tpl-domain',
+  name: '域名',
+  builtIn: false,
+  fields: [
+    AssetTemplateField(key: 'registrar', label: '注册商'),
+    AssetTemplateField(
+      key: 'expiryDate',
+      label: '到期日',
+      kind: AssetFieldKind.date,
+      required: true,
+      remind: true,
+    ),
+  ],
+);
+
 void main() {
   AssetDialogResult? result;
 
@@ -28,7 +45,7 @@ void main() {
                     builder: (_) => AssetDialog(
                       asset: asset,
                       templates: templates.isEmpty
-                          ? builtInAssetTemplates()
+                          ? [...builtInAssetTemplates(), _domainTemplate]
                           : templates,
                     ),
                   );
@@ -151,9 +168,10 @@ void main() {
   });
 
   group('编辑模板已禁用的存量资产（I-1 回归）', () {
-    List<AssetTemplate> templatesWithDomainDisabled() => builtInAssetTemplates()
-        .map((t) => t.id == 'tpl-domain' ? t.copyWith(enabled: false) : t)
-        .toList();
+    List<AssetTemplate> templatesWithDomainDisabled() =>
+        [...builtInAssetTemplates(), _domainTemplate]
+            .map((t) => t.id == 'tpl-domain' ? t.copyWith(enabled: false) : t)
+            .toList();
 
     const domainAsset = AssetData(
       id: 'asset-domain-1',
@@ -201,7 +219,6 @@ void main() {
       expect(find.text('域名'), findsNothing);
       expect(find.text('域名（已禁用）'), findsNothing);
       expect(find.text('硬件'), findsOneWidget);
-      expect(find.text('SSL 证书'), findsOneWidget);
     });
   });
 }

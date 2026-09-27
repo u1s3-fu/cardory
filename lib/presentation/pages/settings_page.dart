@@ -201,27 +201,26 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 enabled: value ?? true,
               );
             }),
-            secondary: _assetTemplates[index].builtIn
-                ? null
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        key: Key('edit-template-${_assetTemplates[index].id}'),
-                        tooltip: '编辑模板',
-                        onPressed: () => _editTemplate(index),
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                      ),
-                      IconButton(
-                        key: Key(
-                          'delete-template-${_assetTemplates[index].id}',
-                        ),
-                        tooltip: '删除模板',
-                        onPressed: () => _deleteTemplate(index),
-                        icon: const Icon(Icons.delete_outline, size: 20),
-                      ),
-                    ],
+            secondary: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!_assetTemplates[index].builtIn)
+                  IconButton(
+                    key: Key('edit-template-${_assetTemplates[index].id}'),
+                    tooltip: '编辑模板',
+                    onPressed: () => _editTemplate(index),
+                    icon: const Icon(Icons.edit_outlined, size: 20),
                   ),
+                // 所有模板（含内置）均可删除；内置模板删除后仍可作为
+                // 自定义模板重建，旧数据由字段 key 兜底渲染。
+                IconButton(
+                  key: Key('delete-template-${_assetTemplates[index].id}'),
+                  tooltip: '删除模板',
+                  onPressed: () => _deleteTemplate(index),
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                ),
+              ],
+            ),
           ),
         Align(
           alignment: Alignment.centerRight,

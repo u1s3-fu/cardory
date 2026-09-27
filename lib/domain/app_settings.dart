@@ -65,13 +65,14 @@ class AppSettings {
   /// 本地配置最近一次被修改的时间（用于与云端配置比较新旧）。
   final DateTime? lastConfigUpdatedAt;
 
-  /// 资产类型模板清单；未配置或为空时视为使用内置模板。
+  /// 资产类型模板清单；null 表示未配置（回退内置种子清单），
+  /// 空列表表示用户已显式删除全部模板，应予尊重。
   final List<AssetTemplate>? _assetTemplates;
 
-  /// 资产类型模板清单，未配置时回退到内置模板清单。
+  /// 资产类型模板清单：未配置时回退内置模板种子，显式空列表保持为空。
   List<AssetTemplate> get assetTemplates {
     final templates = _assetTemplates;
-    if (templates == null || templates.isEmpty) {
+    if (templates == null) {
       return builtInAssetTemplates();
     }
     return templates;
@@ -123,8 +124,8 @@ class AppSettings {
     lastConfigUpdatedAt: DateTime.tryParse(
       json['lastConfigUpdatedAt'] as String? ?? '',
     ),
-    assetTemplates: ((json['assetTemplates'] as List?) ?? [])
-        .whereType<Map<String, dynamic>>()
+    assetTemplates: (json['assetTemplates'] as List?)
+        ?.whereType<Map<String, dynamic>>()
         .map(AssetTemplate.fromJson)
         .toList(),
   );
@@ -152,7 +153,9 @@ class AppSettings {
     'lastSyncedAt': lastSyncedAt?.toIso8601String(),
     'configSyncHash': configSyncHash,
     'lastConfigUpdatedAt': lastConfigUpdatedAt?.toIso8601String(),
-    'assetTemplates': assetTemplates.map((t) => t.toJson()).toList(),
+    'assetTemplates': (_assetTemplates ?? builtInAssetTemplates())
+        .map((t) => t.toJson())
+        .toList(),
   };
 
   /// 生成仅包含可云端同步配置字段的 JSON 子集。
@@ -178,7 +181,9 @@ class AppSettings {
     's3Region': s3Region,
     's3Bucket': s3Bucket,
     's3Prefix': s3Prefix,
-    'assetTemplates': assetTemplates.map((t) => t.toJson()).toList(),
+    'assetTemplates': (_assetTemplates ?? builtInAssetTemplates())
+        .map((t) => t.toJson())
+        .toList(),
   };
 
   /// 应用一份云端配置子集到当前设置。

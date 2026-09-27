@@ -136,6 +136,11 @@ List<AssetTemplate> enabledAssetTemplates(List<AssetTemplate> templates) =>
     templates.where((t) => t.enabled).toList(growable: false);
 
 /// 内置模板清单（每处调用返回新实例，防止共享可变状态）。
+///
+/// 仅保留软件/硬件两套：既是新装设备的默认种子，也是旧数据
+/// （AssetType software/hardware）读时归一化的映射锚点，故不可为空。
+/// 域名/证书等类型由用户以自定义模板创建；历史版本下发过的
+/// tpl-domain/tpl-cert 作为存储条目保留在既有设备的设置里，可删除。
 List<AssetTemplate> builtInAssetTemplates() => [
   AssetTemplate(
     id: 'tpl-software',
@@ -157,36 +162,6 @@ List<AssetTemplate> builtInAssetTemplates() => [
       AssetTemplateField(key: 'serialNumber', label: '服务器序列号'),
       AssetTemplateField(key: 'network', label: '网络 / IP / 网段'),
       AssetTemplateField(key: 'serverType', label: '服务器类型'),
-    ],
-  ),
-  AssetTemplate(
-    id: 'tpl-domain',
-    name: '域名',
-    builtIn: true,
-    fields: const [
-      AssetTemplateField(key: 'registrar', label: '注册商'),
-      AssetTemplateField(
-        key: 'expiryDate',
-        label: '到期日',
-        kind: AssetFieldKind.date,
-        required: true,
-        remind: true,
-      ),
-    ],
-  ),
-  AssetTemplate(
-    id: 'tpl-cert',
-    name: 'SSL 证书',
-    builtIn: true,
-    fields: const [
-      AssetTemplateField(key: 'issuer', label: '签发方'),
-      AssetTemplateField(
-        key: 'expiryDate',
-        label: '到期日',
-        kind: AssetFieldKind.date,
-        required: true,
-        remind: true,
-      ),
     ],
   ),
 ];

@@ -36,7 +36,7 @@ Future<void> pumpSettings(
 );
 
 void main() {
-  testWidgets('设置页展示资产模板分区与四个内置模板名称及字段清单', (tester) async {
+  testWidgets('设置页展示资产模板分区与两套内置模板名称及字段清单', (tester) async {
     SettingsResult? captured;
     await pumpSettings(tester, onSave: (value) => captured = value);
     await tester.pumpAndSettle();
@@ -44,22 +44,21 @@ void main() {
     expect(find.text('资产模板'), findsOneWidget);
     expect(find.text('软件'), findsOneWidget);
     expect(find.text('硬件'), findsOneWidget);
-    expect(find.text('域名'), findsOneWidget);
-    expect(find.text('SSL 证书'), findsOneWidget);
+    // 域名/证书已移出内置默认，由用户以自定义模板创建。
+    expect(find.text('域名'), findsNothing);
+    expect(find.text('SSL 证书'), findsNothing);
     // 字段清单只读展示。
     expect(find.textContaining('版本、端口、路径'), findsOneWidget);
     expect(find.textContaining('服务器序列号'), findsOneWidget);
-    expect(find.textContaining('注册商'), findsOneWidget);
-    expect(find.textContaining('签发方'), findsOneWidget);
     expect(captured, isNull);
   });
 
-  testWidgets('切换 tpl-domain 开关后保存回调中该模板 enabled == false', (tester) async {
+  testWidgets('切换 tpl-software 开关后保存回调中该模板 enabled == false', (tester) async {
     SettingsResult? captured;
     await pumpSettings(tester, onSave: (value) => captured = value);
     await tester.pumpAndSettle();
 
-    final tile = find.byKey(const Key('asset-template-tpl-domain'));
+    final tile = find.byKey(const Key('asset-template-tpl-software'));
     await tester.ensureVisible(tile);
     await tester.tap(tile);
     await tester.pumpAndSettle();
@@ -71,12 +70,50 @@ void main() {
 
     expect(captured, isNotNull);
     final templates = captured!.settings.assetTemplates;
-    // 禁止把清单存成空列表。
-    expect(templates, hasLength(4));
-    expect(templates.firstWhere((t) => t.id == 'tpl-domain').enabled, isFalse);
-    for (final id in ['tpl-software', 'tpl-hardware', 'tpl-cert']) {
-      expect(templates.firstWhere((t) => t.id == id).enabled, isTrue);
-    }
+    expect(templates, hasLength(2));
+    expect(
+      templates.firstWhere((t) => t.id == 'tpl-software').enabled,
+      isFalse,
+    );
+    expect(templates.firstWhere((t) => t.id == 'tpl-hardware').enabled, isTrue);
+  });
+
+  testWidgets('删除内置模板：确认后保存回调不含该模板', (tester) async {
+    SettingsResult? captured;
+    await pumpSettings(tester, onSave: (value) => captured = value);
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(const Key('delete-template-tpl-hardware'));
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('硬件'), findsNothing);
+
+    final saveButton = find.text('保存设置');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    final templates = captured!.settings.assetTemplates;
+    expect(templates, hasLength(1));
+    expect(templates.single.id, 'tpl-software');
+  });
+
+  test('显式空模板清单往返保持为空；未配置回退内置种子', () {
+    // 用户删光全部模板后应持久化为空，而不是被内置清单复活。
+    final empty = AppSettings(assetTemplates: const []);
+    expect(empty.assetTemplates, isEmpty);
+    final restored = AppSettings.fromJson(empty.toJson());
+    expect(restored.assetTemplates, isEmpty);
+
+    // 未配置（null）→ 内置种子两套。
+    expect(const AppSettings().assetTemplates.map((t) => t.id), [
+      'tpl-software',
+      'tpl-hardware',
+    ]);
   });
 
   test('下发过滤回归：enabledAssetTemplates 结果不含被禁用模板', () {
@@ -89,11 +126,7 @@ void main() {
       ),
     ];
     final enabled = enabledAssetTemplates(templates);
-    expect(enabled.map((t) => t.id), [
-      'tpl-software',
-      'tpl-domain',
-      'tpl-cert',
-    ]);
+    expect(enabled.map((t) => t.id), ['tpl-software']);
     expect(enabled.any((t) => t.id == 'tpl-hardware'), isFalse);
   });
 
@@ -137,7 +170,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final templates = captured!.settings.assetTemplates;
-    expect(templates, hasLength(5));
+    expect(templates, hasLength(3));
     final custom = templates.lastWhere((t) => t.id.startsWith('tpl-custom-'));
     expect(custom.name, 'VPS');
     expect(custom.builtIn, isFalse);
@@ -177,7 +210,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final templates = captured!.settings.assetTemplates;
-    expect(templates, hasLength(5));
+    expect(templates, hasLength(3));
     expect(templates.firstWhere((t) => t.id == 'tpl-custom-1').name, '新模板');
     expect(
       templates.firstWhere((t) => t.id == 'tpl-custom-1').fields.single.key,
@@ -217,7 +250,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final templates = captured!.settings.assetTemplates;
-    expect(templates, hasLength(4));
+    expect(templates, hasLength(2));
     expect(templates.any((t) => t.id == 'tpl-custom-1'), isFalse);
   });
 }

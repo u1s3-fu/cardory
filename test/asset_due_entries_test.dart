@@ -18,12 +18,27 @@ AssetData _asset(
   customFields: customFields,
 );
 
+/// 域名模板不再内置（内置默认仅软件/硬件），测试以自定义模板等价复刻。
+const _domainTemplate = AssetTemplate(
+  id: 'tpl-domain',
+  name: '域名',
+  builtIn: false,
+  fields: [
+    AssetTemplateField(key: 'registrar', label: '注册商'),
+    AssetTemplateField(
+      key: 'expiryDate',
+      label: '到期日',
+      kind: AssetFieldKind.date,
+      required: true,
+      remind: true,
+    ),
+  ],
+);
+
 void main() {
   group('assetDueEntries', () {
     test('用例 1：域名资产 expiryDate 产出一条到期条目', () {
-      final tpl = builtInAssetTemplates().firstWhere(
-        (t) => t.id == 'tpl-domain',
-      );
+      final tpl = _domainTemplate;
       final assets = [
         _asset(
           'a1',
@@ -89,9 +104,7 @@ void main() {
     });
 
     test('用例 3：非法日期值静默跳过，不抛异常', () {
-      final tpl = builtInAssetTemplates().firstWhere(
-        (t) => t.id == 'tpl-domain',
-      );
+      final tpl = _domainTemplate;
       final assets = [
         _asset(
           'a3',
@@ -106,9 +119,7 @@ void main() {
     });
 
     test('用例 4：bounds 过滤含首尾日，界外剔除', () {
-      final tpl = builtInAssetTemplates().firstWhere(
-        (t) => t.id == 'tpl-domain',
-      );
+      final tpl = _domainTemplate;
       final assets = [
         _asset(
           'before',
@@ -156,9 +167,7 @@ void main() {
     });
 
     test('用例 5：不同日期条目按日期升序排序', () {
-      final tpl = builtInAssetTemplates().firstWhere(
-        (t) => t.id == 'tpl-domain',
-      );
+      final tpl = _domainTemplate;
       final assets = [
         _asset(
           'late',

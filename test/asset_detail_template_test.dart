@@ -7,8 +7,27 @@ import 'package:cardory/presentation/widgets/asset_detail_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AssetTemplate _template(String id) =>
-    builtInAssetTemplates().firstWhere((t) => t.id == id);
+/// 域名模板不再内置（内置默认仅软件/硬件），测试以自定义模板等价复刻。
+const _domainTemplate = AssetTemplate(
+  id: 'tpl-domain',
+  name: '域名',
+  builtIn: false,
+  fields: [
+    AssetTemplateField(key: 'registrar', label: '注册商'),
+    AssetTemplateField(
+      key: 'expiryDate',
+      label: '到期日',
+      kind: AssetFieldKind.date,
+      required: true,
+      remind: true,
+    ),
+  ],
+);
+
+AssetTemplate _template(String id) => builtInAssetTemplates().firstWhere(
+  (t) => t.id == id,
+  orElse: () => _domainTemplate,
+);
 
 Future<void> _pumpDetail(
   WidgetTester tester,
@@ -30,7 +49,7 @@ Future<void> _pumpPanel(WidgetTester tester, List<AssetData> assets) =>
             child: ProjectAssetsPanel(
               assets: assets,
               assetTags: const [],
-              templates: builtInAssetTemplates(),
+              templates: [...builtInAssetTemplates(), _domainTemplate],
               onAdd: () async {},
               onView: (_) async {},
               onDelete: (_) async {},
