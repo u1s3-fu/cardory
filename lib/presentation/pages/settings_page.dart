@@ -50,8 +50,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
   late bool _keepAttachmentExtensionOnRename =
       widget.settings.keepAttachmentExtensionOnRename;
   late bool _autoLockEnabled = widget.settings.autoLockEnabled;
-  late final List<String> _serverTypes = [...widget.settings.serverTypes];
-  final TextEditingController _newServerType = TextEditingController();
   late final List<AssetTemplate> _assetTemplates = [
     ...widget.settings.assetTemplates,
   ];
@@ -66,7 +64,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
 
   @override
   void dispose() {
-    _newServerType.dispose();
     _localDataPath.dispose();
     super.dispose();
   }
@@ -141,49 +138,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
           onChanged: (value) =>
               setState(() => _keepAttachmentExtensionOnRename = value),
         ),
-        const SizedBox(height: 22),
-        const Text('服务器类型', style: TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        const Text('用于硬件资产分类，例如物理服务器、虚拟机、NAS。'),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _newServerType,
-                decoration: const InputDecoration(labelText: '新增服务器类型'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: () {
-                final type = _newServerType.text.trim();
-                if (type.isNotEmpty && !_serverTypes.contains(type)) {
-                  setState(() {
-                    _serverTypes.add(type);
-                    _newServerType.clear();
-                  });
-                }
-              },
-              child: const Text('添加'),
-            ),
-          ],
-        ),
-        if (_serverTypes.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: _serverTypes
-                .map(
-                  (type) => InputChip(
-                    label: Text(type),
-                    onDeleted: () => setState(() => _serverTypes.remove(type)),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
         const SizedBox(height: 22),
         const Text('资产模板', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
@@ -329,7 +283,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
         renameAttachmentsOnUpload: _renameAttachmentsOnUpload,
         keepAttachmentExtensionOnRename: _keepAttachmentExtensionOnRename,
         autoLockEnabled: _autoLockEnabled,
-        serverTypes: _serverTypes,
         assetTemplates: List.of(_assetTemplates),
         syncProvider: sync?.provider == SyncProviderType.selfHosted
             ? SyncProviderType.none

@@ -17,7 +17,6 @@ class AssetDialog extends StatefulWidget {
     this.asset,
     this.projectId = '',
     required this.templates,
-    this.serverTypes = const [],
     this.assetTags = const [],
   });
 
@@ -30,7 +29,6 @@ class AssetDialog extends StatefulWidget {
   /// 也会作为唯一额外可选项出现（label 加「（已禁用）」后缀），
   /// 以保证存量资产的模板字段数据不被静默改挂清空。
   final List<AssetTemplate> templates;
-  final List<String> serverTypes;
   final List<AssetTag> assetTags;
 
   @override

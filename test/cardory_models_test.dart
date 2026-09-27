@@ -334,12 +334,6 @@ void main() {
       expect(restored.assets.last.password, 'secret');
     });
 
-    test('round-trips server types in settings', () {
-      const settings = AppSettings(serverTypes: ['物理服务器', '虚拟机']);
-
-      expect(AppSettings.fromJson(settings.toJson()), settings);
-    });
-
     test('round-trips asset tags and multi-tag assets', () {
       final restored = CardoryData.fromJson(
         CardoryData(

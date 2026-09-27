@@ -17,7 +17,6 @@ class AppSettings {
     this.renameAttachmentsOnUpload = true,
     this.keepAttachmentExtensionOnRename = false,
     this.autoLockEnabled = true,
-    this.serverTypes = const [],
     this.syncProvider = SyncProviderType.none,
     this.syncDirectoryPath = '',
     this.webDavUrl = '',
@@ -44,7 +43,6 @@ class AppSettings {
   final bool renameAttachmentsOnUpload;
   final bool keepAttachmentExtensionOnRename;
   final bool autoLockEnabled;
-  final List<String> serverTypes;
   final SyncProviderType syncProvider;
   final String syncDirectoryPath;
   final String webDavUrl;
@@ -93,11 +91,6 @@ class AppSettings {
     keepAttachmentExtensionOnRename:
         json['keepAttachmentExtensionOnRename'] as bool? ?? false,
     autoLockEnabled: json['autoLockEnabled'] as bool? ?? true,
-    serverTypes: ((json['serverTypes'] as List?) ?? [])
-        .whereType<String>()
-        .map((type) => type.trim())
-        .where((type) => type.isNotEmpty)
-        .toList(),
     syncProvider:
         SyncProviderType.values
             .where((value) => value.name == json['syncProvider'])
@@ -137,7 +130,6 @@ class AppSettings {
     'renameAttachmentsOnUpload': renameAttachmentsOnUpload,
     'keepAttachmentExtensionOnRename': keepAttachmentExtensionOnRename,
     'autoLockEnabled': autoLockEnabled,
-    'serverTypes': serverTypes,
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -171,7 +163,6 @@ class AppSettings {
     'renameAttachmentsOnUpload': renameAttachmentsOnUpload,
     'keepAttachmentExtensionOnRename': keepAttachmentExtensionOnRename,
     'autoLockEnabled': autoLockEnabled,
-    'serverTypes': serverTypes,
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -199,7 +190,6 @@ class AppSettings {
       renameAttachmentsOnUpload: remote.renameAttachmentsOnUpload,
       keepAttachmentExtensionOnRename: remote.keepAttachmentExtensionOnRename,
       autoLockEnabled: remote.autoLockEnabled,
-      serverTypes: remote.serverTypes,
       syncProvider: remote.syncProvider,
       syncDirectoryPath: remote.syncDirectoryPath,
       webDavUrl: remote.webDavUrl,
@@ -230,7 +220,6 @@ class AppSettings {
     bool? renameAttachmentsOnUpload,
     bool? keepAttachmentExtensionOnRename,
     bool? autoLockEnabled,
-    List<String>? serverTypes,
     SyncProviderType? syncProvider,
     String? syncDirectoryPath,
     String? webDavUrl,
@@ -260,7 +249,6 @@ class AppSettings {
     keepAttachmentExtensionOnRename:
         keepAttachmentExtensionOnRename ?? this.keepAttachmentExtensionOnRename,
     autoLockEnabled: autoLockEnabled ?? this.autoLockEnabled,
-    serverTypes: serverTypes ?? this.serverTypes,
     syncProvider: syncProvider ?? this.syncProvider,
     syncDirectoryPath: syncDirectoryPath ?? this.syncDirectoryPath,
     webDavUrl: webDavUrl ?? this.webDavUrl,
@@ -294,7 +282,6 @@ class AppSettings {
       other.keepAttachmentExtensionOnRename ==
           keepAttachmentExtensionOnRename &&
       other.autoLockEnabled == autoLockEnabled &&
-      _stringListsEqual(other.serverTypes, serverTypes) &&
       other.syncProvider == syncProvider &&
       other.syncDirectoryPath == syncDirectoryPath &&
       other.webDavUrl == webDavUrl &&
@@ -336,7 +323,6 @@ class AppSettings {
     lastSyncedAt,
     configSyncHash,
     lastConfigUpdatedAt,
-    Object.hashAll(serverTypes),
     Object.hashAll(pendingAttachmentDeletes),
   ]);
 }

@@ -604,12 +604,7 @@ void main() {
   testWidgets('asset dialog switches fields by asset type', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: AssetDialog(
-            templates: builtInAssetTemplates(),
-            serverTypes: ['物理服务器'],
-          ),
-        ),
+        home: Scaffold(body: AssetDialog(templates: builtInAssetTemplates())),
       ),
     );
 
