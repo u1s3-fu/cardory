@@ -45,4 +45,26 @@ void main() {
     await _pump(tester, [_att('att-2', '合同.pdf', assetId: null)]);
     expect(find.text('合同.pdf'), findsNothing);
   });
+
+  testWidgets('模板缺失时按字段 key 兜底渲染自定义字段', (tester) async {
+    // 删除自定义模板后的存量资产：templateId 悬空、template 传 null，
+    // 详情应把 customFields 以 key 兜底展示，而不是静默丢弃。
+    final asset =
+        const AssetData(
+          id: 'a1',
+          type: AssetType.software,
+          name: 'Nginx',
+        ).copyWith(
+          templateId: 'tpl-gone',
+          customFields: const {'registrar': 'Aliyun'},
+        );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: AssetDetailDialog(asset: asset)),
+      ),
+    );
+
+    expect(find.text('registrar'), findsOneWidget);
+    expect(find.text('Aliyun'), findsOneWidget);
+  });
 }

@@ -19,12 +19,13 @@ class _InMemoryCredentialStore implements SyncCredentialStore {
 Future<void> pumpSettings(
   WidgetTester tester, {
   required ValueChanged<SettingsResult> onSave,
+  AppSettings settings = const AppSettings(),
 }) => tester.pumpWidget(
   MaterialApp(
     home: Scaffold(
       body: SingleChildScrollView(
         child: SettingsDialog(
-          settings: const AppSettings(),
+          settings: settings,
           credentialStore: _InMemoryCredentialStore(),
           embedded: true,
           onSave: onSave,
@@ -106,5 +107,117 @@ void main() {
     final restored = AssetTemplate.fromJson(disabled.toJson());
     expect(restored.enabled, isFalse);
     expect(restored.copyWith().enabled, isFalse);
+  });
+
+  testWidgets('新增自定义模板：编辑器保存后出现在列表，保存回调含四个内置模板', (tester) async {
+    SettingsResult? captured;
+    await pumpSettings(tester, onSave: (value) => captured = value);
+    await tester.pumpAndSettle();
+
+    final addButton = find.byKey(const Key('add-asset-template'));
+    await tester.ensureVisible(addButton);
+    await tester.tap(addButton);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('template-name-field')), 'VPS');
+    await tester.tap(find.byKey(const Key('add-template-field')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('template-field-label-new')),
+      '机房',
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('VPS'), findsOneWidget);
+
+    final saveButton = find.text('保存设置');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    final templates = captured!.settings.assetTemplates;
+    expect(templates, hasLength(5));
+    final custom = templates.lastWhere((t) => t.id.startsWith('tpl-custom-'));
+    expect(custom.name, 'VPS');
+    expect(custom.builtIn, isFalse);
+    expect(custom.fields.single.label, '机房');
+  });
+
+  testWidgets('编辑自定义模板：改名后保存回调更新，字段保留', (tester) async {
+    const custom = AssetTemplate(
+      id: 'tpl-custom-1',
+      name: '旧模板',
+      fields: [AssetTemplateField(key: 'c-abc', label: '机房')],
+    );
+    SettingsResult? captured;
+    await pumpSettings(
+      tester,
+      onSave: (value) => captured = value,
+      settings: AppSettings(
+        assetTemplates: [...builtInAssetTemplates(), custom],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final editButton = find.byKey(const Key('edit-template-tpl-custom-1'));
+    await tester.ensureVisible(editButton);
+    await tester.tap(editButton);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('template-name-field')), '新模板');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新模板'), findsOneWidget);
+
+    final saveButton = find.text('保存设置');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    final templates = captured!.settings.assetTemplates;
+    expect(templates, hasLength(5));
+    expect(templates.firstWhere((t) => t.id == 'tpl-custom-1').name, '新模板');
+    expect(
+      templates.firstWhere((t) => t.id == 'tpl-custom-1').fields.single.key,
+      'c-abc',
+    );
+  });
+
+  testWidgets('删除自定义模板：确认后从列表移除，内置模板不受影响', (tester) async {
+    const custom = AssetTemplate(
+      id: 'tpl-custom-1',
+      name: '旧模板',
+      fields: [AssetTemplateField(key: 'c-abc', label: '机房')],
+    );
+    SettingsResult? captured;
+    await pumpSettings(
+      tester,
+      onSave: (value) => captured = value,
+      settings: AppSettings(
+        assetTemplates: [...builtInAssetTemplates(), custom],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(const Key('delete-template-tpl-custom-1'));
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('旧模板'), findsNothing);
+
+    final saveButton = find.text('保存设置');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    final templates = captured!.settings.assetTemplates;
+    expect(templates, hasLength(4));
+    expect(templates.any((t) => t.id == 'tpl-custom-1'), isFalse);
   });
 }

@@ -75,6 +75,16 @@ class AssetDetailDialog extends StatelessWidget {
                     label: field.label,
                     value: normalized.customFields[field.key] ?? '',
                   )
+              // 模板缺失（如自定义模板已删除）时按字段 key 兜底展示，
+              // 不静默丢弃数据；templateId 命中内置模板但未传 template 的
+              // 旧调用点仍走下方类型分支。
+              else if (normalized.templateId.isNotEmpty &&
+                  normalized.customFields.isNotEmpty &&
+                  !builtInAssetTemplates().any(
+                    (t) => t.id == normalized.templateId,
+                  ))
+                for (final entry in normalized.customFields.entries)
+                  _AssetDetailRow(label: entry.key, value: entry.value)
               else if (isSoftware) ...[
                 _AssetDetailRow(label: '版本', value: asset.version),
                 _AssetDetailRow(label: '端口', value: asset.port),

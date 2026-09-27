@@ -11,6 +11,7 @@ import '../model_labels.dart';
 import '../settings_models.dart';
 import '../widgets/color_picker_section.dart';
 import '../widgets/sync_settings_section.dart';
+import 'asset_template_editor_dialog.dart';
 import 'settings_panel.dart' show isCloudSync;
 
 class SettingsDialog extends StatefulWidget {
@@ -186,7 +187,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         const SizedBox(height: 22),
         const Text('资产模板', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
-        const Text('控制登记资产时可用的类型模板，禁用后该类型不再出现。'),
+        const Text('控制登记资产时可用的类型模板；可禁用内置模板，或新增自定义模板。'),
         const SizedBox(height: 10),
         for (var index = 0; index < _assetTemplates.length; index++)
           CheckboxListTile(
@@ -200,7 +201,37 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 enabled: value ?? true,
               );
             }),
+            secondary: _assetTemplates[index].builtIn
+                ? null
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        key: Key('edit-template-${_assetTemplates[index].id}'),
+                        tooltip: '编辑模板',
+                        onPressed: () => _editTemplate(index),
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                      ),
+                      IconButton(
+                        key: Key(
+                          'delete-template-${_assetTemplates[index].id}',
+                        ),
+                        tooltip: '删除模板',
+                        onPressed: () => _deleteTemplate(index),
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                      ),
+                    ],
+                  ),
           ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton.tonalIcon(
+            key: const Key('add-asset-template'),
+            onPressed: _addTemplate,
+            icon: const Icon(Icons.add),
+            label: const Text('新增自定义模板'),
+          ),
+        ),
       ],
       if (_shows(SettingsCategoryType.security)) ...[
         const SizedBox(height: 22),
@@ -245,6 +276,48 @@ class _SettingsDialogState extends State<SettingsDialog> {
       template.fields.isEmpty
       ? '无自定义字段'
       : template.fields.map((f) => f.label).join('、');
+
+  Future<void> _addTemplate() async {
+    final template = await showDialog<AssetTemplate>(
+      context: context,
+      builder: (_) => const AssetTemplateEditorDialog(),
+    );
+    if (template == null) return;
+    setState(() => _assetTemplates.add(template));
+  }
+
+  Future<void> _editTemplate(int index) async {
+    final template = await showDialog<AssetTemplate>(
+      context: context,
+      builder: (_) =>
+          AssetTemplateEditorDialog(initial: _assetTemplates[index]),
+    );
+    if (template == null) return;
+    setState(() => _assetTemplates[index] = template);
+  }
+
+  Future<void> _deleteTemplate(int index) async {
+    final template = _assetTemplates[index];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除模板'),
+        content: Text('删除模板「${template.name}」？已登记的该类型资产将回退为通用字段展示。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _assetTemplates.removeAt(index));
+  }
 
   SettingsResult _result() {
     final sync = _syncSectionKey.currentState?.collect();
