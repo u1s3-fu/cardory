@@ -17,6 +17,8 @@ class AppSettings {
     this.renameAttachmentsOnUpload = true,
     this.keepAttachmentExtensionOnRename = false,
     this.autoLockEnabled = true,
+    this.dueRemindersEnabled = true,
+    this.dueReminderLeadDays = 7,
     this.syncProvider = SyncProviderType.none,
     this.syncDirectoryPath = '',
     this.webDavUrl = '',
@@ -43,6 +45,12 @@ class AppSettings {
   final bool renameAttachmentsOnUpload;
   final bool keepAttachmentExtensionOnRename;
   final bool autoLockEnabled;
+
+  /// 资产到期系统通知提醒开关（默认开；关闭后仅日历展示到期条目）。
+  final bool dueRemindersEnabled;
+
+  /// 到期提醒提前天数窗口（1/3/7/14）。
+  final int dueReminderLeadDays;
   final SyncProviderType syncProvider;
   final String syncDirectoryPath;
   final String webDavUrl;
@@ -91,6 +99,8 @@ class AppSettings {
     keepAttachmentExtensionOnRename:
         json['keepAttachmentExtensionOnRename'] as bool? ?? false,
     autoLockEnabled: json['autoLockEnabled'] as bool? ?? true,
+    dueRemindersEnabled: json['dueRemindersEnabled'] as bool? ?? true,
+    dueReminderLeadDays: json['dueReminderLeadDays'] as int? ?? 7,
     syncProvider:
         SyncProviderType.values
             .where((value) => value.name == json['syncProvider'])
@@ -130,6 +140,8 @@ class AppSettings {
     'renameAttachmentsOnUpload': renameAttachmentsOnUpload,
     'keepAttachmentExtensionOnRename': keepAttachmentExtensionOnRename,
     'autoLockEnabled': autoLockEnabled,
+    'dueRemindersEnabled': dueRemindersEnabled,
+    'dueReminderLeadDays': dueReminderLeadDays,
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -163,6 +175,8 @@ class AppSettings {
     'renameAttachmentsOnUpload': renameAttachmentsOnUpload,
     'keepAttachmentExtensionOnRename': keepAttachmentExtensionOnRename,
     'autoLockEnabled': autoLockEnabled,
+    'dueRemindersEnabled': dueRemindersEnabled,
+    'dueReminderLeadDays': dueReminderLeadDays,
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -190,6 +204,8 @@ class AppSettings {
       renameAttachmentsOnUpload: remote.renameAttachmentsOnUpload,
       keepAttachmentExtensionOnRename: remote.keepAttachmentExtensionOnRename,
       autoLockEnabled: remote.autoLockEnabled,
+      dueRemindersEnabled: remote.dueRemindersEnabled,
+      dueReminderLeadDays: remote.dueReminderLeadDays,
       syncProvider: remote.syncProvider,
       syncDirectoryPath: remote.syncDirectoryPath,
       webDavUrl: remote.webDavUrl,
@@ -220,6 +236,8 @@ class AppSettings {
     bool? renameAttachmentsOnUpload,
     bool? keepAttachmentExtensionOnRename,
     bool? autoLockEnabled,
+    bool? dueRemindersEnabled,
+    int? dueReminderLeadDays,
     SyncProviderType? syncProvider,
     String? syncDirectoryPath,
     String? webDavUrl,
@@ -249,6 +267,8 @@ class AppSettings {
     keepAttachmentExtensionOnRename:
         keepAttachmentExtensionOnRename ?? this.keepAttachmentExtensionOnRename,
     autoLockEnabled: autoLockEnabled ?? this.autoLockEnabled,
+    dueRemindersEnabled: dueRemindersEnabled ?? this.dueRemindersEnabled,
+    dueReminderLeadDays: dueReminderLeadDays ?? this.dueReminderLeadDays,
     syncProvider: syncProvider ?? this.syncProvider,
     syncDirectoryPath: syncDirectoryPath ?? this.syncDirectoryPath,
     webDavUrl: webDavUrl ?? this.webDavUrl,
@@ -282,6 +302,8 @@ class AppSettings {
       other.keepAttachmentExtensionOnRename ==
           keepAttachmentExtensionOnRename &&
       other.autoLockEnabled == autoLockEnabled &&
+      other.dueRemindersEnabled == dueRemindersEnabled &&
+      other.dueReminderLeadDays == dueReminderLeadDays &&
       other.syncProvider == syncProvider &&
       other.syncDirectoryPath == syncDirectoryPath &&
       other.webDavUrl == webDavUrl &&
@@ -309,6 +331,8 @@ class AppSettings {
     renameAttachmentsOnUpload,
     keepAttachmentExtensionOnRename,
     autoLockEnabled,
+    dueRemindersEnabled,
+    dueReminderLeadDays,
     syncProvider,
     syncDirectoryPath,
     webDavUrl,

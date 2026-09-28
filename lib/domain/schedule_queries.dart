@@ -123,6 +123,7 @@ class AssetDueEntry {
     required this.date,
     required this.fieldLabel,
     required this.title,
+    this.fieldKey = '',
   });
 
   final String assetId;
@@ -133,6 +134,9 @@ class AssetDueEntry {
 
   /// 字段标签，例：「到期日」。
   final String fieldLabel;
+
+  /// 到期字段的模板 key（提醒去重键使用；旧调用方可缺省为空）。
+  final String fieldKey;
 
   /// 展示标题，例：「到期日 · example.com」。
   final String title;
@@ -170,6 +174,7 @@ List<AssetDueEntry> assetDueEntries(
           assetName: asset.name,
           date: day,
           fieldLabel: field.label,
+          fieldKey: field.key,
           title: '${field.label} · ${asset.name}',
         ),
       );

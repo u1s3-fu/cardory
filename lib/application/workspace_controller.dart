@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../domain/cardory_models.dart';
 import '../domain/attachment_repository.dart';
 import '../domain/cardory_repository.dart';
+import '../domain/due_reminder_service.dart';
+import '../domain/schedule_queries.dart';
 import '../domain/sync_status.dart';
 import '../domain/widget_data_service.dart';
 import '../domain/workspace_sync_service.dart';
@@ -24,8 +26,12 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     required this.attachmentRepositoryFactory,
     this.rowLevelStore,
     WidgetDataService widgetDataService = const NullWidgetDataService(),
+    // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头。
+    DueReminderService dueReminderService = const NullDueReminderService(),
     // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头，无法用 this._widgetDataService。
-  }) : _widgetDataService = widgetDataService {
+  }) : _widgetDataService = widgetDataService,
+       // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头。
+       _dueReminderService = dueReminderService {
     syncService.addListener(_notifySyncChanged);
   }
 
@@ -36,6 +42,10 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
   final AttachmentRepositoryFactory attachmentRepositoryFactory;
   final RowLevelWorkspaceStore? rowLevelStore;
   final WidgetDataService _widgetDataService;
+  final DueReminderService _dueReminderService;
+
+  /// 用户拒绝通知权限后本会话内不再重复请求（可去系统设置里重新开启）。
+  bool _dueReminderPermissionDenied = false;
   static const _mutations = WorkspaceMutationService();
   final _listeners = <WorkspaceListener>{};
 
@@ -103,6 +113,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     _error = null;
     _notifyListeners();
     _updateWidget();
+    await _runDueReminders();
   }
 
   /// 以数据库回读结果刷新内存投影（不触发附件迁移/清理等一次性逻辑）。
@@ -121,10 +132,11 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     }
   }
 
-  /// 行级写入成功后的统一收尾：回读投影 + 刷新桌面小组件摘要。
+  /// 行级写入成功后的统一收尾：回读投影 + 刷新桌面小组件摘要 + 刷新到期提醒。
   Future<void> _afterWrite() async {
     await _refreshFromRepository();
     _updateWidget();
+    await _runDueReminders();
   }
 
   Future<void> applySettings(
@@ -138,6 +150,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     await settingsService.apply(withTimestamp, credentials: credentials);
     _settings = withTimestamp;
     _notifyListeners();
+    await _runDueReminders();
   }
 
   Future<void> synchronize() async {
@@ -362,6 +375,55 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
       // 小组件更新失败不影响主流程，但留日志便于排查
       debugPrint('WorkspaceController.updateWidgetData failed: $e');
     });
+  }
+
+  /// 扫描资产到期并驱动系统通知（解锁加载、数据写入、设置变更后调用）。
+  ///
+  /// 提醒失败绝不阻断主流程；未开启时清空全部预约通知。
+  Future<void> _runDueReminders() async {
+    try {
+      if (!_settings.dueRemindersEnabled) {
+        await _dueReminderService.cancelAll();
+        return;
+      }
+      final today = localDayKey(DateTime.now());
+      final horizon = today.add(Duration(days: _settings.dueReminderLeadDays));
+      List<AssetDueEntry> entriesIn(DateTime start, DateTime end) =>
+          assetDueEntries(
+            _data.assets,
+            _settings.assetTemplates,
+            bounds: (start, end),
+          );
+      final notifiedKeys = await _dueReminderService.loadNotifiedKeys();
+      final plan = planDueReminders(
+        overdue: entriesIn(
+          today.subtract(const Duration(days: 3)),
+          today.subtract(const Duration(days: 1)),
+        ),
+        dueToday: entriesIn(today, today),
+        upcoming: entriesIn(today.add(const Duration(days: 1)), horizon),
+        notifiedKeys: notifiedKeys,
+      );
+      if (!_dueReminderPermissionDenied &&
+          (plan.immediate.isNotEmpty || plan.scheduled.isNotEmpty)) {
+        final granted = await _dueReminderService.ensurePermissions();
+        if (!granted) {
+          _dueReminderPermissionDenied = true;
+          return;
+        }
+      }
+      await _dueReminderService.cancelAll();
+      for (final payload in plan.immediate) {
+        await _dueReminderService.notify(payload);
+      }
+      for (final reminder in plan.scheduled) {
+        await _dueReminderService.schedule(reminder);
+      }
+      await _dueReminderService.saveNotifiedKeys(plan.nextState);
+    } catch (error) {
+      // 提醒是附加能力：扫描或通知失败只留日志，不影响数据操作。
+      debugPrint('WorkspaceController.runDueReminders failed: $error');
+    }
   }
 
   void _notifySyncChanged() => _notifyListeners();

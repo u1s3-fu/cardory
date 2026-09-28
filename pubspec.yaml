@@ -53,6 +53,9 @@ dependencies:
   timezone: ^0.9.4
   sqlite3: ^3.5.2
   uuid: ^4.6.0
+  flutter_local_notifications: ^18.0.1
+  shared_preferences: ^2.5.5
+  flutter_timezone: ^5.1.0
 
 dev_dependencies:
   flutter_test:

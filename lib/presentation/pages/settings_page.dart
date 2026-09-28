@@ -50,6 +50,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
   late bool _keepAttachmentExtensionOnRename =
       widget.settings.keepAttachmentExtensionOnRename;
   late bool _autoLockEnabled = widget.settings.autoLockEnabled;
+  late bool _dueRemindersEnabled = widget.settings.dueRemindersEnabled;
+  late int _dueReminderLeadDays = widget.settings.dueReminderLeadDays;
   late final List<AssetTemplate> _assetTemplates = [
     ...widget.settings.assetTemplates,
   ];
@@ -185,6 +187,35 @@ class _SettingsDialogState extends State<SettingsDialog> {
             label: const Text('新增自定义模板'),
           ),
         ),
+        const SizedBox(height: 12),
+        SwitchListTile.adaptive(
+          key: const Key('due-reminders-enabled'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('资产到期系统通知'),
+          subtitle: const Text('到期日提醒进入系统通知（应用内日历始终展示）'),
+          value: _dueRemindersEnabled,
+          onChanged: (value) => setState(() => _dueRemindersEnabled = value),
+        ),
+        if (_dueRemindersEnabled)
+          DropdownButtonFormField<int>(
+            key: const Key('due-reminder-lead-days'),
+            initialValue: _dueReminderLeadDays,
+            decoration: const InputDecoration(
+              labelText: '到期提醒提前天数',
+              helperText: '扫描未来 N 天内到期的资产并预约通知',
+            ),
+            items: const [1, 3, 7, 14]
+                .map(
+                  (days) =>
+                      DropdownMenuItem(value: days, child: Text('提前 $days 天')),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _dueReminderLeadDays = value);
+              }
+            },
+          ),
       ],
       if (_shows(SettingsCategoryType.security)) ...[
         const SizedBox(height: 22),
@@ -283,6 +314,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
         renameAttachmentsOnUpload: _renameAttachmentsOnUpload,
         keepAttachmentExtensionOnRename: _keepAttachmentExtensionOnRename,
         autoLockEnabled: _autoLockEnabled,
+        dueRemindersEnabled: _dueRemindersEnabled,
+        dueReminderLeadDays: _dueReminderLeadDays,
         assetTemplates: List.of(_assetTemplates),
         syncProvider: sync?.provider == SyncProviderType.selfHosted
             ? SyncProviderType.none

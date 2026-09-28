@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/row_level_workspace_store.dart';
@@ -9,8 +11,10 @@ import '../data/runtime/sqlcipher_vault_store.dart';
 import '../domain/attachment_repository.dart';
 import '../domain/cardory_models.dart';
 import '../domain/cardory_repository.dart';
+import '../domain/due_reminder_service.dart';
 import '../domain/widget_data_service.dart';
 import '../services/home_widget_data_service.dart';
+import '../services/local_due_reminder_service.dart';
 import '../sync/sync_coordinator.dart';
 import '../sync/sync_credentials.dart';
 import '../sync/sync_provider_registry.dart';
@@ -53,6 +57,14 @@ final syncProviderFactoryProvider = Provider<SyncProviderFactory>(
 final widgetDataServiceProvider = Provider<WidgetDataService>(
   (ref) => const HomeWidgetDataService(),
 );
+
+/// 到期提醒服务：通知基础设施仅移动端接入，桌面端空实现。
+final dueReminderServiceProvider = Provider<DueReminderService>((ref) {
+  if (Platform.isAndroid || Platform.isIOS) {
+    return LocalDueReminderService();
+  }
+  return const NullDueReminderService();
+});
 
 final attachmentRepositoryFactoryProvider =
     Provider<AttachmentRepositoryFactory>((ref) => AttachmentStore.forDataFile);

@@ -1,9 +1,11 @@
 import 'dart:typed_data';
 
 import 'package:cardory/domain/attachment_repository.dart';
+import 'package:cardory/domain/due_reminder_service.dart';
 import 'package:cardory/domain/widget_data_service.dart';
 import 'package:cardory/application/workspace_controller.dart';
 import 'package:cardory/application/workspace_settings_service.dart';
+import 'package:cardory/domain/asset_template.dart';
 import 'package:cardory/domain/cardory_repository.dart';
 import 'package:cardory/domain/cardory_models.dart';
 import 'package:cardory/sync/sync_credentials.dart';
@@ -145,6 +147,86 @@ void main() {
       expect(controller.settings.pendingAttachmentDeletes, [
         'attachment-1.cardory-attachment',
       ]);
+    },
+  );
+
+  test(
+    'due reminders fire on load, dedupe on reload, and honor settings',
+    () async {
+      final today = DateTime.now();
+      final todayKey =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      final repository =
+          _MemoryRepository(
+              CardoryData(
+                projects: const [],
+                todos: const [],
+                assets: [
+                  AssetData(
+                    id: 'asset-due',
+                    type: AssetType.software,
+                    name: '到期资产',
+                    templateId: 'tpl-test',
+                    customFields: {'expireDate': todayKey},
+                  ),
+                ],
+              ),
+            )
+            ..settings = const AppSettings(
+              assetTemplates: [
+                AssetTemplate(
+                  id: 'tpl-test',
+                  name: '测试模板',
+                  fields: [
+                    AssetTemplateField(
+                      key: 'expireDate',
+                      label: '注册到期',
+                      kind: AssetFieldKind.date,
+                      remind: true,
+                    ),
+                  ],
+                ),
+              ],
+            );
+      final reminderService = _RecordingReminderService();
+      final reminderController = WorkspaceController(
+        repository: repository,
+        vaultRepository: repository,
+        settingsService: WorkspaceSettingsService(
+          repository: repository,
+          credentialStore: _Credentials(),
+        ),
+        syncService: SyncCoordinator(
+          repository: repository,
+          providerFactory: (_) async =>
+              throw const SyncUnavailableException('not used'),
+          attachmentRepositoryFactory: (_) => attachments,
+        ),
+        attachmentRepositoryFactory: (_) => attachments,
+        widgetDataService: widgetService,
+        dueReminderService: reminderService,
+      );
+      addTearDown(reminderController.dispose);
+
+      await reminderController.initialize(await repository.load());
+      // 当日到期：立即通知一次，标题沿用「字段标签 · 资产名」。
+      expect(reminderService.notified.length, 1);
+      expect(reminderService.notified.single.title, '注册到期 · 到期资产');
+      expect(reminderService.notified.single.body, '今天到期');
+      expect(reminderService.state, isNotEmpty);
+
+      // 重新加载：去重状态生效，不再重复通知。
+      await reminderController.reload();
+      expect(reminderService.notified.length, 1);
+
+      // 关闭提醒开关：清空全部通知且不再扫描。
+      reminderService.notified.clear();
+      repository.settings = repository.settings.copyWith(
+        dueRemindersEnabled: false,
+      );
+      await reminderController.reload();
+      expect(reminderService.notified, isEmpty);
+      expect(reminderService.cancelAllCount, greaterThanOrEqualTo(1));
     },
   );
 }
@@ -305,6 +387,39 @@ class _RecordingWidgetService implements WidgetDataService {
 
   @override
   Future<void> clearWidgetData() async => clearCount++;
+}
+
+/// 记录到期提醒调用的假服务（授权默认通过，状态保存在内存）。
+class _RecordingReminderService implements DueReminderService {
+  bool permissionsGranted = true;
+  int permissionRequests = 0;
+  int cancelAllCount = 0;
+  final List<DueReminderPayload> notified = [];
+  final List<ScheduledDueReminder> scheduled = [];
+  Set<String> state = {};
+
+  @override
+  Future<bool> ensurePermissions() async {
+    permissionRequests++;
+    return permissionsGranted;
+  }
+
+  @override
+  Future<void> notify(DueReminderPayload payload) async =>
+      notified.add(payload);
+
+  @override
+  Future<void> schedule(ScheduledDueReminder reminder) async =>
+      scheduled.add(reminder);
+
+  @override
+  Future<void> cancelAll() async => cancelAllCount++;
+
+  @override
+  Future<Set<String>> loadNotifiedKeys() async => state;
+
+  @override
+  Future<void> saveNotifiedKeys(Set<String> keys) async => state = keys;
 }
 
 class _Credentials implements SyncCredentialStore {

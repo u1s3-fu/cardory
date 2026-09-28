@@ -16,6 +16,7 @@ import '../data/db/app_database.dart' as db;
 import '../domain/attachment_repository.dart';
 import '../domain/cardory_models.dart';
 import '../domain/cardory_repository.dart';
+import '../domain/due_reminder_service.dart';
 import '../domain/sync_credentials.dart';
 import '../domain/widget_data_service.dart';
 import '../providers/app_providers.dart';
@@ -72,6 +73,7 @@ class CardoryApp extends StatefulWidget {
     VaultCredentialStore? vaultCredentialStore,
     SyncProviderFactory? providerFactory,
     WidgetDataService? widgetDataService,
+    DueReminderService? dueReminderService,
     AttachmentRepositoryFactory? attachmentRepositoryFactory,
     RowLevelWorkspaceStoreBuilder? rowLevelStoreBuilder,
     TimeTrackingStoreBuilder? timeTrackingStoreBuilder,
@@ -86,6 +88,8 @@ class CardoryApp extends StatefulWidget {
        // ignore: prefer_initializing_formals
        _providerFactory = providerFactory,
        _widgetDataService = widgetDataService ?? const HomeWidgetDataService(),
+       _dueReminderService =
+           dueReminderService ?? const NullDueReminderService(),
        _attachmentRepositoryFactory =
            attachmentRepositoryFactory ?? AttachmentStore.forDataFile,
        // ignore: prefer_initializing_formals
@@ -111,6 +115,7 @@ class CardoryApp extends StatefulWidget {
   final VaultCredentialStore vaultCredentialStore;
   final SyncProviderFactory? _providerFactory;
   final WidgetDataService _widgetDataService;
+  final DueReminderService _dueReminderService;
   final AttachmentRepositoryFactory _attachmentRepositoryFactory;
   final RowLevelWorkspaceStoreBuilder? _rowLevelStoreBuilder;
   final TimeTrackingStoreBuilder? _timeTrackingStoreBuilder;
@@ -139,11 +144,13 @@ class CardoryApp extends StatefulWidget {
         attachmentRepositoryFactory: attachmentRepositoryFactory,
         rowLevelStoreBuilder: _rowLevelStoreBuilder,
         widgetDataService: widgetDataService,
+        dueReminderService: _dueReminderService,
       );
 
   SyncProviderFactory get providerFactory =>
       _providerFactory ?? defaultSyncProviderFactory(credentialStore);
   WidgetDataService get widgetDataService => _widgetDataService;
+  DueReminderService get dueReminderService => _dueReminderService;
   AttachmentRepositoryFactory get attachmentRepositoryFactory =>
       _attachmentRepositoryFactory;
   Future<void> Function(AppSettings, SyncCredentials) get connectionTester =>
@@ -338,6 +345,7 @@ void runCardoryApp() {
           vaultCredentialStore: ref.watch(vaultCredentialStoreProvider),
           providerFactory: ref.watch(syncProviderFactoryProvider),
           widgetDataService: ref.watch(widgetDataServiceProvider),
+          dueReminderService: ref.watch(dueReminderServiceProvider),
           attachmentRepositoryFactory: ref.watch(
             attachmentRepositoryFactoryProvider,
           ),

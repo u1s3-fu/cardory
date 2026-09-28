@@ -1,5 +1,6 @@
 import '../domain/attachment_repository.dart';
 import '../domain/cardory_repository.dart';
+import '../domain/due_reminder_service.dart';
 import '../domain/sync_credentials.dart';
 import '../domain/widget_data_service.dart';
 import '../domain/workspace_sync_service.dart';
@@ -23,6 +24,7 @@ class WorkspaceControllerFactory {
     required this.attachmentRepositoryFactory,
     this.rowLevelStoreBuilder,
     this.widgetDataService = const NullWidgetDataService(),
+    this.dueReminderService = const NullDueReminderService(),
   });
 
   final WorkspaceRepository workspaceRepository;
@@ -36,6 +38,7 @@ class WorkspaceControllerFactory {
   /// 才调用；返回 null 时业务写入会在控制器处抛错。
   final RowLevelWorkspaceStoreBuilder? rowLevelStoreBuilder;
   final WidgetDataService widgetDataService;
+  final DueReminderService dueReminderService;
 
   WorkspaceController create() => WorkspaceController(
     repository: workspaceRepository,
@@ -48,5 +51,6 @@ class WorkspaceControllerFactory {
     attachmentRepositoryFactory: attachmentRepositoryFactory,
     rowLevelStore: rowLevelStoreBuilder?.call(),
     widgetDataService: widgetDataService,
+    dueReminderService: dueReminderService,
   );
 }
