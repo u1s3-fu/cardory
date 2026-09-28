@@ -17,24 +17,10 @@ const ganttRoutePath = '/gantt';
 const projectsRoutePath = '/projects';
 const settingsRoutePath = '/settings';
 
-/// 业务路由规划（破坏性版本阶段 §6）：
-/// - /vault、/today、/todos、/calendar、/time、/gantt、/projects、
-///   /projects/:projectId、/settings 已落地（分区为工作台 Shell 子路由）；
-/// - 以下模块暂以「受保护占位页」挂载，页面就绪后替换占位 builder。
+/// 业务路由（破坏性版本阶段 §6）：/vault、/today、/todos、/calendar、
+/// /time、/gantt、/projects、/projects/:projectId、/assets、/settings
+/// 全部落地为真实页面（工作台分区为 Shell 子路由）。
 const assetsRoutePath = '/assets';
-
-/// 占位路由清单：{ path, 标题, 图标, 说明 }。
-///
-/// 由 [createAppRouter] 统一展开为受门禁保护的路由。
-const placeholderRoutes =
-    <({String path, String title, IconData icon, String description})>[
-      (
-        path: assetsRoutePath,
-        title: '素材库',
-        icon: Icons.folder_outlined,
-        description: '全局素材与附件管理，即将在后续版本开放。',
-      ),
-    ];
 
 /// 工作台 Shell 内的内容区目标（sealed：穷举安全）。
 sealed class WorkbenchLocation {
@@ -57,6 +43,10 @@ class WorkbenchProjectDetail extends WorkbenchLocation {
   const WorkbenchProjectDetail(this.projectId);
 
   final String projectId;
+}
+
+class WorkbenchAssets extends WorkbenchLocation {
+  const WorkbenchAssets();
 }
 
 class WorkbenchSettings extends WorkbenchLocation {
@@ -147,6 +137,7 @@ GoRouter createAppRouter({
           workbenchChildRoute(timeRoutePath, const WorkbenchTime()),
           workbenchChildRoute(ganttRoutePath, const WorkbenchGantt()),
           workbenchChildRoute(projectsRoutePath, const WorkbenchProjects()),
+          workbenchChildRoute(assetsRoutePath, const WorkbenchAssets()),
           GoRoute(
             path: '$projectsRoutePath/:projectId',
             pageBuilder: (context, state) => NoTransitionPage<void>(
@@ -163,12 +154,6 @@ GoRouter createAppRouter({
           workbenchChildRoute(settingsRoutePath, const WorkbenchSettings()),
         ],
       ),
-      for (final entry in placeholderRoutes)
-        GoRoute(
-          path: entry.path,
-          builder: (context, state) => _PlaceholderPage(entry: entry),
-          redirect: protectedRedirect,
-        ),
       GoRoute(
         path: '/:unmatched(.*)',
         builder: (context, state) => const Scaffold(body: SizedBox.shrink()),
@@ -176,59 +161,4 @@ GoRouter createAppRouter({
       ),
     ],
   );
-}
-
-/// 「开发中」占位页：用于尚未实现的业务模块，保留路由结构便于后续替换。
-class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage({required this.entry});
-
-  final ({String path, String title, IconData icon, String description}) entry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(entry.title),
-        leading: IconButton(
-          tooltip: '返回今日',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(workbenchRoutePath),
-        ),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(entry.icon, size: 56, color: colorScheme.primary),
-                const SizedBox(height: 16),
-                Text(
-                  entry.title,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  entry.description,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                OutlinedButton.icon(
-                  onPressed: () => context.go(workbenchRoutePath),
-                  icon: const Icon(Icons.today_outlined),
-                  label: const Text('返回今日'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

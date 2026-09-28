@@ -40,6 +40,7 @@ import '../widgets/todo_dialog.dart';
 import '../widgets/todo_panel.dart';
 import '../widgets/today_tasks_panel.dart';
 import 'asset_dialog.dart';
+import 'assets_library_page.dart';
 import 'calendar_page.dart';
 import 'gantt_page.dart';
 import 'project_page.dart';
@@ -116,6 +117,7 @@ class _HomePageState extends State<HomePage> {
     if (path == calendarRoutePath) return AppSection.calendar;
     if (path == timeRoutePath) return AppSection.time;
     if (path == ganttRoutePath) return AppSection.gantt;
+    if (path == assetsRoutePath) return AppSection.assets;
     if (path == settingsRoutePath) return AppSection.settings;
     return AppSection.home;
   }
@@ -128,6 +130,7 @@ class _HomePageState extends State<HomePage> {
     AppSection.gantt => '甘特图',
     AppSection.projects =>
       GoRouterState.of(context).uri.path == projectsRoutePath ? '项目' : '项目详情',
+    AppSection.assets => '素材库',
     AppSection.settings => '设置',
   };
 
@@ -626,6 +629,7 @@ class _HomePageState extends State<HomePage> {
       AppSection.time => timeRoutePath,
       AppSection.gantt => ganttRoutePath,
       AppSection.projects => projectsRoutePath,
+      AppSection.assets => assetsRoutePath,
       AppSection.settings => settingsRoutePath,
     };
     if (GoRouterState.of(context).uri.path == target) return;
@@ -806,6 +810,8 @@ class WorkbenchSectionContent extends StatelessWidget {
         return _SectionScrollArea(child: _GanttSectionContent(state: scope));
       case WorkbenchProjects():
         return _SectionScrollArea(child: _ProjectsSectionContent(state: scope));
+      case WorkbenchAssets():
+        return _SectionScrollArea(child: _AssetsSectionContent(state: scope));
       case WorkbenchProjectDetail(:final projectId):
         return _ProjectDetailContent(state: scope, projectId: projectId);
       case WorkbenchSettings():
@@ -980,6 +986,31 @@ class _ProjectsSectionContent extends StatelessWidget {
     onEditProject: state._editProject,
     onDeleteProject: state._deleteProject,
   );
+}
+
+class _AssetsSectionContent extends StatelessWidget {
+  const _AssetsSectionContent({required this.state});
+
+  final _HomePageState state;
+
+  @override
+  Widget build(BuildContext context) {
+    void openProject(String projectId) {
+      final project = state._data.projects
+          .where((item) => item.id == projectId)
+          .firstOrNull;
+      if (project != null) state._openProject(project);
+    }
+
+    return AssetsLibraryPage(
+      projects: state._data.projects,
+      assets: state._data.assets,
+      assetTags: state._data.assetTags,
+      templates: state._settings.assetTemplates,
+      attachmentStore: state._attachmentStore,
+      onOpenProject: openProject,
+    );
+  }
 }
 
 class _SettingsSectionContent extends StatelessWidget {

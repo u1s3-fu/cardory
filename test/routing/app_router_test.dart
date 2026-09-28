@@ -28,6 +28,7 @@ void main() {
         WorkbenchTime() => const Text('时间区'),
         WorkbenchGantt() => const Text('甘特区'),
         WorkbenchProjects() => const Text('项目区'),
+        WorkbenchAssets() => const Text('素材库区'),
         WorkbenchProjectDetail(:final projectId) => Text('项目详情:$projectId'),
         WorkbenchSettings() => const Text('设置区'),
       },
@@ -37,7 +38,7 @@ void main() {
     return (router, session);
   }
 
-  testWidgets('门禁：未解锁时业务路由、占位路由与未知路径一律回到 /vault', (tester) async {
+  testWidgets('门禁：未解锁时业务路由与未知路径一律回到 /vault', (tester) async {
     final (router, session) = buildRouter(unlocked: false);
     addTearDown(session.dispose);
     addTearDown(router.dispose);
@@ -57,6 +58,7 @@ void main() {
       ganttRoutePath,
       projectsRoutePath,
       '$projectsRoutePath/project-1',
+      assetsRoutePath,
       settingsRoutePath,
     ]) {
       router.go(path);
@@ -69,19 +71,13 @@ void main() {
       expect(find.text('工作台'), findsNothing);
     }
 
-    // 访问占位业务路由同样被拦截。
-    router.go(assetsRoutePath);
-    await tester.pumpAndSettle();
-    expect(router.routeInformationProvider.value.uri.path, vaultRoutePath);
-    expect(find.text('门禁页'), findsOneWidget);
-
     // 未知路径也被拦截回门禁页。
     router.go('/no-such-page');
     await tester.pumpAndSettle();
     expect(router.routeInformationProvider.value.uri.path, vaultRoutePath);
   });
 
-  testWidgets('解锁后可达工作台、分区子路由与受保护占位页；锁定后自动退回门禁页', (tester) async {
+  testWidgets('解锁后可达工作台、分区子路由与项目详情；锁定后自动退回门禁页', (tester) async {
     final (router, session) = buildRouter(unlocked: false);
     addTearDown(session.dispose);
     addTearDown(router.dispose);
@@ -140,7 +136,7 @@ void main() {
     router.go(assetsRoutePath);
     await tester.pumpAndSettle();
     expect(router.routeInformationProvider.value.uri.path, assetsRoutePath);
-    expect(find.text('全局素材与附件管理，即将在后续版本开放。'), findsOneWidget);
+    expect(find.text('素材库区'), findsOneWidget);
 
     // 会话锁定：状态变化触发 refresh，redirect 把当前页踢回门禁页。
     session.unlocked = false;

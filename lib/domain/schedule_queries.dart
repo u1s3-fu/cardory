@@ -182,3 +182,42 @@ List<AssetDueEntry> assetDueEntries(
   });
   return entries;
 }
+
+/// 每个资产最近一次到期的信息（任一 remind 日期字段中最早者）。
+class AssetNextDue {
+  const AssetNextDue({
+    required this.assetId,
+    required this.date,
+    required this.fieldLabel,
+  });
+
+  final String assetId;
+
+  /// 本地日期键（0 点）。
+  final DateTime date;
+
+  /// 到期字段标签，例：「域名注册到期」。
+  final String fieldLabel;
+}
+
+/// 汇总每个资产的最近到期日，供素材库等跨项目总览使用。
+///
+/// 复用 [assetDueEntries] 的扫描规则（不限区间）；[assetDueEntries]
+/// 结果已按日期升序，同资产首个条目即最近到期。
+Map<String, AssetNextDue> assetNextDueDates(
+  List<AssetData> assets,
+  List<AssetTemplate> templates,
+) {
+  final next = <String, AssetNextDue>{};
+  for (final entry in assetDueEntries(assets, templates)) {
+    final existing = next[entry.assetId];
+    if (existing == null || entry.date.isBefore(existing.date)) {
+      next[entry.assetId] = AssetNextDue(
+        assetId: entry.assetId,
+        date: entry.date,
+        fieldLabel: entry.fieldLabel,
+      );
+    }
+  }
+  return next;
+}
