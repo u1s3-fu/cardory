@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
 
 import '../domain/widget_data_service.dart';
@@ -33,8 +34,9 @@ class HomeWidgetDataService implements WidgetDataService {
         androidName: _androidWidgetName,
         iOSName: _iosWidgetName,
       );
-    } catch (_) {
-      // 小组件更新失败不影响主流程
+    } catch (e) {
+      // 小组件更新失败不影响主流程，但留日志便于排查
+      debugPrint('HomeWidgetDataService.updateWidgetData failed: $e');
     }
   }
 
@@ -49,8 +51,9 @@ class HomeWidgetDataService implements WidgetDataService {
         androidName: _androidWidgetName,
         iOSName: _iosWidgetName,
       );
-    } catch (_) {
-      // 小组件清理失败不影响锁定主流程（应用侧已不再展示数据）
+    } catch (e) {
+      // 小组件清理失败不影响锁定主流程（应用侧已不再展示数据），留日志便于排查
+      debugPrint('HomeWidgetDataService.clearWidgetData failed: $e');
     }
   }
 

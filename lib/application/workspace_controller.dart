@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../domain/cardory_models.dart';
 import '../domain/attachment_repository.dart';
 import '../domain/cardory_repository.dart';
@@ -13,7 +15,7 @@ import 'workspace_settings_service.dart';
 /// 读取侧：内存中的 [CardoryData] 是数据库的投影，写入成功后从数据库回读；
 /// 写入侧：全部业务写入经 [RowLevelWorkspaceStore] 以行级单事务提交，
 /// 不再构建整包 CardoryData 快照（快照写入仅保留给同步导入路径）。
-class WorkspaceController implements WorkspaceObservable {
+class WorkspaceController implements WorkspaceObservable, Listenable {
   WorkspaceController({
     required this.repository,
     required this.vaultRepository,
@@ -356,7 +358,10 @@ class WorkspaceController implements WorkspaceObservable {
   }
 
   void _updateWidget() {
-    _widgetDataService.updateWidgetData(_data).onError((_, _) {});
+    _widgetDataService.updateWidgetData(_data).onError((e, _) {
+      // 小组件更新失败不影响主流程，但留日志便于排查
+      debugPrint('WorkspaceController.updateWidgetData failed: $e');
+    });
   }
 
   void _notifySyncChanged() => _notifyListeners();

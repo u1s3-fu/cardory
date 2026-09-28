@@ -2,6 +2,12 @@
 
 Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式。
 
+## [Unreleased]
+
+### 变更（Changed）
+
+- 工作台刷新机制重构：分区内容的重建通知由「InheritedWidget + updateShouldNotify 恒真」的变通写法改为 InheritedNotifier 直接订阅工作区控制器（Listenable），通知路径不再依赖 Shell 自身重建与路由子内容实例变化，行为无变化、实现更稳。
+
 ## [0.2.4] - 2026-09-29
 
 ### 新增（Added）

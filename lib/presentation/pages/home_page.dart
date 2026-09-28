@@ -764,24 +764,23 @@ class _HomePageState extends State<HomePage> {
   bool _sidebarExpanded = true;
 }
 
-/// 把工作台 Shell 状态暴露给路由内容区的 InheritedWidget：
+/// 把工作台 Shell 状态暴露给路由内容区的 InheritedNotifier：
 /// 分区内容与项目详情页通过它获取控制器投影与操作回调。
 ///
-/// [updateShouldNotify] 必须返回 true：路由子内容（widget.child）在两次
-/// 控制器通知之间是同一个 widget 实例，Shell setState 时 Flutter 会因
-/// 「identical child」短路跳过整棵子树；分区内容正是依赖本通知重建，
-/// 才能在新建项目 / 待办后立即刷新（否则要重新进出分区才能看到）。
-class _WorkbenchScope extends InheritedWidget {
-  const _WorkbenchScope({required this.state, required super.child});
+/// 通知源是工作区控制器（[WorkspaceController] 以 [Listenable] 供订阅）：
+/// 控制器每次变更由 InheritedNotifier 直接 markNeedsBuild 并通知所有
+/// 依赖方，与路由子内容（widget.child）实例是否相同无关，也不依赖
+/// Shell 自身 setState 重建——替代旧版 InheritedWidget 时代
+/// 「updateShouldNotify 恒返回 true」的变通约定。
+class _WorkbenchScope extends InheritedNotifier<WorkspaceController> {
+  _WorkbenchScope({required this.state, required super.child})
+    : super(notifier: state._controller);
 
   final _HomePageState state;
 
   static _HomePageState of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_WorkbenchScope>()?.state ??
       (throw StateError('WorkbenchSectionContent 必须位于 HomePage Shell 内。'));
-
-  @override
-  bool updateShouldNotify(_WorkbenchScope oldWidget) => true;
 }
 
 /// 路由内容区入口：由 [createAppRouter] 的 workbenchContentBuilder 调用，
