@@ -5,6 +5,7 @@ import '../domain/calendar_sync.dart';
 import '../domain/cardory_models.dart';
 import '../domain/attachment_repository.dart';
 import '../domain/cardory_repository.dart';
+import '../domain/dependency_schedule.dart';
 import '../domain/due_reminder_service.dart';
 import '../domain/schedule_queries.dart';
 import '../domain/sync_status.dart';
@@ -268,6 +269,11 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
       orElse: () => throw StateError('待办不存在：${todo.id}'),
     );
     await _rowLevel.updateTodo(original, todo);
+    // 日期变更会改变对后继任务的约束，触发依赖自动排期传播。
+    if (original.startDate != todo.startDate ||
+        original.endDate != todo.endDate) {
+      await _applyDependencySchedule({todo.id});
+    }
     await _afterWrite();
   }
 
@@ -279,8 +285,31 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
   Future<TodoData> toggleTodo(TodoData todo) async {
     final updated = _mutations.toggleTodo(todo);
     await _rowLevel.setTodoDone(todo.id, done: updated.done);
+    // 前置任务完成：后继任务自动排期（撤销完成不重排）。
+    if (updated.done && !todo.done) {
+      await _applyDependencySchedule({todo.id});
+    }
     await _afterWrite();
     return updated;
+  }
+
+  /// 依赖约束传播：seed（完成/改期的任务）沿后继链自动排期，
+  /// 逐条写回行级存储（各自进入同步通道）。失败只留日志不阻断保存。
+  Future<void> _applyDependencySchedule(Set<String> seedTodoIds) async {
+    try {
+      // 传播前回读投影，确保种子任务刚写入的新日期/完成状态参与约束。
+      await _refreshFromRepository();
+      final updates = propagateDependencySchedule(
+        todos: _data.todos,
+        dependencies: await _rowLevel.loadDependencies(),
+        seedTodoIds: seedTodoIds,
+      );
+      for (final update in updates) {
+        await _rowLevel.updateTodo(update.original, update.updated);
+      }
+    } catch (error) {
+      debugPrint('WorkspaceController.applyDependencySchedule failed: $error');
+    }
   }
 
   Future<TodoData> toggleSubTodo(TodoData todo, SubTodoData subTodo) async {

@@ -9,6 +9,7 @@ import 'package:cardory/application/workspace_settings_service.dart';
 import 'package:cardory/domain/asset_template.dart';
 import 'package:cardory/domain/cardory_repository.dart';
 import 'package:cardory/domain/cardory_models.dart';
+import 'package:cardory/domain/milestone_models.dart';
 import 'package:cardory/services/system_calendar_service.dart';
 import 'package:cardory/sync/sync_credentials.dart';
 import 'package:cardory/sync/sync_models.dart';
@@ -330,6 +331,96 @@ void main() {
       expect(registry.entries, isEmpty);
     },
   );
+
+  test('completing a predecessor auto-schedules its successors', () async {
+    final repository = _MemoryRepository(
+      CardoryData(
+        projects: const [],
+        todos: [
+          const TodoData(
+            id: 'pred',
+            title: '前置',
+            projectId: 'project-1',
+            projectTitle: '项目',
+            priority: ProjectPriority.p2,
+            done: false,
+            startDate: null,
+            endDate: null,
+          ),
+          const TodoData(
+            id: 'succ',
+            title: '后继',
+            projectId: 'project-1',
+            projectTitle: '项目',
+            priority: ProjectPriority.p2,
+            done: false,
+          ),
+        ],
+      ),
+    );
+    // 给两个任务补日期（构造后 copyWith，避免 const 构造限制）。
+    repository.data = repository.data.copyWith(
+      todos: [
+        repository.data.todos[0].copyWith(
+          startDate: DateTime(2026, 9, 1),
+          endDate: DateTime(2026, 9, 5),
+        ),
+        repository.data.todos[1].copyWith(
+          startDate: DateTime(2026, 9, 3),
+          endDate: DateTime(2026, 9, 8),
+        ),
+      ],
+    );
+    final store =
+        InMemoryRowLevelWorkspaceStore(
+            () => repository.data,
+            (data) => repository.data = data,
+          )
+          ..dependencies.add(
+            const TaskDependencyData(
+              id: 'dep-1',
+              predecessorTaskId: 'pred',
+              successorTaskId: 'succ',
+            ),
+          );
+    final controller = WorkspaceController(
+      repository: repository,
+      vaultRepository: repository,
+      settingsService: WorkspaceSettingsService(
+        repository: repository,
+        credentialStore: _Credentials(),
+      ),
+      syncService: SyncCoordinator(
+        repository: repository,
+        providerFactory: (_) async =>
+            throw const SyncUnavailableException('not used'),
+        attachmentRepositoryFactory: (_) => attachments,
+      ),
+      attachmentRepositoryFactory: (_) => attachments,
+      rowLevelStore: store,
+      widgetDataService: widgetService,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.initialize(await repository.load());
+
+    // 前置完成：后继自动排期到前置结束次日，时长保持。
+    final predecessor = controller.data.todos.firstWhere(
+      (item) => item.id == 'pred',
+    );
+    await controller.toggleTodo(predecessor);
+
+    final successor = repository.data.todos.firstWhere(
+      (item) => item.id == 'succ',
+    );
+    expect(successor.startDate, DateTime(2026, 9, 6));
+    expect(successor.endDate, DateTime(2026, 9, 11));
+    // 传播写回经行级存储，进入同步通道。
+    expect(
+      repository.data.todos.firstWhere((item) => item.id == 'pred').done,
+      isTrue,
+    );
+  });
 }
 
 CardoryData _workspaceData() {
