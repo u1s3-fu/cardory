@@ -8,6 +8,7 @@ import '../../application/workspace_controller.dart';
 import '../../application/workspace_controller_factory.dart';
 import '../../application/workspace_settings_service.dart';
 import '../../domain/attachment_repository.dart';
+import '../../domain/calendar_push_registry.dart';
 import '../../domain/asset_template.dart';
 import '../../domain/cardory_models.dart';
 import '../../domain/cardory_repository.dart';
@@ -67,6 +68,7 @@ class HomePage extends StatefulWidget {
     this.timeTrackingStore,
     this.rowLevelStore,
     this.systemCalendar,
+    this.calendarPushRegistry,
   });
 
   final WorkspaceControllerFactory controllerFactory;
@@ -92,6 +94,10 @@ class HomePage extends StatefulWidget {
 
   /// 系统日历服务：移动端读取/写入设备日历，桌面端读取/生成 .ics。
   final SystemCalendarService? systemCalendar;
+
+  /// 日历推送登记表：记录已写入系统日历的资产到期条目供回收对账；
+  /// null 时推送不登记（事件不参与自动回收）。
+  final CalendarPushRegistry? calendarPushRegistry;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -919,6 +925,7 @@ class _CalendarSectionContent extends StatelessWidget {
     onToggleTodo: state._toggleTodo,
     onOpenTodo: state._openTodo,
     systemCalendar: state.widget.systemCalendar,
+    calendarPushRegistry: state.widget.calendarPushRegistry,
     // 传全部模板：assetDueEntries 内部按 templateId 解析不到时自动跳过。
     assetDues: assetDueEntries(
       state._data.assets,

@@ -1,8 +1,10 @@
 import '../domain/attachment_repository.dart';
+import '../domain/calendar_push_registry.dart';
 import '../domain/cardory_repository.dart';
 import '../domain/due_reminder_service.dart';
 import '../domain/sync_credentials.dart';
 import '../domain/widget_data_service.dart';
+import '../services/system_calendar_service.dart';
 import '../domain/workspace_sync_service.dart';
 import 'row_level_workspace_store.dart';
 import 'workspace_controller.dart';
@@ -25,6 +27,8 @@ class WorkspaceControllerFactory {
     this.rowLevelStoreBuilder,
     this.widgetDataService = const NullWidgetDataService(),
     this.dueReminderService = const NullDueReminderService(),
+    this.systemCalendarService,
+    this.calendarPushRegistry,
   });
 
   final WorkspaceRepository workspaceRepository;
@@ -40,6 +44,10 @@ class WorkspaceControllerFactory {
   final WidgetDataService widgetDataService;
   final DueReminderService dueReminderService;
 
+  /// 系统日历服务与推送登记表：null 时控制器跳过日历回收对账。
+  final SystemCalendarService? systemCalendarService;
+  final CalendarPushRegistry? calendarPushRegistry;
+
   WorkspaceController create() => WorkspaceController(
     repository: workspaceRepository,
     vaultRepository: vaultRepository,
@@ -52,5 +60,7 @@ class WorkspaceControllerFactory {
     rowLevelStore: rowLevelStoreBuilder?.call(),
     widgetDataService: widgetDataService,
     dueReminderService: dueReminderService,
+    systemCalendarService: systemCalendarService,
+    calendarPushRegistry: calendarPushRegistry,
   );
 }

@@ -37,12 +37,18 @@ class SystemCalendarEvent {
       end.difference(start).inHours >= 23;
 }
 
-/// 日程写入结果；[detail] 携带可展示的补充信息（如 .ics 文件路径）。
+/// 日程写入结果；[detail] 携带可展示的补充信息（如 .ics 文件路径），
+/// [eventId] 为新建日程的标识（删除/回收时使用，失败为 null）。
 class SystemCalendarWriteResult {
-  const SystemCalendarWriteResult({required this.success, this.detail = ''});
+  const SystemCalendarWriteResult({
+    required this.success,
+    this.detail = '',
+    this.eventId,
+  });
 
   final bool success;
   final String detail;
+  final String? eventId;
 }
 
 abstract interface class SystemCalendarService {
@@ -56,6 +62,12 @@ abstract interface class SystemCalendarService {
     required DateTime end,
     String note = '',
   });
+
+  /// 删除一条此前由本应用写入的日程（见 [createEvent] 返回的 eventId）。
+  ///
+  /// 返回是否删除成功；日程不存在或无权限时返回 false，调用方据此
+  /// 决定是否保留推送登记（失败保留、下次对账重试）。
+  Future<bool> deleteEvent(String eventId);
 }
 
 /// 按平台选择实现：移动端走系统日历插件，桌面端走 .ics 文件。
@@ -149,12 +161,34 @@ class MobileSystemCalendarService implements SystemCalendarService {
       return SystemCalendarWriteResult(
         success: true,
         detail: '已写入系统日历「${calendar?.name ?? ''}」。',
+        eventId: result?.data,
       );
     }
     return SystemCalendarWriteResult(
       success: false,
       detail: result?.errors.join('；') ?? '写入系统日历失败。',
     );
+  }
+
+  @override
+  Future<bool> deleteEvent(String eventId) async {
+    try {
+      // 只读检查权限，不弹权限请求框：对账属后台行为，无权限时静默
+      // 返回 false，由调用方保留登记、下次重试。
+      if (!(await _plugin.hasPermissions()).isSuccess) return false;
+      final result = await _plugin.retrieveCalendars();
+      if (!result.isSuccess) return false;
+      for (final calendar in result.data ?? const []) {
+        final calendarId = calendar.id;
+        if (calendarId == null) continue;
+        final deleted = await _plugin.deleteEvent(calendarId, eventId);
+        if (deleted.isSuccess) return true;
+      }
+      return false;
+    } catch (_) {
+      // 插件异常按「未删除」处理，保留登记下次重试。
+      return false;
+    }
   }
 }
 
@@ -372,6 +406,26 @@ class DesktopIcsCalendarService implements SystemCalendarService {
     return SystemCalendarWriteResult(
       success: true,
       detail: '已导出 .ics 日程文件：${file.path}（可导入系统日历）。',
+      eventId: id,
     );
+  }
+
+  @override
+  Future<bool> deleteEvent(String eventId) async {
+    // loadEvents 返回的 id 是 UID（`<id>@cardory`），归一化为文件名主体。
+    final base = eventId.endsWith('@cardory')
+        ? eventId.substring(0, eventId.length - '@cardory'.length)
+        : eventId;
+    // 防御路径穿越：只允许本应用生成的 id 形态。
+    if (base.isEmpty || base.contains(RegExp(r'[\\/]'))) return false;
+    final dir = await _directory();
+    final file = File(p.join(dir.path, '$base.ics'));
+    if (!file.existsSync()) return false;
+    try {
+      await file.delete();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }

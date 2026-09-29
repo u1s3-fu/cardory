@@ -12,6 +12,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../domain/calendar_push_registry.dart';
 import '../../domain/cardory_models.dart';
 import '../../domain/schedule_queries.dart';
 import '../../services/system_calendar_service.dart';
@@ -34,6 +35,7 @@ class CalendarPage extends StatefulWidget {
     required this.onToggleTodo,
     required this.onOpenTodo,
     this.systemCalendar,
+    this.calendarPushRegistry,
     this.assetDues = const [],
     this.onOpenAssetDue,
   });
@@ -47,6 +49,10 @@ class CalendarPage extends StatefulWidget {
 
   /// 系统日历服务；null 时隐藏系统日程相关功能（仅显示应用内任务）。
   final SystemCalendarService? systemCalendar;
+
+  /// 日历推送登记表：推送成功后登记事件，供删除资产/改期时回收；
+  /// null 时推送不登记。
+  final CalendarPushRegistry? calendarPushRegistry;
 
   /// 资产到期条目（P3 数据源，见 assetDueEntries）；并入三视图的全天条目区。
   final List<AssetDueEntry> assetDues;
@@ -230,6 +236,9 @@ class _CalendarPageState extends State<CalendarPage> {
         end: day.add(const Duration(days: 1)),
         note: '${due.assetName} · ${due.fieldLabel}',
       );
+      if (write.success && write.eventId != null) {
+        await _registerPushedEvent(due, write.eventId!);
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -246,6 +255,27 @@ class _CalendarPageState extends State<CalendarPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('加入系统日历失败：$error')));
+    }
+  }
+
+  /// 推送成功后写入登记表（资产删除/改期时由控制器对账回收）。
+  Future<void> _registerPushedEvent(AssetDueEntry due, String eventId) async {
+    final registry = widget.calendarPushRegistry;
+    if (registry == null) return;
+    try {
+      final entries = await registry.load();
+      entries[calendarPushRegistryKey(
+        due.assetId,
+        due.fieldKey,
+      )] = CalendarPushRecord(
+        eventId: eventId,
+        date: due.date.toIso8601String().substring(0, 10),
+        title: due.title,
+      );
+      await registry.save(entries);
+    } catch (error) {
+      // 登记失败只影响回收，不影响已写入的日程。
+      debugPrint('Failed to record calendar push: $error');
     }
   }
 

@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 
+import '../domain/calendar_push_registry.dart';
+import '../domain/calendar_sync.dart';
 import '../domain/cardory_models.dart';
 import '../domain/attachment_repository.dart';
 import '../domain/cardory_repository.dart';
 import '../domain/due_reminder_service.dart';
 import '../domain/schedule_queries.dart';
 import '../domain/sync_status.dart';
+import '../services/system_calendar_service.dart';
 import '../domain/widget_data_service.dart';
 import '../domain/workspace_sync_service.dart';
 import 'row_level_workspace_store.dart';
@@ -28,10 +31,16 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     WidgetDataService widgetDataService = const NullWidgetDataService(),
     // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头。
     DueReminderService dueReminderService = const NullDueReminderService(),
+    SystemCalendarService? systemCalendarService,
+    CalendarPushRegistry? calendarPushRegistry,
     // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头，无法用 this._widgetDataService。
   }) : _widgetDataService = widgetDataService,
        // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头。
-       _dueReminderService = dueReminderService {
+       _dueReminderService = dueReminderService,
+       // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头。
+       _systemCalendarService = systemCalendarService,
+       // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头。
+       _calendarPushRegistry = calendarPushRegistry {
     syncService.addListener(_notifySyncChanged);
   }
 
@@ -43,6 +52,10 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
   final RowLevelWorkspaceStore? rowLevelStore;
   final WidgetDataService _widgetDataService;
   final DueReminderService _dueReminderService;
+
+  /// 系统日历服务与推送登记表：null 时跳过日历回收对账（测试/未启用）。
+  final SystemCalendarService? _systemCalendarService;
+  final CalendarPushRegistry? _calendarPushRegistry;
 
   /// 用户拒绝通知权限后本会话内不再重复请求（可去系统设置里重新开启）。
   bool _dueReminderPermissionDenied = false;
@@ -114,6 +127,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     _notifyListeners();
     _updateWidget();
     await _runDueReminders();
+    await _reconcileSystemCalendar();
   }
 
   /// 以数据库回读结果刷新内存投影（不触发附件迁移/清理等一次性逻辑）。
@@ -137,6 +151,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     await _refreshFromRepository();
     _updateWidget();
     await _runDueReminders();
+    await _reconcileSystemCalendar();
   }
 
   Future<void> applySettings(
@@ -151,6 +166,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     _settings = withTimestamp;
     _notifyListeners();
     await _runDueReminders();
+    await _reconcileSystemCalendar();
   }
 
   Future<void> synchronize() async {
@@ -423,6 +439,58 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     } catch (error) {
       // 提醒是附加能力：扫描或通知失败只留日志，不影响数据操作。
       debugPrint('WorkspaceController.runDueReminders failed: $error');
+    }
+  }
+
+  /// 对账系统日历推送登记：回收失效日程，跟随到期日/标题变更删旧建新。
+  ///
+  /// 加载后对账天然覆盖多设备同步删除资产的场景（数据回读发现登记失效
+  /// 即回收）。任何失败只留日志，不影响数据操作；事件删除失败时保留
+  /// 登记下次重试，替换时新建失败则仅移除登记（可在日历页手动重推）。
+  Future<void> _reconcileSystemCalendar() async {
+    final calendarService = _systemCalendarService;
+    final registry = _calendarPushRegistry;
+    if (calendarService == null || registry == null) return;
+    try {
+      final entries = await registry.load();
+      if (entries.isEmpty) return;
+      final plan = planCalendarSync(
+        registry: entries,
+        currentDues: assetDueEntries(_data.assets, _settings.assetTemplates),
+      );
+      for (final eventId in plan.eventIdsToDelete) {
+        await calendarService.deleteEvent(eventId);
+      }
+      for (final replacement in plan.replacements) {
+        final deleted = await calendarService.deleteEvent(
+          replacement.oldEventId,
+        );
+        if (!deleted) {
+          // 旧事件删除失败：保留原登记，下次对账重试整条替换。
+          final original = entries[replacement.key];
+          if (original != null) {
+            plan.nextRegistry[replacement.key] = original;
+          }
+          continue;
+        }
+        final day = replacement.due.date;
+        final created = await calendarService.createEvent(
+          title: replacement.due.title,
+          start: day,
+          end: day.add(const Duration(days: 1)),
+          note: '${replacement.due.assetName} · ${replacement.due.fieldLabel}',
+        );
+        if (created.success && created.eventId != null) {
+          plan.nextRegistry[replacement.key] = CalendarPushRecord(
+            eventId: created.eventId!,
+            date: day.toIso8601String().substring(0, 10),
+            title: replacement.due.title,
+          );
+        }
+      }
+      await registry.save(plan.nextRegistry);
+    } catch (error) {
+      debugPrint('WorkspaceController.reconcileSystemCalendar failed: $error');
     }
   }
 

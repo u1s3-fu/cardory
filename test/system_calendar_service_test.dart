@@ -92,4 +92,40 @@ void main() {
     );
     expect(events.single.title, '正常日程');
   });
+
+  test('createEvent 返回 eventId，deleteEvent 按 eventId 删除文件', () async {
+    final write = await service.createEvent(
+      title: '待回收日程',
+      start: DateTime(2026, 9, 14),
+      end: DateTime(2026, 9, 15),
+    );
+    expect(write.success, isTrue);
+    expect(write.eventId, isNotNull);
+
+    final deleted = await service.deleteEvent(write.eventId!);
+    expect(deleted, isTrue);
+    expect(
+      await service.loadEvents(DateTime(2026, 9, 14), DateTime(2026, 9, 15)),
+      isEmpty,
+    );
+  });
+
+  test('deleteEvent 兼容 UID 形态（<id>@cardory），不存在的 id 返回 false', () async {
+    final write = await service.createEvent(
+      title: '事件甲',
+      start: DateTime(2026, 9, 14),
+      end: DateTime(2026, 9, 15),
+    );
+    // loadEvents 读回的 id 带 @cardory 后缀，删除时按该形态也能命中。
+    final readBack = await service.loadEvents(
+      DateTime(2026, 9, 14),
+      DateTime(2026, 9, 14),
+    );
+    expect(readBack.single.id, '${write.eventId}@cardory');
+    expect(await service.deleteEvent(readBack.single.id), isTrue);
+
+    // 不存在的 id 与非法 id（含路径分隔）都返回 false。
+    expect(await service.deleteEvent('cardory-nonexistent'), isFalse);
+    expect(await service.deleteEvent('../evil'), isFalse);
+  });
 }

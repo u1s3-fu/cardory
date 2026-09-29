@@ -27,6 +27,8 @@ AssetDueEntry _dueEntry() => AssetDueEntry(
 class _FakeSystemCalendarService implements SystemCalendarService {
   final List<({String title, DateTime start, DateTime end, String note})>
   created = [];
+  final List<String> deleted = [];
+  int _nextId = 1;
 
   @override
   Future<List<SystemCalendarEvent>> loadEvents(
@@ -42,7 +44,17 @@ class _FakeSystemCalendarService implements SystemCalendarService {
     String note = '',
   }) async {
     created.add((title: title, start: start, end: end, note: note));
-    return const SystemCalendarWriteResult(success: true, detail: '已写入。');
+    return SystemCalendarWriteResult(
+      success: true,
+      detail: '已写入。',
+      eventId: 'fake-event-${_nextId++}',
+    );
+  }
+
+  @override
+  Future<bool> deleteEvent(String eventId) async {
+    deleted.add(eventId);
+    return true;
   }
 }
 

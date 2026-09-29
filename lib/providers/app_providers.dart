@@ -9,12 +9,15 @@ import '../data/attachment_store.dart';
 import '../data/repositories/drift_row_level_workspace_store.dart';
 import '../data/runtime/sqlcipher_vault_store.dart';
 import '../domain/attachment_repository.dart';
+import '../domain/calendar_push_registry.dart';
 import '../domain/cardory_models.dart';
 import '../domain/cardory_repository.dart';
 import '../domain/due_reminder_service.dart';
 import '../domain/widget_data_service.dart';
 import '../services/home_widget_data_service.dart';
 import '../services/local_due_reminder_service.dart';
+import '../services/shared_prefs_calendar_push_registry.dart';
+import '../services/system_calendar_service.dart';
 import '../sync/sync_coordinator.dart';
 import '../sync/sync_credentials.dart';
 import '../sync/sync_provider_registry.dart';
@@ -65,6 +68,16 @@ final dueReminderServiceProvider = Provider<DueReminderService>((ref) {
   }
   return const NullDueReminderService();
 });
+
+/// 系统日历服务：移动端系统日历插件，桌面端 .ics 文件。
+final systemCalendarServiceProvider = Provider<SystemCalendarService>(
+  (ref) => createSystemCalendarService(),
+);
+
+/// 日历推送登记表（per-device，shared_preferences）。
+final calendarPushRegistryProvider = Provider<CalendarPushRegistry>(
+  (ref) => SharedPrefsCalendarPushRegistry(),
+);
 
 final attachmentRepositoryFactoryProvider =
     Provider<AttachmentRepositoryFactory>((ref) => AttachmentStore.forDataFile);

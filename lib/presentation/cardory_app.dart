@@ -14,6 +14,7 @@ import '../application/time_tracking_store.dart';
 import '../data/attachment_store.dart';
 import '../data/db/app_database.dart' as db;
 import '../domain/attachment_repository.dart';
+import '../domain/calendar_push_registry.dart';
 import '../domain/cardory_models.dart';
 import '../domain/cardory_repository.dart';
 import '../domain/due_reminder_service.dart';
@@ -78,6 +79,7 @@ class CardoryApp extends StatefulWidget {
     RowLevelWorkspaceStoreBuilder? rowLevelStoreBuilder,
     TimeTrackingStoreBuilder? timeTrackingStoreBuilder,
     SystemCalendarService? systemCalendar,
+    CalendarPushRegistry? calendarPushRegistry,
     String? Function()? deltaKeyProvider,
     db.AppDatabase? Function()? deltaDatabaseProvider,
     Future<void> Function(AppSettings, SyncCredentials)? connectionTester,
@@ -98,6 +100,8 @@ class CardoryApp extends StatefulWidget {
        _timeTrackingStoreBuilder = timeTrackingStoreBuilder,
        // ignore: prefer_initializing_formals
        _systemCalendar = systemCalendar,
+       // ignore: prefer_initializing_formals
+       _calendarPushRegistry = calendarPushRegistry,
        // ignore: prefer_initializing_formals
        _deltaKeyProvider = deltaKeyProvider,
        // ignore: prefer_initializing_formals
@@ -120,6 +124,7 @@ class CardoryApp extends StatefulWidget {
   final RowLevelWorkspaceStoreBuilder? _rowLevelStoreBuilder;
   final TimeTrackingStoreBuilder? _timeTrackingStoreBuilder;
   final SystemCalendarService? _systemCalendar;
+  final CalendarPushRegistry? _calendarPushRegistry;
   final String? Function()? _deltaKeyProvider;
   final db.AppDatabase? Function()? _deltaDatabaseProvider;
   final Future<void> Function(AppSettings, SyncCredentials)? _connectionTester;
@@ -145,12 +150,19 @@ class CardoryApp extends StatefulWidget {
         rowLevelStoreBuilder: _rowLevelStoreBuilder,
         widgetDataService: widgetDataService,
         dueReminderService: _dueReminderService,
+        systemCalendarService: effectiveSystemCalendar,
+        calendarPushRegistry: _calendarPushRegistry,
       );
 
   SyncProviderFactory get providerFactory =>
       _providerFactory ?? defaultSyncProviderFactory(credentialStore);
   WidgetDataService get widgetDataService => _widgetDataService;
   DueReminderService get dueReminderService => _dueReminderService;
+
+  /// 系统日历服务：注入优先，缺省按平台创建（每会话缓存，控制器对账与
+  /// 日历页共用同一实例，避免重复初始化移动端日历插件 / 桌面 .ics 目录）。
+  late final SystemCalendarService effectiveSystemCalendar =
+      _systemCalendar ?? createSystemCalendarService();
   AttachmentRepositoryFactory get attachmentRepositoryFactory =>
       _attachmentRepositoryFactory;
   Future<void> Function(AppSettings, SyncCredentials) get connectionTester =>
@@ -185,11 +197,6 @@ class _CardoryAppState extends State<CardoryApp> {
 
   VaultAutoLockController? _autoLock;
   late final GoRouter _router;
-
-  /// 系统日历服务：注入优先，缺省按平台创建（每会话缓存，避免 Shell
-  /// 重建时反复初始化移动端日历插件 / 桌面 .ics 目录）。
-  late final SystemCalendarService _effectiveSystemCalendar =
-      widget._systemCalendar ?? createSystemCalendarService();
 
   @override
   void initState() {
@@ -321,7 +328,8 @@ class _CardoryAppState extends State<CardoryApp> {
     updateService: widget.updateService,
     timeTrackingStore: widget._timeTrackingStoreBuilder?.call(),
     rowLevelStore: widget._rowLevelStoreBuilder?.call(),
-    systemCalendar: _effectiveSystemCalendar,
+    systemCalendar: widget.effectiveSystemCalendar,
+    calendarPushRegistry: widget._calendarPushRegistry,
     child: child,
   );
 
@@ -346,6 +354,7 @@ void runCardoryApp() {
           providerFactory: ref.watch(syncProviderFactoryProvider),
           widgetDataService: ref.watch(widgetDataServiceProvider),
           dueReminderService: ref.watch(dueReminderServiceProvider),
+          calendarPushRegistry: ref.watch(calendarPushRegistryProvider),
           attachmentRepositoryFactory: ref.watch(
             attachmentRepositoryFactoryProvider,
           ),

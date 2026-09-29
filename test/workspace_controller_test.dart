@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:cardory/domain/attachment_repository.dart';
+import 'package:cardory/domain/calendar_push_registry.dart';
 import 'package:cardory/domain/due_reminder_service.dart';
 import 'package:cardory/domain/widget_data_service.dart';
 import 'package:cardory/application/workspace_controller.dart';
@@ -8,6 +9,7 @@ import 'package:cardory/application/workspace_settings_service.dart';
 import 'package:cardory/domain/asset_template.dart';
 import 'package:cardory/domain/cardory_repository.dart';
 import 'package:cardory/domain/cardory_models.dart';
+import 'package:cardory/services/system_calendar_service.dart';
 import 'package:cardory/sync/sync_credentials.dart';
 import 'package:cardory/sync/sync_models.dart';
 import 'package:cardory/sync/sync_coordinator.dart';
@@ -229,6 +231,105 @@ void main() {
       expect(reminderService.cancelAllCount, greaterThanOrEqualTo(1));
     },
   );
+
+  test(
+    'calendar reconcile recycles pushed events on asset edit and delete',
+    () async {
+      final repository =
+          _MemoryRepository(
+              CardoryData(
+                projects: const [],
+                todos: const [],
+                assets: [
+                  AssetData(
+                    id: 'asset-cal',
+                    type: AssetType.software,
+                    name: '日历资产',
+                    templateId: 'tpl-test',
+                    customFields: {'expireDate': '2026-10-01'},
+                  ),
+                ],
+              ),
+            )
+            ..settings = const AppSettings(
+              assetTemplates: [
+                AssetTemplate(
+                  id: 'tpl-test',
+                  name: '测试模板',
+                  fields: [
+                    AssetTemplateField(
+                      key: 'expireDate',
+                      label: '注册到期',
+                      kind: AssetFieldKind.date,
+                      remind: true,
+                    ),
+                  ],
+                ),
+              ],
+            );
+      final calendarService = _RecordingCalendarService();
+      final registry = _MemoryCalendarRegistry()
+        ..entries = {
+          calendarPushRegistryKey(
+            'asset-cal',
+            'expireDate',
+          ): const CalendarPushRecord(
+            eventId: 'evt-1',
+            date: '2026-10-01',
+            title: '注册到期 · 日历资产',
+          ),
+        };
+      final controller = WorkspaceController(
+        repository: repository,
+        vaultRepository: repository,
+        settingsService: WorkspaceSettingsService(
+          repository: repository,
+          credentialStore: _Credentials(),
+        ),
+        syncService: SyncCoordinator(
+          repository: repository,
+          providerFactory: (_) async =>
+              throw const SyncUnavailableException('not used'),
+          attachmentRepositoryFactory: (_) => attachments,
+        ),
+        attachmentRepositoryFactory: (_) => attachments,
+        rowLevelStore: InMemoryRowLevelWorkspaceStore(
+          () => repository.data,
+          (data) => repository.data = data,
+        ),
+        widgetDataService: widgetService,
+        systemCalendarService: calendarService,
+        calendarPushRegistry: registry,
+      );
+      addTearDown(controller.dispose);
+
+      // 加载对账：登记与当前到期一致，不回收。
+      await controller.initialize(await repository.load());
+      expect(calendarService.deleted, isEmpty);
+
+      // 修改到期日：旧事件删除 + 按新日期/标题新建，登记更新。
+      final asset = controller.data.assets.single;
+      await controller.editAsset(
+        asset,
+        asset.copyWith(customFields: {'expireDate': '2026-11-05'}),
+      );
+      expect(calendarService.deleted, ['evt-1']);
+      expect(calendarService.created, hasLength(1));
+      expect(calendarService.created.single.title, '注册到期 · 日历资产');
+      expect(calendarService.created.single.start, DateTime(2026, 11, 5));
+      expect(
+        registry
+            .entries[calendarPushRegistryKey('asset-cal', 'expireDate')]!
+            .eventId,
+        'fake-event-1',
+      );
+
+      // 删除资产：回收事件，登记清空。
+      await controller.deleteAsset(controller.data.assets.single);
+      expect(calendarService.deleted, ['evt-1', 'fake-event-1']);
+      expect(registry.entries, isEmpty);
+    },
+  );
 }
 
 CardoryData _workspaceData() {
@@ -387,6 +488,54 @@ class _RecordingWidgetService implements WidgetDataService {
 
   @override
   Future<void> clearWidgetData() async => clearCount++;
+}
+
+/// 记录日历事件写入/删除的假服务。
+class _RecordingCalendarService implements SystemCalendarService {
+  final List<String> deleted = [];
+  final List<({String title, DateTime start, DateTime end, String note})>
+  created = [];
+  int _nextId = 1;
+
+  @override
+  Future<List<SystemCalendarEvent>> loadEvents(
+    DateTime start,
+    DateTime end,
+  ) async => const [];
+
+  @override
+  Future<SystemCalendarWriteResult> createEvent({
+    required String title,
+    required DateTime start,
+    required DateTime end,
+    String note = '',
+  }) async {
+    created.add((title: title, start: start, end: end, note: note));
+    return SystemCalendarWriteResult(
+      success: true,
+      detail: '已写入。',
+      eventId: 'fake-event-${_nextId++}',
+    );
+  }
+
+  @override
+  Future<bool> deleteEvent(String eventId) async {
+    deleted.add(eventId);
+    return true;
+  }
+}
+
+/// 内存版日历推送登记表。
+class _MemoryCalendarRegistry implements CalendarPushRegistry {
+  Map<String, CalendarPushRecord> entries = {};
+
+  @override
+  Future<Map<String, CalendarPushRecord>> load() async => Map.of(entries);
+
+  @override
+  Future<void> save(Map<String, CalendarPushRecord> saved) async {
+    entries = Map.of(saved);
+  }
 }
 
 /// 记录到期提醒调用的假服务（授权默认通过，状态保存在内存）。
