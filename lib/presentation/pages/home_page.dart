@@ -130,7 +130,7 @@ class _HomePageState extends State<HomePage> {
     AppSection.gantt => '甘特图',
     AppSection.projects =>
       GoRouterState.of(context).uri.path == projectsRoutePath ? '项目' : '项目详情',
-    AppSection.assets => '素材库',
+    AppSection.assets => '资产库',
     AppSection.settings => '设置',
   };
 

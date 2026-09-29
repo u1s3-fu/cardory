@@ -205,7 +205,7 @@ class AssetNextDue {
   final String fieldLabel;
 }
 
-/// 汇总每个资产的最近到期日，供素材库等跨项目总览使用。
+/// 汇总每个资产的最近到期日，供资产库等跨项目总览使用。
 ///
 /// 复用 [assetDueEntries] 的扫描规则（不限区间）；[assetDueEntries]
 /// 结果已按日期升序，同资产首个条目即最近到期。

@@ -1,8 +1,8 @@
-// 素材库：跨项目的资产与附件总览（只读）。
+// 资产库：跨项目的资产与附件总览（只读）。
 //
 // 资产与附件的登记、编辑、删除仍在各项目详情内进行；本页把全量数据
-// 汇总展示，支持按到期紧急度分组、标签筛选与名称搜索，并提供附件
-// 解密导出与跳转所属项目的入口。
+// 汇总展示，支持按项目区分、按到期紧急度分组、标签筛选与名称搜索，
+// 并提供附件解密导出与跳转所属项目的入口。
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +15,7 @@ import '../cardory_theme.dart';
 import '../widgets/asset_detail_dialog.dart';
 import '../widgets/badges.dart';
 
-/// 素材库分区页：资产/附件双标签总览。
+/// 资产库分区页：资产/附件双标签总览。
 ///
 /// 纯展示组件：数据与回调全部由 Shell 注入；[attachmentStore] 为空时
 /// 附件页降级提示（附件正文的读写依赖附件存储）。
@@ -51,6 +51,7 @@ class AssetsLibraryPage extends StatefulWidget {
 
 class _AssetsLibraryPageState extends State<AssetsLibraryPage> {
   int _tabIndex = 0;
+  String? _filterProjectId;
   String? _filterTagId;
   String _query = '';
 
@@ -59,28 +60,34 @@ class _AssetsLibraryPageState extends State<AssetsLibraryPage> {
   bool _matchesQuery(String name) =>
       _trimmedQuery.isEmpty || name.toLowerCase().contains(_trimmedQuery);
 
+  bool _matchesProject(String projectId) =>
+      _filterProjectId == null || projectId == _filterProjectId;
+
   List<AssetData> get _filteredAssets => widget.assets.where((asset) {
+    if (!_matchesProject(asset.projectId)) return false;
     final tag = _filterTagId;
     if (tag != null && !asset.tagIds.contains(tag)) return false;
     return _matchesQuery(asset.name);
   }).toList();
 
-  /// 按项目分组的附件（项目保持列表顺序，组内按创建时间倒序）。
+  /// 按项目分组的附件（项目保持列表顺序，组内按创建时间倒序）；
+  /// 项目筛选命中时只保留对应项目。
   List<({ProjectData project, List<AttachmentData> attachments})>
   get _attachmentGroups => [
     for (final project in widget.projects)
-      if (_matchesQuery(project.title) ||
-          project.attachments.any(
-            (attachment) => _matchesQuery(attachment.fileName),
-          ))
-        (
-          project: project,
-          attachments: [
-            ...project.attachments.where(
+      if (_matchesProject(project.id))
+        if (_matchesQuery(project.title) ||
+            project.attachments.any(
               (attachment) => _matchesQuery(attachment.fileName),
-            ),
-          ]..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-        ),
+            ))
+          (
+            project: project,
+            attachments: [
+              ...project.attachments.where(
+                (attachment) => _matchesQuery(attachment.fileName),
+              ),
+            ]..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+          ),
   ];
 
   int get _attachmentCount => widget.projects.fold(
@@ -117,6 +124,8 @@ class _AssetsLibraryPageState extends State<AssetsLibraryPage> {
           ],
         ),
         const SizedBox(height: 14),
+        _buildProjectFilter(),
+        const SizedBox(height: 6),
         TextField(
           key: const Key('assets-library-search'),
           onChanged: (value) => setState(() => _query = value),
@@ -134,6 +143,29 @@ class _AssetsLibraryPageState extends State<AssetsLibraryPage> {
           Expanded(child: _buildAssetsTab()),
         ] else
           Expanded(child: _buildAttachmentsTab()),
+      ],
+    );
+  }
+
+  /// 项目筛选：对资产与附件两个页签同时生效。
+  Widget _buildProjectFilter() {
+    if (widget.projects.isEmpty) return const SizedBox.shrink();
+    return Wrap(
+      key: const Key('assets-library-project-filter'),
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        FilterChip(
+          label: const Text('全部项目'),
+          selected: _filterProjectId == null,
+          onSelected: (_) => setState(() => _filterProjectId = null),
+        ),
+        for (final project in widget.projects)
+          FilterChip(
+            label: Text(project.title),
+            selected: _filterProjectId == project.id,
+            onSelected: (_) => setState(() => _filterProjectId = project.id),
+          ),
       ],
     );
   }

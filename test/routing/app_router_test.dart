@@ -28,7 +28,7 @@ void main() {
         WorkbenchTime() => const Text('时间区'),
         WorkbenchGantt() => const Text('甘特区'),
         WorkbenchProjects() => const Text('项目区'),
-        WorkbenchAssets() => const Text('素材库区'),
+        WorkbenchAssets() => const Text('资产库区'),
         WorkbenchProjectDetail(:final projectId) => Text('项目详情:$projectId'),
         WorkbenchSettings() => const Text('设置区'),
       },
@@ -136,7 +136,7 @@ void main() {
     router.go(assetsRoutePath);
     await tester.pumpAndSettle();
     expect(router.routeInformationProvider.value.uri.path, assetsRoutePath);
-    expect(find.text('素材库区'), findsOneWidget);
+    expect(find.text('资产库区'), findsOneWidget);
 
     // 会话锁定：状态变化触发 refresh，redirect 把当前页踢回门禁页。
     session.unlocked = false;

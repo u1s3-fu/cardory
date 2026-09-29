@@ -1,4 +1,4 @@
-// 素材库分区页测试：资产到期分组、标签筛选与搜索、附件分组与降级。
+// 资产库分区页测试：资产到期分组、项目区分、标签筛选与搜索、附件分组与降级。
 
 import 'dart:typed_data';
 
@@ -42,7 +42,7 @@ String _dateOffset(int days) {
   return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }
 
-/// 空操作附件仓储：素材库只读展示，导出动作不在本测试覆盖。
+/// 空操作附件仓储：资产库只读展示，导出动作不在本测试覆盖。
 class _NoopAttachmentStore implements AttachmentRepository {
   @override
   Future<AttachmentData> importFile({
@@ -185,6 +185,47 @@ void main() {
     expect(find.text('资产-beta'), findsNothing);
   });
 
+  testWidgets('项目筛选：选中项目后资产与附件只保留该项目', (tester) async {
+    final attachment = AttachmentData(
+      id: 'att-1',
+      fileName: 'license.txt',
+      size: 2048,
+      createdAt: DateTime(2026, 9, 1),
+    );
+    await pumpPage(
+      tester,
+      projects: [
+        _project('project-1', '项目甲'),
+        _project('project-2', '项目乙', attachments: [attachment]),
+      ],
+      assets: [
+        _asset('p1-asset', projectId: 'project-1'),
+        _asset('p2-asset', projectId: 'project-2'),
+      ],
+      templates: [_template()],
+      attachmentStore: _NoopAttachmentStore(),
+    );
+    expect(find.text('资产-p1-asset'), findsOneWidget);
+    expect(find.text('资产-p2-asset'), findsOneWidget);
+
+    // 资产页签：选中「项目甲」。
+    await tester.tap(find.text('项目甲'));
+    await tester.pumpAndSettle();
+    expect(find.text('资产-p1-asset'), findsOneWidget);
+    expect(find.text('资产-p2-asset'), findsNothing);
+
+    // 附件页签：项目筛选同时生效，项目乙的附件不再出现
+    // （项目名文字仍存在于筛选 chip，故只断言附件内容）。
+    await tester.tap(find.text('附件（1）'));
+    await tester.pumpAndSettle();
+    expect(find.text('license.txt'), findsNothing);
+
+    // 切回「全部项目」恢复。
+    await tester.tap(find.text('全部项目'));
+    await tester.pumpAndSettle();
+    expect(find.text('license.txt'), findsOneWidget);
+  });
+
   testWidgets('标签筛选：选中标签后只保留含该标签的资产', (tester) async {
     await pumpPage(
       tester,
@@ -226,11 +267,12 @@ void main() {
     await tester.tap(find.text('附件（1）'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Cardory 桌面端'), findsOneWidget);
+    // 项目名同时出现在筛选 chip 与分组标题，断言至少出现一次。
+    expect(find.text('Cardory 桌面端'), findsWidgets);
     expect(find.text('license.txt'), findsOneWidget);
     expect(find.textContaining('2.0 KB'), findsOneWidget);
-    // 无附件项目不渲染分组标题。
-    expect(find.text('空附件项目'), findsNothing);
+    // 无附件项目只出现在筛选 chip（1 处），不渲染附件分组标题。
+    expect(find.text('空附件项目'), findsOneWidget);
     expect(find.byTooltip('解密导出'), findsOneWidget);
   });
 

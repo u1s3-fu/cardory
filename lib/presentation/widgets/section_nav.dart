@@ -22,7 +22,7 @@ class SectionNavigation extends StatelessWidget {
     (AppSection.time, Icons.timer_outlined, '时间'),
     (AppSection.gantt, Icons.view_timeline_outlined, '甘特'),
     (AppSection.projects, Icons.folder_outlined, '项目'),
-    (AppSection.assets, Icons.inventory_2_outlined, '素材库'),
+    (AppSection.assets, Icons.inventory_2_outlined, '资产库'),
     (AppSection.settings, Icons.settings_outlined, '设置'),
   ];
 
