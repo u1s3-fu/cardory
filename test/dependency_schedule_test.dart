@@ -107,6 +107,27 @@ void main() {
     expect(updates.single.updated.endDate, DateTime(2026, 9, 12));
   });
 
+  test('已完成的后继不搬动，但其日期仍约束更下游', () {
+    final updates = propagateDependencySchedule(
+      todos: [
+        _todo('a', start: DateTime(2026, 9, 1), end: DateTime(2026, 9, 10)),
+        _todo(
+          'b',
+          start: DateTime(2026, 9, 3),
+          end: DateTime(2026, 9, 4),
+          done: true,
+        ),
+        _todo('c', start: DateTime(2026, 9, 4), end: DateTime(2026, 9, 6)),
+      ],
+      dependencies: [_dep('a', 'b'), _dep('b', 'c')],
+      seedTodoIds: {'a'},
+    );
+
+    // B 已完成：不调整；C 以 B 原结束日（9/4）+1 推迟。
+    expect(updates.map((update) => update.original.id), ['c']);
+    expect(updates.single.updated.startDate, DateTime(2026, 9, 5));
+  });
+
   test('前驱无日期不产生约束', () {
     final updates = propagateDependencySchedule(
       todos: [

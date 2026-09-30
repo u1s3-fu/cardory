@@ -42,7 +42,11 @@ void main() {
       currentDues: const [],
     );
 
-    expect(plan.eventIdsToDelete, ['evt-1']);
+    expect(plan.removals.map((r) => r.eventId), ['evt-1']);
+    expect(
+      plan.removals.single.key,
+      calendarPushRegistryKey('asset-1', 'expire'),
+    );
     expect(plan.replacements, isEmpty);
     expect(plan.nextRegistry, isEmpty);
   });
@@ -60,7 +64,7 @@ void main() {
       currentDues: [_due('asset-1', 'expire', newDay)],
     );
 
-    expect(plan.eventIdsToDelete, isEmpty);
+    expect(plan.removals, isEmpty);
     expect(plan.replacements, hasLength(1));
     expect(plan.replacements.single.oldEventId, 'evt-1');
     expect(
@@ -104,7 +108,7 @@ void main() {
       ],
     );
 
-    expect(plan.eventIdsToDelete, isEmpty);
+    expect(plan.removals, isEmpty);
     expect(plan.replacements, isEmpty);
     expect(plan.nextRegistry.keys, [
       calendarPushRegistryKey('asset-1', 'expire'),

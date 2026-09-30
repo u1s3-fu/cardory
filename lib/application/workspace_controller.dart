@@ -270,11 +270,20 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     );
     await _rowLevel.updateTodo(original, todo);
     // 日期变更会改变对后继任务的约束，触发依赖自动排期传播。
-    if (original.startDate != todo.startDate ||
-        original.endDate != todo.endDate) {
+    // 日期按本地日键比较：库回读为 UTC 表示、对话框新建为本地时间，
+    // 直接 == 会把「重选同一天」误判为变更。
+    if (_dayChanged(original.startDate, todo.startDate) ||
+        _dayChanged(original.endDate, todo.endDate)) {
       await _applyDependencySchedule({todo.id});
     }
     await _afterWrite();
+  }
+
+  /// 两个可空时刻是否落在不同的本地日期（null 与非 null 也算变更）。
+  bool _dayChanged(DateTime? before, DateTime? after) {
+    if ((before == null) != (after == null)) return true;
+    if (before == null || after == null) return false;
+    return !localDayKey(before).isAtSameMomentAs(localDayKey(after));
   }
 
   Future<void> deleteTodo(String todoId) async {
@@ -480,6 +489,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     final calendarService = _systemCalendarService;
     final registry = _calendarPushRegistry;
     if (calendarService == null || registry == null) return;
+    Map<String, CalendarPushRecord>? nextRegistry;
     try {
       final entries = await registry.load();
       if (entries.isEmpty) return;
@@ -487,8 +497,12 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
         registry: entries,
         currentDues: assetDueEntries(_data.assets, _settings.assetTemplates),
       );
-      for (final eventId in plan.eventIdsToDelete) {
-        await calendarService.deleteEvent(eventId);
+      nextRegistry = plan.nextRegistry;
+      for (final removal in plan.removals) {
+        if (await calendarService.deleteEvent(removal.eventId)) continue;
+        // 删除失败（无权限/日程已不存在）：保留登记，下次对账重试。
+        final original = entries[removal.key];
+        if (original != null) nextRegistry[removal.key] = original;
       }
       for (final replacement in plan.replacements) {
         final deleted = await calendarService.deleteEvent(
@@ -498,27 +512,39 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
           // 旧事件删除失败：保留原登记，下次对账重试整条替换。
           final original = entries[replacement.key];
           if (original != null) {
-            plan.nextRegistry[replacement.key] = original;
+            nextRegistry[replacement.key] = original;
           }
           continue;
         }
-        final day = replacement.due.date;
-        final created = await calendarService.createEvent(
-          title: replacement.due.title,
-          start: day,
-          end: day.add(const Duration(days: 1)),
-          note: '${replacement.due.assetName} · ${replacement.due.fieldLabel}',
-        );
-        if (created.success && created.eventId != null) {
-          plan.nextRegistry[replacement.key] = CalendarPushRecord(
-            eventId: created.eventId!,
-            date: day.toIso8601String().substring(0, 10),
+        try {
+          final day = replacement.due.date;
+          final created = await calendarService.createEvent(
             title: replacement.due.title,
+            start: day,
+            end: day.add(const Duration(days: 1)),
+            note:
+                '${replacement.due.assetName} · ${replacement.due.fieldLabel}',
+          );
+          if (created.success && created.eventId != null) {
+            nextRegistry[replacement.key] = CalendarPushRecord(
+              eventId: created.eventId!,
+              date: day.toIso8601String().substring(0, 10),
+              title: replacement.due.title,
+            );
+          }
+          // 建新失败（success false）：旧事件已删，移除登记，可手动重推。
+        } catch (error) {
+          // 建新抛异常（如权限被吊销）：旧事件已删，移除登记并留日志，
+          // 不中断其余条目的对账。
+          debugPrint(
+            'WorkspaceController.reconcileSystemCalendar recreate failed: '
+            '$error',
           );
         }
       }
-      await registry.save(plan.nextRegistry);
+      await registry.save(nextRegistry);
     } catch (error) {
+      // load/save 或计划生成失败：本次不动登记表，下次对账重来。
       debugPrint('WorkspaceController.reconcileSystemCalendar failed: $error');
     }
   }

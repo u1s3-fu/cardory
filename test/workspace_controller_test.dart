@@ -332,6 +332,52 @@ void main() {
     },
   );
 
+  test('calendar reconcile keeps registry entry when delete fails', () async {
+    // 登记指向的资产已不存在（如他端同步删除），但删除事件失败
+    // （无日历权限等）：登记必须保留，下次对账重试，避免孤儿日程。
+    final repository = _MemoryRepository(
+      const CardoryData(projects: [], todos: [], assets: []),
+    );
+    final calendarService = _RecordingCalendarService()..failDeletes = true;
+    final registry = _MemoryCalendarRegistry()
+      ..entries = {
+        calendarPushRegistryKey(
+          'asset-gone',
+          'expireDate',
+        ): const CalendarPushRecord(
+          eventId: 'evt-9',
+          date: '2026-10-01',
+          title: '注册到期 · 已删资产',
+        ),
+      };
+    final controller = WorkspaceController(
+      repository: repository,
+      vaultRepository: repository,
+      settingsService: WorkspaceSettingsService(
+        repository: repository,
+        credentialStore: _Credentials(),
+      ),
+      syncService: SyncCoordinator(
+        repository: repository,
+        providerFactory: (_) async =>
+            throw const SyncUnavailableException('not used'),
+        attachmentRepositoryFactory: (_) => attachments,
+      ),
+      attachmentRepositoryFactory: (_) => attachments,
+      widgetDataService: widgetService,
+      systemCalendarService: calendarService,
+      calendarPushRegistry: registry,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.initialize(await repository.load());
+
+    expect(calendarService.deleted, ['evt-9']);
+    expect(registry.entries.keys, [
+      calendarPushRegistryKey('asset-gone', 'expireDate'),
+    ]);
+  });
+
   test('completing a predecessor auto-schedules its successors', () async {
     final repository = _MemoryRepository(
       CardoryData(
@@ -588,6 +634,9 @@ class _RecordingCalendarService implements SystemCalendarService {
   created = [];
   int _nextId = 1;
 
+  /// 置为 true 时 deleteEvent 返回失败，用于验证登记保留语义。
+  bool failDeletes = false;
+
   @override
   Future<List<SystemCalendarEvent>> loadEvents(
     DateTime start,
@@ -612,7 +661,7 @@ class _RecordingCalendarService implements SystemCalendarService {
   @override
   Future<bool> deleteEvent(String eventId) async {
     deleted.add(eventId);
-    return true;
+    return !failDeletes;
   }
 }
 

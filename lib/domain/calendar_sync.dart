@@ -11,19 +11,28 @@ import 'schedule_queries.dart';
 /// 一轮对账的执行计划。
 class CalendarSyncPlan {
   const CalendarSyncPlan({
-    required this.eventIdsToDelete,
+    required this.removals,
     required this.replacements,
     required this.nextRegistry,
   });
 
-  /// 需要删除的系统日历事件 id（资产/字段失效）。
-  final List<String> eventIdsToDelete;
+  /// 需要删除的系统日历事件（资产/字段失效）；携带登记键，
+  /// 删除失败时调用方据此恢复原登记、下次对账重试。
+  final List<CalendarRemoval> removals;
 
   /// 需要删旧建新的替换项（到期日/标题变更）。
   final List<CalendarReplacement> replacements;
 
   /// 对账后的登记表新值。
   final Map<String, CalendarPushRecord> nextRegistry;
+}
+
+/// 一条待回收的事件；[key] 为其登记表键。
+class CalendarRemoval {
+  const CalendarRemoval({required this.key, required this.eventId});
+
+  final String key;
+  final String eventId;
 }
 
 /// 一次「删旧 + 按新内容重建」的替换；[key] 为原登记表键，
@@ -52,7 +61,7 @@ CalendarSyncPlan planCalendarSync({
       calendarPushRegistryKey(due.assetId, due.fieldKey): due,
   };
 
-  final eventIdsToDelete = <String>[];
+  final eventIdsToDelete = <CalendarRemoval>[];
   final replacements = <CalendarReplacement>[];
   final nextRegistry = <String, CalendarPushRecord>{};
 
@@ -60,7 +69,7 @@ CalendarSyncPlan planCalendarSync({
     final due = currentByKey[key];
     if (due == null) {
       // 资产删除 / 字段删除 / 取消提醒：回收事件。
-      eventIdsToDelete.add(record.eventId);
+      eventIdsToDelete.add(CalendarRemoval(key: key, eventId: record.eventId));
       return;
     }
     final day = due.date.toIso8601String().substring(0, 10);
@@ -76,7 +85,7 @@ CalendarSyncPlan planCalendarSync({
   });
 
   return CalendarSyncPlan(
-    eventIdsToDelete: eventIdsToDelete,
+    removals: eventIdsToDelete,
     replacements: replacements,
     nextRegistry: nextRegistry,
   );

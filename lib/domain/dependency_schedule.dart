@@ -65,6 +65,17 @@ List<DependencyScheduleUpdate> propagateDependencySchedule({
       final successor = todoById[dependency.successorTaskId];
       if (successor == null || visited.contains(successor.id)) continue;
 
+      // 已完成的后继不再调整排期（完成的任务不应被搬到未来），
+      // 但其日期仍是更下游任务的约束。
+      if (successor.done) {
+        final successorEnd = successor.endDate ?? successor.startDate;
+        if (successorEnd != null) {
+          effectiveEnd[successor.id] = localDayKey(successorEnd);
+          queue.add(successor.id);
+        }
+        continue;
+      }
+
       final earliest = predecessorEnd.add(const Duration(days: 1));
       final currentStart = successor.startDate == null
           ? null
