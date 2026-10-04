@@ -58,8 +58,12 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
   final SystemCalendarService? _systemCalendarService;
   final CalendarPushRegistry? _calendarPushRegistry;
 
-  /// 用户拒绝通知权限后本会话内不再重复请求（可去系统设置里重新开启）。
+  /// 用户拒绝通知权限后本会话内不再重复请求；[applySettings] 保存设置时
+  /// 重置，允许用户在系统设置中开启权限后自动重试。
   bool _dueReminderPermissionDenied = false;
+
+  /// 通知权限是否已被用户拒绝（供设置页展示引导提示）。
+  bool get dueReminderPermissionDenied => _dueReminderPermissionDenied;
   static const _mutations = WorkspaceMutationService();
   final _listeners = <WorkspaceListener>{};
 
@@ -165,6 +169,9 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     );
     await settingsService.apply(withTimestamp, credentials: credentials);
     _settings = withTimestamp;
+    // 设置保存视为用户主动意图（可能刚在系统设置中开启了通知权限），
+    // 重置拒绝标记，让下一次到期扫描重新请求权限。
+    _dueReminderPermissionDenied = false;
     _notifyListeners();
     await _runDueReminders();
     await _reconcileSystemCalendar();

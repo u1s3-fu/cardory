@@ -317,11 +317,25 @@ class _ProjectAttachmentsPanelState extends State<ProjectAttachmentsPanel> {
   }
 
   Future<void> _remove(AttachmentData attachment) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: '删除附件',
+      content: '确定删除“${attachment.fileName}”吗？附件文件将从本地存储中移除。',
+      confirmLabel: '删除',
+      confirmColor: CardoryColors.error,
+    );
+    if (confirmed != true || !mounted) return;
     final repository = widget.repository;
+    setState(() => _busy = true);
     try {
       await repository?.delete(attachment);
     } catch (error) {
       debugPrint('Failed to delete attachment file: $error');
+      // 文件删除失败时不移除模型记录，避免留下无文件指向的孤儿条目。
+      if (mounted) _showError('删除附件失败，请稍后重试。');
+      return;
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
     await _change(
       attachments: widget.attachments

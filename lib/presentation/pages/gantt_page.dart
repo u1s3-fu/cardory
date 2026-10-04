@@ -110,14 +110,30 @@ class _GanttPageState extends State<GanttPage> {
         ],
       );
 
+  /// 存储操作统一兜底：失败提示 SnackBar，不让异常静默丢失。
+  Future<void> _guard(Future<void> Function() operation) async {
+    try {
+      await operation();
+    } catch (error) {
+      debugPrint('Cardory gantt storage failed: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('操作未完成，请重试。')));
+      }
+    }
+  }
+
   Future<void> _addMilestone() async {
     final result = await showDialog<MilestoneData>(
       context: context,
       builder: (_) => MilestoneDialog(projects: widget.projects, now: _now),
     );
     if (result == null) return;
-    await widget.store.addMilestone(result);
-    await _reload();
+    await _guard(() async {
+      await widget.store.addMilestone(result);
+      await _reload();
+    });
   }
 
   Future<void> _editMilestone(MilestoneData milestone) async {
@@ -130,11 +146,13 @@ class _GanttPageState extends State<GanttPage> {
       ),
     );
     if (result == null) return;
-    await widget.store.updateMilestone(result);
-    await _reload();
+    await _guard(() async {
+      await widget.store.updateMilestone(result);
+      await _reload();
+    });
   }
 
-  Future<void> _toggleMilestone(MilestoneData milestone) async {
+  Future<void> _toggleMilestone(MilestoneData milestone) => _guard(() async {
     await widget.store.updateMilestone(
       milestone.copyWith(
         completed: !milestone.completed,
@@ -143,7 +161,7 @@ class _GanttPageState extends State<GanttPage> {
       ),
     );
     await _reload();
-  }
+  });
 
   Future<void> _deleteMilestone(MilestoneData milestone) async {
     final confirmed = await showConfirmDialog(
@@ -153,8 +171,10 @@ class _GanttPageState extends State<GanttPage> {
       confirmLabel: '删除',
     );
     if (confirmed != true) return;
-    await widget.store.deleteMilestone(milestone.id);
-    await _reload();
+    await _guard(() async {
+      await widget.store.deleteMilestone(milestone.id);
+      await _reload();
+    });
   }
 
   Future<void> _addDependency() async {
@@ -178,8 +198,9 @@ class _GanttPageState extends State<GanttPage> {
     await _reload();
   }
 
-  Future<void> _deleteDependency(TaskDependencyData dependency) async {
-    await widget.store.deleteDependency(dependency.id);
-    await _reload();
-  }
+  Future<void> _deleteDependency(TaskDependencyData dependency) =>
+      _guard(() async {
+        await widget.store.deleteDependency(dependency.id);
+        await _reload();
+      });
 }

@@ -24,6 +24,7 @@ class SettingsDialog extends StatefulWidget {
     this.embedded = false,
     this.onSave,
     this.connectionTester,
+    this.dueReminderPermissionDenied = false,
   }) : assert(!embedded || onSave != null);
 
   final AppSettings settings;
@@ -33,6 +34,9 @@ class SettingsDialog extends StatefulWidget {
   final bool embedded;
   final ValueChanged<SettingsResult>? onSave;
   final Future<void> Function(AppSettings, SyncCredentials)? connectionTester;
+
+  /// 通知权限已被拒绝（移动端）：到期通知分区展示引导提示。
+  final bool dueReminderPermissionDenied;
 
   @override
   State<SettingsDialog> createState() => _SettingsDialogState();
@@ -192,10 +196,28 @@ class _SettingsDialogState extends State<SettingsDialog> {
           key: const Key('due-reminders-enabled'),
           contentPadding: EdgeInsets.zero,
           title: const Text('资产到期系统通知'),
-          subtitle: const Text('到期日提醒进入系统通知（应用内日历始终展示）'),
+          subtitle: Text(
+            Platform.isAndroid || Platform.isIOS
+                ? '到期日提醒进入系统通知（应用内日历始终展示）'
+                : '到期日提醒进入系统通知——仅移动端支持，桌面端保留应用内日历提醒',
+          ),
           value: _dueRemindersEnabled,
           onChanged: (value) => setState(() => _dueRemindersEnabled = value),
         ),
+        if (_dueRemindersEnabled &&
+            (Platform.isAndroid || Platform.isIOS) &&
+            widget.dueReminderPermissionDenied)
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 16),
+                SizedBox(width: 6),
+                Expanded(child: Text('通知权限未授予，提醒不会弹出；请在系统设置中允许通知后保存设置，将自动重试。')),
+              ],
+            ),
+          ),
         if (_dueRemindersEnabled)
           DropdownButtonFormField<int>(
             key: const Key('due-reminder-lead-days'),

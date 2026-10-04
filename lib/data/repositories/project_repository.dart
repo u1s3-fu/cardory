@@ -2,7 +2,7 @@
 //
 // 单事务写入契约：实体行 + updatedAt + tombstone 与 sync_changes 在同一个
 // drift 事务内完成；软删除项目时按依赖顺序级联标记任务、资产、附件、附件
-// 分类、进度记录、计时/番茄钟记录与任务依赖，避免留下可见孤儿行。
+// 分类、进度记录、计时/番茄钟记录、里程碑与任务依赖，避免留下可见孤儿行。
 import 'package:drift/drift.dart';
 
 import '../db/app_database.dart';
@@ -335,6 +335,16 @@ class ProjectRepository {
         await _markDeletedPomodoro(session, now);
       }
 
+      // 里程碑（项目级）：与计时/番茄钟一并收口，避免甘特页残留孤儿数据。
+      final milestones =
+          await (_db.select(_db.milestones)..where(
+                (row) => row.projectId.equals(id) & row.deletedAt.isNull(),
+              ))
+              .get();
+      for (final milestone in milestones) {
+        await _markDeletedMilestone(milestone, now);
+      }
+
       // 依赖：涉及项目任务集合的行。
       if (taskIds.isNotEmpty) {
         final dependencies =
@@ -350,6 +360,21 @@ class ProjectRepository {
         }
       }
     });
+  }
+
+  Future<void> _markDeletedMilestone(Milestone row, int now) async {
+    await (_db.update(_db.milestones)..where((r) => r.id.equals(row.id))).write(
+      MilestonesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
+    await recordSyncChange(
+      _db,
+      entityType: 'milestone',
+      entityId: row.id,
+      operation: 'delete',
+      payload: rowPayload(row, deletedAt: now, updatedAt: now),
+      deviceId: _deviceId,
+      createdAt: now,
+    );
   }
 
   Future<void> _markDeletedProject(Project row, int now) async {

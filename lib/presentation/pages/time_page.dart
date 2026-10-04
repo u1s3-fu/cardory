@@ -110,42 +110,59 @@ class _TimePageState extends State<TimePage> {
 
   // ---- 番茄钟 ----
 
-  Future<void> _startPomodoro(String mode, int plannedSeconds) async {
-    final session = await widget.store.startSession(
-      mode: mode,
-      plannedSeconds: plannedSeconds,
-      startedAt: _now,
-    );
-    setState(() => _runningSession = session);
+  /// 存储操作统一兜底：失败提示 SnackBar，不让异常静默丢失；
+  /// 进行中的会话/计时状态在失败时保持不变，等待用户重试。
+  Future<void> _guard(Future<void> Function() operation) async {
+    try {
+      await operation();
+    } catch (error) {
+      debugPrint('Cardory time storage failed: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('时间记录操作未完成，请重试。')));
+      }
+    }
   }
 
-  Future<void> _completePomodoro(PomodoroSessionData session) async {
-    final plannedEnd = session.startedAt.add(
-      Duration(seconds: session.plannedSeconds),
-    );
-    final endedAt = _now.isBefore(plannedEnd) ? _now : plannedEnd;
-    final elapsed = endedAt.difference(session.startedAt).inSeconds;
-    await widget.store.finishSession(
-      session.id,
-      completed: elapsed >= session.plannedSeconds,
-      actualSeconds: elapsed,
-      endedAt: endedAt,
-    );
-    // 完成的专注会话同时写入 time_entries，供统计与同步。
-    if (session.mode == 'focus' && elapsed > 0) {
-      await widget.store.createEntry(
-        startedAt: session.startedAt,
-        endedAt: endedAt,
-        source: 'pomodoro',
-        projectId: session.projectId,
-        taskId: session.taskId,
-        note: '番茄钟专注',
-      );
-    }
-    if (!mounted) return;
-    setState(() => _runningSession = null);
-    await _refreshEntries();
-  }
+  Future<void> _startPomodoro(String mode, int plannedSeconds) =>
+      _guard(() async {
+        final session = await widget.store.startSession(
+          mode: mode,
+          plannedSeconds: plannedSeconds,
+          startedAt: _now,
+        );
+        setState(() => _runningSession = session);
+      });
+
+  Future<void> _completePomodoro(PomodoroSessionData session) =>
+      _guard(() async {
+        final plannedEnd = session.startedAt.add(
+          Duration(seconds: session.plannedSeconds),
+        );
+        final endedAt = _now.isBefore(plannedEnd) ? _now : plannedEnd;
+        final elapsed = endedAt.difference(session.startedAt).inSeconds;
+        await widget.store.finishSession(
+          session.id,
+          completed: elapsed >= session.plannedSeconds,
+          actualSeconds: elapsed,
+          endedAt: endedAt,
+        );
+        // 完成的专注会话同时写入 time_entries，供统计与同步。
+        if (session.mode == 'focus' && elapsed > 0) {
+          await widget.store.createEntry(
+            startedAt: session.startedAt,
+            endedAt: endedAt,
+            source: 'pomodoro',
+            projectId: session.projectId,
+            taskId: session.taskId,
+            note: '番茄钟专注',
+          );
+        }
+        if (!mounted) return;
+        setState(() => _runningSession = null);
+        await _refreshEntries();
+      });
 
   Future<void> _abortPomodoro(PomodoroSessionData session) async {
     final confirmed = await showConfirmDialog(
@@ -155,29 +172,31 @@ class _TimePageState extends State<TimePage> {
       confirmLabel: '结束',
     );
     if (confirmed != true || !mounted) return;
-    final elapsed = _now.difference(session.startedAt).inSeconds;
-    await widget.store.finishSession(
-      session.id,
-      completed: false,
-      actualSeconds: elapsed > 0 ? elapsed : 0,
-      endedAt: _now,
-    );
-    if (!mounted) return;
-    setState(() => _runningSession = null);
+    await _guard(() async {
+      final elapsed = _now.difference(session.startedAt).inSeconds;
+      await widget.store.finishSession(
+        session.id,
+        completed: false,
+        actualSeconds: elapsed > 0 ? elapsed : 0,
+        endedAt: _now,
+      );
+      if (!mounted) return;
+      setState(() => _runningSession = null);
+    });
   }
 
   // ---- 专注计时器 ----
 
-  Future<void> _startTimer() async {
+  Future<void> _startTimer() => _guard(() async {
     final entry = await widget.store.startEntry(source: 'timer');
     setState(() {
       _runningTimer = entry;
       _accumulatedSeconds = 0;
     });
-  }
+  });
 
   /// 暂停：闭合当前区间，累计时长，等待继续或结束。
-  Future<void> _pauseTimer() async {
+  Future<void> _pauseTimer() => _guard(() async {
     final running = _runningTimer;
     if (running == null) return;
     final stopped = await widget.store.stopEntry(running.id, endedAt: _now);
@@ -186,7 +205,7 @@ class _TimePageState extends State<TimePage> {
       _runningTimer = null;
     });
     await _refreshEntries();
-  }
+  });
 
   Future<void> _finishTimer() async {
     if (_runningTimer != null) await _pauseTimer();
@@ -259,13 +278,15 @@ class _TimePageState extends State<TimePage> {
           ManualTimeEntryDialog(projects: widget.projects, initialDay: _now),
     );
     if (result == null) return;
-    await widget.store.createEntry(
-      startedAt: result.startedAt,
-      endedAt: result.endedAt,
-      projectId: result.projectId,
-      note: result.note,
-    );
-    await _refreshEntries();
+    await _guard(() async {
+      await widget.store.createEntry(
+        startedAt: result.startedAt,
+        endedAt: result.endedAt,
+        projectId: result.projectId,
+        note: result.note,
+      );
+      await _refreshEntries();
+    });
   }
 
   Future<void> _editEntry(TimeEntryData entry) async {
@@ -278,16 +299,20 @@ class _TimePageState extends State<TimePage> {
       ),
     );
     if (result == null) return;
-    await widget.store.updateEntry(
-      entry.copyWith(
-        startedAt: result.startedAt,
-        endedAt: result.endedAt,
-        durationSeconds: result.endedAt.difference(result.startedAt).inSeconds,
-        projectId: result.projectId,
-        note: result.note,
-      ),
-    );
-    await _refreshEntries();
+    await _guard(() async {
+      await widget.store.updateEntry(
+        entry.copyWith(
+          startedAt: result.startedAt,
+          endedAt: result.endedAt,
+          durationSeconds: result.endedAt
+              .difference(result.startedAt)
+              .inSeconds,
+          projectId: result.projectId,
+          note: result.note,
+        ),
+      );
+      await _refreshEntries();
+    });
   }
 
   Future<void> _deleteEntry(TimeEntryData entry) async {
@@ -298,8 +323,10 @@ class _TimePageState extends State<TimePage> {
       confirmLabel: '删除',
     );
     if (confirmed != true) return;
-    await widget.store.deleteEntry(entry.id);
-    await _refreshEntries();
+    await _guard(() async {
+      await widget.store.deleteEntry(entry.id);
+      await _refreshEntries();
+    });
   }
 
   @override

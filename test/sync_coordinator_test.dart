@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:cardory/data/db/app_database.dart';
 import 'package:cardory/domain/attachment_repository.dart';
 import 'package:cardory/domain/cardory_repository.dart';
 import 'package:cardory/domain/cardory_models.dart';
 import 'package:cardory/sync/attachment_manifest.dart';
+import 'package:cardory/sync/delta_sync.dart';
 import 'package:cardory/sync/sync_coordinator.dart';
 import 'package:cardory/sync/sync_models.dart';
 import 'package:cardory/sync/sync_provider.dart';
@@ -723,6 +725,206 @@ void main() {
     expect(coordinator.status.phase, SyncPhase.failure);
     expect(coordinator.status.message, contains('附件清单'));
   });
+
+  test('delta 实体级冲突挂起后保持冲突状态等待裁决', () async {
+    final db = AppDatabase.inMemory();
+    addTearDown(db.close);
+    await db
+        .into(db.projects)
+        .insert(
+          ProjectsCompanion.insert(
+            id: 'p1',
+            name: '本地',
+            status: 'planned',
+            priority: 'p2',
+            createdAt: 1,
+            updatedAt: 100,
+          ),
+        );
+    final provider = _DeltaProvider(
+      deltaBytes: await DeltaFeedCipher('vault-key').seal(
+        const DeltaFeedCodec().serialize([
+          DeltaRecord(
+            changeId: 'c1',
+            entityType: 'project',
+            entityId: 'p1',
+            operation: 'update',
+            payload: _deltaProjectPayload(id: 'p1', name: '远端', updatedAt: 100),
+            deviceId: 'device-b',
+            createdAt: 5,
+          ),
+        ]),
+      ),
+    );
+    final coordinator = SyncCoordinator(
+      repository: _Repository([9, 9, 9]),
+      providerFactory: (_) async => provider,
+      attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+      deltaKeyProvider: () => 'vault-key',
+      deltaDatabaseProvider: () => db,
+    );
+
+    final settings = await coordinator.synchronize(
+      const AppSettings(
+        syncProvider: SyncProviderType.directory,
+        syncRevision: 'v1',
+        syncLocalHash: 'hash',
+      ),
+    );
+
+    // 冲突状态必须保持到界面裁决，不能被「同步完成」覆盖。
+    expect(coordinator.status.phase, SyncPhase.conflict);
+    expect(coordinator.status.conflictKind, SyncConflictKind.entityLevel);
+    expect(coordinator.hasPendingConflict, isTrue);
+    // 冲突条目保留本地版本，同步基线保持原样。
+    final row = await (db.select(
+      db.projects,
+    )..where((r) => r.id.equals('p1'))).getSingle();
+    expect(row.name, '本地');
+    expect(settings.syncRevision, 'v1');
+  });
+
+  test('delta 拉取远端记录后要求界面回读刷新', () async {
+    final db = AppDatabase.inMemory();
+    addTearDown(db.close);
+    final provider = _DeltaProvider(
+      deltaBytes: await DeltaFeedCipher('vault-key').seal(
+        const DeltaFeedCodec().serialize([
+          DeltaRecord(
+            changeId: 'c1',
+            entityType: 'project',
+            entityId: 'p2',
+            operation: 'update',
+            payload: _deltaProjectPayload(
+              id: 'p2',
+              name: '远端新增',
+              updatedAt: 200,
+            ),
+            deviceId: 'device-b',
+            createdAt: 5,
+          ),
+        ]),
+      ),
+    );
+    final coordinator = SyncCoordinator(
+      repository: _Repository([9, 9, 9]),
+      providerFactory: (_) async => provider,
+      attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+      deltaKeyProvider: () => 'vault-key',
+      deltaDatabaseProvider: () => db,
+    );
+
+    await coordinator.synchronize(
+      const AppSettings(
+        syncProvider: SyncProviderType.directory,
+        syncRevision: 'v1',
+        syncLocalHash: 'hash',
+      ),
+    );
+
+    expect(coordinator.status.phase, SyncPhase.success);
+    // 远端记录已直接写入本地库（未走整库导入），必须触发 reload 以刷新
+    // 内存投影、桌面小组件、到期提醒与系统日历对账。
+    expect(coordinator.status.requiresReload, isTrue);
+    final row = await (db.select(
+      db.projects,
+    )..where((r) => r.id.equals('p2'))).getSingle();
+    expect(row.name, '远端新增');
+  });
+
+  test('逐实体冲突裁决后完成同步并要求刷新', () async {
+    final db = AppDatabase.inMemory();
+    addTearDown(db.close);
+    await db
+        .into(db.projects)
+        .insert(
+          ProjectsCompanion.insert(
+            id: 'p1',
+            name: '本地',
+            status: 'planned',
+            priority: 'p2',
+            createdAt: 1,
+            updatedAt: 100,
+          ),
+        );
+    final provider = _DeltaProvider(
+      deltaBytes: await DeltaFeedCipher('vault-key').seal(
+        const DeltaFeedCodec().serialize([
+          DeltaRecord(
+            changeId: 'c1',
+            entityType: 'project',
+            entityId: 'p1',
+            operation: 'update',
+            payload: _deltaProjectPayload(id: 'p1', name: '远端', updatedAt: 100),
+            deviceId: 'device-b',
+            createdAt: 5,
+          ),
+        ]),
+      ),
+    );
+    final coordinator = SyncCoordinator(
+      repository: _Repository([9, 9, 9]),
+      providerFactory: (_) async => provider,
+      attachmentRepositoryFactory: (_) => _EmptyAttachments(),
+      deltaKeyProvider: () => 'vault-key',
+      deltaDatabaseProvider: () => db,
+    );
+
+    await coordinator.synchronize(
+      const AppSettings(
+        syncProvider: SyncProviderType.directory,
+        syncRevision: 'v1',
+        syncLocalHash: 'hash',
+      ),
+    );
+    expect(coordinator.status.phase, SyncPhase.conflict);
+
+    await coordinator.resolveConflict(SyncConflictChoice.keepRemote);
+
+    expect(coordinator.status.phase, SyncPhase.success);
+    expect(coordinator.status.message, contains('逐实体冲突'));
+    expect(coordinator.status.requiresReload, isTrue);
+    expect(coordinator.hasPendingConflict, isFalse);
+    final row = await (db.select(
+      db.projects,
+    )..where((r) => r.id.equals('p1'))).getSingle();
+    expect(row.name, '远端');
+  });
+}
+
+Map<String, dynamic> _deltaProjectPayload({
+  required String id,
+  required String name,
+  required int updatedAt,
+}) => {
+  'id': id,
+  'name': name,
+  'description': '',
+  'status': 'planned',
+  'priority': 'p2',
+  'sortOrder': 0,
+  'pinned': false,
+  'currentProgress': 0.0,
+  'createdAt': 1,
+  'updatedAt': updatedAt,
+};
+
+/// 在 [_Provider] 基础上提供 delta 文档读取的测试桩。
+class _DeltaProvider extends _Provider {
+  _DeltaProvider({required this.deltaBytes});
+
+  final List<int> deltaBytes;
+
+  @override
+  Future<SyncDocument?> read(String key) async {
+    if (key == deltaDocumentKey) {
+      return SyncDocument(
+        bytes: Uint8List.fromList(deltaBytes),
+        revision: 'd1',
+      );
+    }
+    return super.read(key);
+  }
 }
 
 AttachmentData _projectAttachment() => AttachmentData(

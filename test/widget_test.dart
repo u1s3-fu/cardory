@@ -727,6 +727,9 @@ void main() {
     await pumpUiFrames(tester);
     await tester.tap(find.text('删除附件'));
     await pumpUiFrames(tester);
+    // 单个附件删除与批量删除一致，先弹确认框。
+    await tester.tap(find.text('删除'));
+    await pumpUiFrames(tester);
 
     expect(find.text('must-stay.txt'), findsOneWidget);
     expect(find.text('附件更新失败，请稍后重试。'), findsOneWidget);
@@ -1087,6 +1090,7 @@ void main() {
               ProgressTimeline(
                 entries: [progress],
                 onEdit: (_) async => edited = true,
+                onDelete: (_) async {},
               ),
             ],
           ),

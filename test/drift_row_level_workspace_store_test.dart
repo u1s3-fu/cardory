@@ -7,6 +7,7 @@ import 'package:cardory/data/repositories/attachment_repositories.dart';
 import 'package:cardory/data/repositories/drift_row_level_workspace_store.dart';
 import 'package:cardory/data/runtime/sqlcipher_data_mapper.dart';
 import 'package:cardory/domain/cardory_models.dart';
+import 'package:cardory/domain/milestone_models.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -200,6 +201,38 @@ void main() {
       database.tasks,
     )..where((row) => row.id.equals('todo-1'))).getSingle();
     expect(taskRow.deletedAt, isNotNull);
+  });
+
+  test('deleteProject 级联软删除项目里程碑', () async {
+    final original = project(id: 'project-1', title: '项目');
+    await store.addProject(original);
+    await store.addMilestone(
+      MilestoneData(
+        id: 'milestone-1',
+        projectId: 'project-1',
+        title: '发布',
+        dueAt: DateTime.utc(2026, 10, 1),
+      ),
+    );
+
+    await store.deleteProject('project-1');
+
+    // 投影不再包含里程碑；行级 tombstone 与 sync_changes 齐备，
+    // 删除会经 delta 通道传播到其他设备。
+    final rows = await (database.select(
+      database.milestones,
+    )..where((row) => row.id.equals('milestone-1'))).getSingle();
+    expect(rows.deletedAt, isNotNull);
+    final changes = await database.select(database.syncChanges).get();
+    expect(
+      changes.where(
+        (change) =>
+            change.entityType == 'milestone' &&
+            change.entityId == 'milestone-1' &&
+            change.operation == 'delete',
+      ),
+      hasLength(1),
+    );
   });
 
   test('待办与子待办：新增、编辑差异对齐、完成切换与级联删除', () async {

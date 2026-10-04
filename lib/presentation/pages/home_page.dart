@@ -18,6 +18,7 @@ import '../../domain/sync_status.dart';
 import '../../routing/app_router.dart';
 import '../../services/github_update_service.dart';
 import '../../services/system_calendar_service.dart';
+import '../../services/update_skip_store.dart';
 import '../app_section.dart';
 import '../cardory_theme.dart';
 import '../dialogs/about_dialog.dart';
@@ -184,6 +185,9 @@ class _HomePageState extends State<HomePage> {
 
   String? _currentVersion;
 
+  /// 「跳过此版本」偏好（设备本地）。
+  final UpdateSkipStore _updateSkipStore = UpdateSkipStore();
+
   /// 检查 GitHub 是否有新版本。
   ///
   /// [manual] 为 true 时来自设置面板手动点击：无更新提示"已是最新版本"，
@@ -212,7 +216,17 @@ class _HomePageState extends State<HomePage> {
     }
     final comparison = compareVersions(current, info.version);
     if (comparison == VersionComparison.newer) {
-      await showUpdateDialog(context, release: info, currentVersion: current);
+      // 启动静默检查尊重「跳过此版本」；设置面板的手动检查不受限。
+      if (!manual && await _updateSkipStore.load() == info.version) {
+        return;
+      }
+      if (!mounted) return;
+      await showUpdateDialog(
+        context,
+        release: info,
+        currentVersion: current,
+        onSkipVersion: () => _updateSkipStore.save(info.version),
+      );
     } else if (manual) {
       ScaffoldMessenger.of(
         context,
@@ -270,6 +284,7 @@ class _HomePageState extends State<HomePage> {
         currentDataPath: _dataPath,
         category: category,
         connectionTester: widget.connectionTester,
+        dueReminderPermissionDenied: _controller.dueReminderPermissionDenied,
       ),
     );
     if (result == null) return;
@@ -601,7 +616,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// 日历中点击资产到期条目：按 assetId 回查资产，模板按 templateId
-  /// 从全部资产模板中取，打开只读资产详情。找不到资产时安全忽略。
+  /// 从全部资产模板中取，打开资产详情；弹窗内「编辑资产」直接进入
+  /// Shell 的资产编辑器。找不到资产时安全忽略。
   Future<void> _openAssetDue(AssetDueEntry due) async {
     final asset = _data.assets
         .where((item) => item.id == due.assetId)
@@ -616,7 +632,7 @@ class _HomePageState extends State<HomePage> {
     final project = _data.projects
         .where((item) => item.id == asset.projectId)
         .firstOrNull;
-    await showDialog<void>(
+    final editRequested = await showDialog<bool>(
       context: context,
       builder: (_) => AssetDetailDialog(
         asset: asset,
@@ -625,6 +641,9 @@ class _HomePageState extends State<HomePage> {
         attachments: project?.attachments ?? const [],
       ),
     );
+    if (editRequested == true && mounted) {
+      await _editAsset(asset);
+    }
   }
 
   void _selectSection(AppSection section) {
@@ -1016,6 +1035,7 @@ class _AssetsSectionContent extends StatelessWidget {
       templates: state._settings.assetTemplates,
       attachmentStore: state._attachmentStore,
       onOpenProject: openProject,
+      onEditAsset: state._editAsset,
     );
   }
 }

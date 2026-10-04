@@ -11,10 +11,12 @@ class ProgressTimeline extends StatelessWidget {
     super.key,
     required this.entries,
     required this.onEdit,
+    required this.onDelete,
   });
 
   final List<ProjectProgressEntry> entries;
   final Future<void> Function(ProjectProgressEntry entry) onEdit;
+  final Future<void> Function(ProjectProgressEntry entry) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +63,17 @@ class ProgressTimeline extends StatelessWidget {
                           tooltip: '编辑进度',
                           onPressed: () => onEdit(entry),
                           icon: const Icon(Icons.edit_outlined, size: 18),
+                          color: CardoryColors.gray500,
+                          constraints: const BoxConstraints(
+                            minWidth: 44,
+                            minHeight: 44,
+                          ),
+                          padding: EdgeInsets.zero,
+                        ),
+                        IconButton(
+                          tooltip: '删除进度',
+                          onPressed: () => onDelete(entry),
+                          icon: const Icon(Icons.delete_outline, size: 18),
                           color: CardoryColors.gray500,
                           constraints: const BoxConstraints(
                             minWidth: 44,

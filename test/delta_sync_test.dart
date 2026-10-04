@@ -2,6 +2,7 @@
 
 import 'package:cardory/data/db/app_database.dart';
 import 'package:cardory/sync/delta_sync.dart';
+import 'package:cardory/sync/sync_models.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -356,4 +357,113 @@ void main() {
     final remaining = await db.select(db.projects).get();
     expect(remaining.single.id, 'new');
   });
+
+  test('子记录先于父记录时多轮重试落库（任务父链自引用）', () async {
+    await db
+        .into(db.projects)
+        .insert(
+          ProjectsCompanion.insert(
+            id: 'p1',
+            name: '项目',
+            status: 'planned',
+            priority: 'p2',
+            createdAt: 1,
+            updatedAt: 1,
+          ),
+        );
+    // feed 里子任务在前、父任务在后且同属 task 层级：第一轮子任务因
+    // 父行缺失插入失败被推迟，第二轮父行就位后落库。
+    final result = await applier.apply([
+      _record(
+        'c1',
+        entityType: 'task',
+        entityId: 't1',
+        payload: _taskPayload(id: 't1', parentTaskId: 't2', updatedAt: 100),
+      ),
+      _record(
+        'c2',
+        entityType: 'task',
+        entityId: 't2',
+        payload: _taskPayload(id: 't2', updatedAt: 100),
+      ),
+    ]);
+    expect(result.applied, 2);
+    final child = await (db.select(
+      db.tasks,
+    )..where((r) => r.id.equals('t1'))).getSingle();
+    expect(child.parentTaskId, 't2');
+    final parent = await (db.select(
+      db.tasks,
+    )..where((r) => r.id.equals('t2'))).getSingle();
+    expect(parent.parentTaskId, isNull);
+  });
+
+  test('引用已删数据的坏行抛错但不阻塞其余记录应用', () async {
+    Object? failure;
+    try {
+      await applier.apply([
+        _record(
+          'c1',
+          entityType: 'task_dependency',
+          entityId: 'd1',
+          payload: _dependencyPayload(
+            id: 'd1',
+            predecessorTaskId: 'missing-a',
+            successorTaskId: 'missing-b',
+            updatedAt: 100,
+          ),
+        ),
+        _record(
+          'c2',
+          entityType: 'project',
+          entityId: 'p9',
+          payload: _projectPayload(id: 'p9', name: '有效项目', updatedAt: 100),
+        ),
+      ]);
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure, isA<SyncProviderException>());
+    // 坏行导致整体失败，但有效的项目记录保持已应用，
+    // 下次同步不会从坏行处开始卡死。
+    final project = await (db.select(
+      db.projects,
+    )..where((r) => r.id.equals('p9'))).getSingleOrNull();
+    expect(project, isNotNull);
+    final dependency = await (db.select(
+      db.taskDependencies,
+    )..where((r) => r.id.equals('d1'))).getSingleOrNull();
+    expect(dependency, isNull);
+  });
 }
+
+Map<String, dynamic> _taskPayload({
+  required String id,
+  String? parentTaskId,
+  required int updatedAt,
+}) => {
+  'id': id,
+  'projectId': 'p1',
+  if (parentTaskId != null) 'parentTaskId': parentTaskId,
+  'title': '任务-$id',
+  'notes': '',
+  'status': 'todo',
+  'priority': 'p2',
+  'sortOrder': 0,
+  'createdAt': 1,
+  'updatedAt': updatedAt,
+};
+
+Map<String, dynamic> _dependencyPayload({
+  required String id,
+  required String predecessorTaskId,
+  required String successorTaskId,
+  required int updatedAt,
+}) => {
+  'id': id,
+  'predecessorTaskId': predecessorTaskId,
+  'successorTaskId': successorTaskId,
+  'type': 'finish_to_start',
+  'createdAt': 1,
+  'updatedAt': updatedAt,
+};

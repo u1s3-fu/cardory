@@ -1,8 +1,9 @@
-// 资产库：跨项目的资产与附件总览（只读）。
+// 资产库：跨项目的资产与附件总览。
 //
-// 资产与附件的登记、编辑、删除仍在各项目详情内进行；本页把全量数据
-// 汇总展示，支持按项目区分、按到期紧急度分组、标签筛选与名称搜索，
-// 并提供附件解密导出与跳转所属项目的入口。
+// 资产与附件的登记、删除仍在各项目详情内进行；本页把全量数据汇总展示，
+// 支持按项目区分、按到期紧急度分组、标签筛选与名称搜索，并提供附件解密
+// 导出与跳转所属项目的入口。详情弹窗内的「编辑资产」经由 [onEditAsset]
+// 打开与项目详情一致的编辑器。
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +29,7 @@ class AssetsLibraryPage extends StatefulWidget {
     this.templates = const [],
     this.attachmentStore,
     required this.onOpenProject,
+    required this.onEditAsset,
   });
 
   /// 全部项目（附件挂载在项目上，按项目分组展示）。
@@ -44,6 +46,9 @@ class AssetsLibraryPage extends StatefulWidget {
 
   /// 跳转项目详情。
   final ValueChanged<String> onOpenProject;
+
+  /// 编辑资产（复用 Shell 的资产编辑器；编辑后数据经 Shell 刷新回流）。
+  final Future<AssetData?> Function(AssetData asset) onEditAsset;
 
   @override
   State<AssetsLibraryPage> createState() => _AssetsLibraryPageState();
@@ -239,7 +244,7 @@ class _AssetsLibraryPageState extends State<AssetsLibraryPage> {
     final project = widget.projects
         .where((item) => item.id == asset.projectId)
         .firstOrNull;
-    await showDialog<void>(
+    final editRequested = await showDialog<bool>(
       context: context,
       builder: (_) => AssetDetailDialog(
         asset: asset,
@@ -248,6 +253,9 @@ class _AssetsLibraryPageState extends State<AssetsLibraryPage> {
         attachments: project?.attachments ?? const [],
       ),
     );
+    if (editRequested == true && mounted) {
+      await widget.onEditAsset(asset);
+    }
   }
 
   // ---- 附件总览 ---------------------------------------------------------

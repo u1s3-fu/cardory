@@ -19,6 +19,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/db/app_database.dart' as db;
+import 'sync_models.dart' show SyncProviderException;
 
 /// 远端 delta 文档键。
 const deltaDocumentKey = 'cardory-delta-v1.bin';
@@ -124,30 +125,73 @@ class DeltaApplier {
   /// 本设备标识；记录的 deviceId 与之相同时跳过（本地行即权威状态）。
   final String localDeviceId;
 
+  /// 实体类型的 FK 依赖层级：父表实体先于子表实体应用，让绝大多数
+  /// feed 顺序在第一轮就能落库；同表自引用（任务父链）等剩余顺序交给
+  /// 多轮重试收敛。
+  static const _entityRank = <String, int>{
+    'project': 0,
+    'asset_tag': 1,
+    'attachment_category': 1,
+    'task': 2,
+    'milestone': 3,
+    'project_progress_entry': 3,
+    'time_entry': 3,
+    'pomodoro_session': 3,
+    'asset': 4,
+    'attachment': 5,
+    'task_dependency': 6,
+  };
+
+  static int _rankOf(DeltaRecord record) =>
+      _entityRank[record.entityType] ?? (_entityRank.length ~/ 2);
+
   Future<DeltaApplyResult> apply(Iterable<DeltaRecord> records) async {
     var applied = 0;
     var skipped = 0;
     final conflicts = <DeltaConflict>[];
-    for (final record in records) {
-      if (record.deviceId == localDeviceId) {
-        // 自己产生的记录：本地行就是权威状态，直接跳过。
-        skipped++;
-        continue;
+    final all = records.toList();
+    // 自己的记录直接跳过（本地行即权威状态）；其余按 FK 层级排序后
+    // 多轮应用：单条失败（如引用行尚未落库）推迟到下一轮重试，引用
+    // 已删数据的坏行不阻塞其余记录收敛。每条记录在独立事务中应用，
+    // 与写入侧「实体行 + sync_changes 单事务」的原子性口径一致。
+    var pending =
+        all.where((record) => record.deviceId != localDeviceId).toList()
+          ..sort((a, b) => _rankOf(a).compareTo(_rankOf(b)));
+    skipped += all.length - pending.length;
+    while (pending.isNotEmpty) {
+      final deferred = <DeltaRecord>[];
+      Object? firstFailure;
+      for (final record in pending) {
+        try {
+          final outcome = await _db.transaction(() => _applyOne(record));
+          switch (outcome) {
+            case _ApplyOutcome.applied:
+              applied++;
+            case _ApplyOutcome.skipped:
+              skipped++;
+            case _ApplyOutcome.conflict:
+              conflicts.add(
+                DeltaConflict(
+                  record: record,
+                  localUpdatedAt: _payloadUpdatedAt(record),
+                ),
+              );
+          }
+        } catch (error) {
+          firstFailure ??= error;
+          deferred.add(record);
+        }
       }
-      final outcome = await _applyOne(record);
-      switch (outcome) {
-        case _ApplyOutcome.applied:
-          applied++;
-        case _ApplyOutcome.skipped:
-          skipped++;
-        case _ApplyOutcome.conflict:
-          conflicts.add(
-            DeltaConflict(
-              record: record,
-              localUpdatedAt: _payloadUpdatedAt(record),
-            ),
-          );
+      if (deferred.length == pending.length) {
+        // 整轮无一成功：剩余记录引用了本地永远缺失的行（如已被级联
+        // 删除的父实体），继续重试只会永久卡死同步。已应用的记录保持
+        // 已应用（重放幂等），这里如实抛错让界面提示重试。
+        throw SyncProviderException(
+          '增量数据无法应用，可能引用了已删除的记录，请重新同步或联系开发者。',
+          cause: firstFailure,
+        );
       }
+      pending = deferred;
     }
     return DeltaApplyResult(
       applied: applied,

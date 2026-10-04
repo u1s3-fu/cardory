@@ -290,17 +290,68 @@ class _CalendarPageState extends State<CalendarPage> {
       ),
   ];
 
-  List<CalendarEntry> entriesOnDay(DateTime day) {
-    final entries = [
-      ..._taskEntries.where((entry) => isDueOnTask(entry, day)),
-      ..._assetEntries.where((entry) => isDueOnTask(entry, day)),
-      ..._systemEntries.where((entry) => overlapsDay(entry, day)),
-    ]..sort((a, b) => a.start.compareTo(b.start));
-    return entries;
+  // ---- 按日条目索引 -------------------------------------------------------
+  //
+  // build 期间 entriesOnDay 会被逐日查询（月视图每格判定、周/日视图逐列
+  // 取条目），直接每次拼接 + 排序是 O(格数 × n log n) 的重复计算。这里以
+  // 来源列表的标识做失效，把条目一次性索引到本地日键上。
+
+  Map<DateTime, List<CalendarEntry>>? _entriesByDay;
+  List<TodoData>? _entriesByDayTodos;
+  List<AssetDueEntry>? _entriesByDayDues;
+  List<SystemCalendarEvent>? _entriesByDaySystemEvents;
+
+  Map<DateTime, List<CalendarEntry>> get _entriesByDayCache {
+    if (!identical(_entriesByDayTodos, widget.todos) ||
+        !identical(_entriesByDayDues, widget.assetDues) ||
+        !identical(_entriesByDaySystemEvents, _systemEvents)) {
+      _entriesByDayTodos = widget.todos;
+      _entriesByDayDues = widget.assetDues;
+      _entriesByDaySystemEvents = _systemEvents;
+      _entriesByDay = null;
+    }
+    return _entriesByDay ??= _buildEntriesByDay();
   }
 
-  static bool isDueOnTask(CalendarEntry entry, DateTime day) =>
-      localDayKey(entry.start) == day;
+  Map<DateTime, List<CalendarEntry>> _buildEntriesByDay() {
+    final cache = <DateTime, List<CalendarEntry>>{};
+    void add(DateTime day, CalendarEntry entry) {
+      (cache[localDayKey(day)] ??= []).add(entry);
+    }
+
+    // 任务与资产条目都落在单一截止日。
+    for (final entry in CalendarPage.buildTaskEntries(widget.todos)) {
+      add(entry.start, entry);
+    }
+    for (final due in widget.assetDues) {
+      final entry = CalendarEntry(
+        title: due.title,
+        start: due.date,
+        end: due.date,
+        isTask: false,
+        note: due.fieldLabel,
+        entityType: 'asset',
+        entityId: due.assetId,
+      );
+      add(entry.start, entry);
+    }
+    // 系统日程可跨天（全天事件 end=次日零点），逐日展开；
+    // 上限 370 天防止异常数据把循环拖死。
+    for (final entry in _systemEntries) {
+      var day = localDayKey(entry.start);
+      for (var span = 0; span < 370 && overlapsDay(entry, day); span++) {
+        add(day, entry);
+        day = day.add(const Duration(days: 1));
+      }
+    }
+    for (final entries in cache.values) {
+      entries.sort((a, b) => a.start.compareTo(b.start));
+    }
+    return cache;
+  }
+
+  List<CalendarEntry> entriesOnDay(DateTime day) =>
+      _entriesByDayCache[localDayKey(day)] ?? const [];
 
   static bool overlapsDay(CalendarEntry entry, DateTime day) {
     final dayStart = DateTime(day.year, day.month, day.day);

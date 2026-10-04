@@ -12,13 +12,16 @@ import '../cardory_theme.dart';
 /// [release] 为 GitHub 最新 Release 信息，[currentVersion] 为本地应用版本号。
 /// 对话框按当前平台列出可下载的安装包，点击后调用系统浏览器直接下载，
 /// 底部另提供"打开 GitHub Releases"入口查看完整发布说明。
-Future<void> showUpdateDialog(
+/// [onSkipVersion] 非空时提供"跳过此版本"动作（记录后本次安装不再提示），
+/// 返回值表示用户是否选择了跳过。
+Future<bool> showUpdateDialog(
   BuildContext context, {
   required GithubReleaseInfo release,
   required String currentVersion,
+  Future<void> Function()? onSkipVersion,
 }) async {
   final assets = assetsForCurrentPlatform(release);
-  await showDialog<void>(
+  final skipped = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       icon: Icon(
@@ -100,6 +103,12 @@ Future<void> showUpdateDialog(
         ),
       ),
       actions: [
+        if (onSkipVersion != null)
+          TextButton(
+            key: const Key('skip-update-version'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('跳过此版本'),
+          ),
         TextButton(
           onPressed: () => Navigator.pop(dialogContext),
           child: const Text('稍后'),
@@ -112,6 +121,10 @@ Future<void> showUpdateDialog(
       ],
     ),
   );
+  if (skipped == true) {
+    await onSkipVersion?.call();
+  }
+  return skipped == true;
 }
 
 /// 在系统浏览器中打开链接；失败时提示。

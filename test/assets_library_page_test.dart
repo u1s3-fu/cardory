@@ -118,6 +118,7 @@ Future<void> pumpPage(
             templates: templates,
             attachmentStore: attachmentStore,
             onOpenProject: (_) {},
+            onEditAsset: (_) async => null,
           ),
         ),
       ),

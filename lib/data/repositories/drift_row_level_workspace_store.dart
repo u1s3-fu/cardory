@@ -690,15 +690,12 @@ class DriftRowLevelWorkspaceStore
 
   @override
   Future<void> updateMilestone(MilestoneData milestone) async {
-    final rows = await _milestones.loadVisible();
-    db.Milestone? current;
-    for (final row in rows) {
-      if (row.id == milestone.id) {
-        current = row;
-        break;
-      }
-    }
-    if (current == null) throw StateError('里程碑不存在：');
+    final current =
+        await (_db.select(_db.milestones)..where(
+              (row) => row.id.equals(milestone.id) & row.deletedAt.isNull(),
+            ))
+            .getSingleOrNull();
+    if (current == null) throw StateError('里程碑不存在：${milestone.id}');
     await _milestones.update(
       current.copyWith(
         title: milestone.title,

@@ -30,11 +30,34 @@ class _PendingDeltaSync {
     required this.conflicts,
     required this.settings,
     required this.providerId,
+    required this.appliedRemote,
   });
 
   final List<DeltaConflict> conflicts;
   final AppSettings settings;
   final String providerId;
+
+  /// 挂起前已按 LWW 写入本地库的非冲突远端记录数：冲突裁决被取消时
+  /// 本地库并非原样，界面仍需回读刷新。
+  final int appliedRemote;
+}
+
+/// delta 通道单次执行结果。
+///
+/// [settings] 为通道结束时的设置快照；[suspendedForConflict] 表示已挂起
+/// 逐实体冲突（状态保持 conflict，由界面走 [SyncCoordinator.resolveConflict]
+/// 收敛，调用方不得覆盖）；[appliedRemote] 表示远端记录已写入本地库，
+/// 界面投影需要回读刷新。
+class _DeltaChannelOutcome {
+  const _DeltaChannelOutcome({
+    required this.settings,
+    this.suspendedForConflict = false,
+    this.appliedRemote = false,
+  });
+
+  final AppSettings settings;
+  final bool suspendedForConflict;
+  final bool appliedRemote;
 }
 
 class _PendingSyncConflict {
@@ -107,7 +130,8 @@ class SyncCoordinator implements WorkspaceSyncService {
   SyncStatus get status => _status;
 
   @override
-  bool get hasPendingConflict => _pendingConflict != null;
+  bool get hasPendingConflict =>
+      _pendingConflict != null || _pendingDeltaSync != null;
 
   @override
   Future<AppSettings> resolveConflict(
@@ -339,7 +363,7 @@ class SyncCoordinator implements WorkspaceSyncService {
       if (deltaKey != null && settings.syncLocalHash != null) {
         final deltaDatabase = deltaDatabaseProvider?.call();
         if (deltaDatabase != null) {
-          final handled = await _syncDeltaChannel(
+          final outcome = await _syncDeltaChannel(
             activeProvider,
             settings,
             deltaKey,
@@ -347,10 +371,16 @@ class SyncCoordinator implements WorkspaceSyncService {
             localResult.data,
             attachmentStore,
           );
-          if (handled != null) {
+          if (outcome != null) {
+            if (outcome.suspendedForConflict) {
+              // 逐实体冲突已挂起为 conflict 状态：保持现场由界面走
+              // resolveConflict 收敛。这里不得覆盖为成功，也不刷新基线，
+              // 否则冲突上下文会在界面读取前被冲掉。
+              return outcome.settings;
+            }
             final withConfig = await _configSync.sync(
               activeProvider,
-              handled,
+              outcome.settings,
               _hash,
             );
             _setStatus(
@@ -358,7 +388,10 @@ class SyncCoordinator implements WorkspaceSyncService {
                 phase: SyncPhase.success,
                 providerId: activeProvider.id,
                 message: '同步完成',
-                lastSyncedAt: handled.lastSyncedAt,
+                lastSyncedAt: outcome.settings.lastSyncedAt,
+                // 远端记录已直接写入本地库（未走整库导入），界面投影、
+                // 小组件与提醒/日历对账都依赖一次回读刷新。
+                requiresReload: outcome.appliedRemote,
               ),
             );
             return withConfig;
@@ -677,9 +710,10 @@ class SyncCoordinator implements WorkspaceSyncService {
   // ---- 实体级增量同步（delta）通道 ----
 
   /// 增量快速路径。返回 null 表示云端尚无 delta feed（调用方应引导基线并
-  /// 走整库快照流程）；否则完成拉取/推送/附件/基线刷新并返回新设置，
-  /// 冲突时挂起逐实体冲突界面并返回当前设置。
-  Future<AppSettings?> _syncDeltaChannel(
+  /// 走整库快照流程）；否则完成拉取/推送/附件/基线刷新并返回结果——冲突时
+  /// 挂起逐实体冲突界面（[suspendedForConflict]），冲突前已按 LWW 应用的
+  /// 非冲突远端记录会保留在本地库。
+  Future<_DeltaChannelOutcome?> _syncDeltaChannel(
     SyncProvider provider,
     AppSettings settings,
     String vaultKey,
@@ -715,6 +749,7 @@ class SyncCoordinator implements WorkspaceSyncService {
         conflicts: result.conflicts,
         settings: settings,
         providerId: provider.id,
+        appliedRemote: result.applied,
       );
       _setStatus(
         SyncStatus(
@@ -733,10 +768,14 @@ class SyncCoordinator implements WorkspaceSyncService {
           message: '检出 ${result.conflicts.length} 个实体级冲突，请逐项选择保留哪一侧',
         ),
       );
-      return settings;
+      return _DeltaChannelOutcome(
+        settings: settings,
+        suspendedForConflict: true,
+        appliedRemote: result.applied > 0,
+      );
     }
 
-    return await _finishDeltaSync(
+    final updated = await _finishDeltaSync(
       provider,
       settings,
       remoteRecords,
@@ -744,6 +783,10 @@ class SyncCoordinator implements WorkspaceSyncService {
       database,
       localData,
       attachmentStore,
+    );
+    return _DeltaChannelOutcome(
+      settings: updated,
+      appliedRemote: result.applied > 0,
     );
   }
 
@@ -887,8 +930,13 @@ class SyncCoordinator implements WorkspaceSyncService {
         SyncStatus(
           phase: SyncPhase.idle,
           providerId: pending.providerId,
-          message: '已取消冲突处理：本次增量变更未应用，本地数据未改变',
+          // 挂起前非冲突远端记录已按 LWW 写入本地库，提示必须与该事实
+          // 一致；数据有变化时界面需要回读刷新。
+          message:
+              '已取消冲突处理：冲突条目保留本地版本，'
+              '已应用的其余增量变更保持不变',
           lastSyncedAt: pending.settings.lastSyncedAt,
+          requiresReload: pending.appliedRemote > 0,
         ),
       );
       return pending.settings;
@@ -973,6 +1021,8 @@ class SyncCoordinator implements WorkspaceSyncService {
           providerId: provider.id,
           message: '已完成逐实体冲突处理并同步',
           lastSyncedAt: syncedAt,
+          // 采纳远端侧的裁决已把远端行写入本地库，界面需要回读刷新。
+          requiresReload: true,
           summary: SyncResultSummary(mergedItems: pending.conflicts.length),
         ),
       );
@@ -1102,7 +1152,13 @@ class SyncCoordinator implements WorkspaceSyncService {
       }
       try {
         await provider.delete(attachmentFileKey(storageKey));
-      } catch (_) {
+      } catch (error, stackTrace) {
+        // 删除失败保留删除意图，下次同步重试；留日志避免静默重试无从排查。
+        logSync(
+          '云端附件删除失败，保留删除意图：$storageKey',
+          error: error,
+          stackTrace: stackTrace,
+        );
         remaining.add(storageKey);
       }
     }

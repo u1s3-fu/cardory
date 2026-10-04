@@ -126,6 +126,24 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
     );
   }
 
+  Future<void> _deleteProgress(ProjectProgressEntry entry) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: '删除进度记录',
+      content: '确定删除“${formatDateTime(entry.createdAt)}”的进度记录吗？',
+      confirmLabel: '删除',
+    );
+    if (!confirmed || !mounted) return;
+    await _save(
+      _project.copyWith(
+        progressEntries: [
+          for (final item in _project.progressEntries)
+            if (item.id != entry.id) item,
+        ],
+      ),
+    );
+  }
+
   Future<void> _toggleTodo(TodoData todo) async {
     if (!todo.done) {
       await widget.onToggleTodo(todo);
@@ -341,6 +359,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                 child: ProgressTimeline(
                   entries: _project.progressEntries,
                   onEdit: _editProgress,
+                  onDelete: _deleteProgress,
                 ),
               );
               final todoPanel = Container(
