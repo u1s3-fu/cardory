@@ -114,8 +114,10 @@ void main() {
       await service.saveNotifiedKeys({'a|b|2026-10-05'});
       expect(await service.loadNotifiedKeys(), {'a|b|2026-10-05'});
 
-      // 测试环境无通知插件：初始化失败应静默降级，不抛异常。
-      expect(await service.ensurePermissions(), isFalse);
+      // 权限结果依赖测试宿主是否注册了 local_notifier 平台实现
+      // （Windows 测试未注册 → 不可用；Linux 注册 → 可用），不在此断言，
+      // 只验证通知/预约/取消链路在任何宿主下都不抛异常。
+      await service.ensurePermissions();
       await service.notify(
         const DueReminderPayload(id: 1, title: 't', body: 'b'),
       );
