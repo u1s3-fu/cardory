@@ -303,7 +303,7 @@ class DriftRowLevelWorkspaceStore
       title: todo.title,
       projectId: projectId,
       notes: todo.description,
-      status: todo.done ? 'done' : 'todo',
+      status: todo.done ? 'done' : (todo.inProgress ? 'doing' : 'todo'),
       completedAt: todo.done ? _now : null,
       priority: todo.priority.name,
       id: todo.id,
@@ -332,7 +332,9 @@ class DriftRowLevelWorkspaceStore
             priority: updated.priority.name,
             startAt: Value(_millis(updated.startDate)),
             dueAt: Value(_millis(updated.endDate)),
-            status: updated.done ? 'done' : 'todo',
+            status: updated.done
+                ? 'done'
+                : (updated.inProgress ? 'doing' : 'todo'),
             completedAt: Value(
               updated.done ? (original.done ? row.completedAt : now) : null,
             ),
@@ -347,6 +349,16 @@ class DriftRowLevelWorkspaceStore
   @override
   Future<void> setTodoDone(String todoId, {required bool done}) =>
       _tasks.setDone(todoId, done: done);
+
+  @override
+  Future<void> setTodoInProgress(
+    String todoId, {
+    required bool inProgress,
+  }) async {
+    final row = await _taskRow(todoId);
+    if (row == null || row.status == 'done') return;
+    await _tasks.update(row.copyWith(status: inProgress ? 'doing' : 'todo'));
+  }
 
   @override
   Future<void> addSubTodo(TodoData todo, SubTodoData subTodo) async {

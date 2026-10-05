@@ -74,6 +74,18 @@ class _SettingsDialogState extends State<SettingsDialog> {
   // 数据安全分区状态。
   bool _exportingBackup = false;
 
+  /// 到期/截止系统通知的副标题（按平台区分通知能力）。
+  static String get _dueReminderSubtitle {
+    if (Platform.isAndroid || Platform.isIOS) {
+      return '到期日/截止日提醒进入系统通知（应用内日历与今日面板始终展示）';
+    }
+    if (Platform.isWindows) {
+      return '到期日/截止日提醒进入系统通知（应用内日历与今日面板始终展示）';
+    }
+    return '到期日/截止日提醒进入系统通知——仅移动端与 Windows 支持，'
+        '本平台保留应用内展示';
+  }
+
   // 本地数据分区状态。
   late final TextEditingController _localDataPath = TextEditingController(
     text: widget.currentDataPath,
@@ -210,11 +222,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
           key: const Key('due-reminders-enabled'),
           contentPadding: EdgeInsets.zero,
           title: const Text('资产到期系统通知'),
-          subtitle: Text(
-            Platform.isAndroid || Platform.isIOS
-                ? '到期日提醒进入系统通知（应用内日历始终展示）'
-                : '到期日提醒进入系统通知——仅移动端支持，桌面端保留应用内日历提醒',
-          ),
+          subtitle: Text(_dueReminderSubtitle),
           value: _dueRemindersEnabled,
           onChanged: (value) => setState(() => _dueRemindersEnabled = value),
         ),
@@ -236,11 +244,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
           key: const Key('task-due-reminders-enabled'),
           contentPadding: EdgeInsets.zero,
           title: const Text('任务截止系统通知'),
-          subtitle: Text(
-            Platform.isAndroid || Platform.isIOS
-                ? '截止日提醒进入系统通知（应用内今日面板始终展示）'
-                : '截止日提醒进入系统通知——仅移动端支持，桌面端保留应用内展示',
-          ),
+          subtitle: Text(_dueReminderSubtitle),
           value: _taskDueRemindersEnabled,
           onChanged: (value) =>
               setState(() => _taskDueRemindersEnabled = value),

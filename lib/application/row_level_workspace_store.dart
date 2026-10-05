@@ -36,6 +36,9 @@ abstract interface class RowLevelWorkspaceStore {
   Future<void> updateTodo(TodoData original, TodoData updated);
   Future<void> deleteTodo(String todoId);
   Future<void> setTodoDone(String todoId, {required bool done});
+
+  /// 切换待办「进行中」状态（仅对未完成任务生效；已完成任务忽略）。
+  Future<void> setTodoInProgress(String todoId, {required bool inProgress});
   Future<void> addSubTodo(TodoData todo, SubTodoData subTodo);
   Future<void> setSubTodoDone(String subTodoId, {required bool done});
 

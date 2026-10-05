@@ -71,8 +71,19 @@ Future<SyncConflictChoice?> showSyncConflictDialog(
                         size: 18,
                       ),
                       title: Text(item.title, maxLines: 1),
-                      subtitle: Text(
-                        '${item.category} · ${item.side == SyncConflictSide.local ? '本地侧差异' : '仅远端存在'}',
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${item.category} · ${item.side == SyncConflictSide.local ? '本地侧差异' : '仅远端存在'}',
+                          ),
+                          if (item.detail != null)
+                            Text(
+                              item.detail!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
                       ),
                     );
                   },
@@ -304,7 +315,9 @@ Future<Map<String, SyncConflictSide>?> showManualMergeDialog(
               return ListTile(
                 key: ValueKey('conflict-${item.id}'),
                 title: Text(item.title),
-                subtitle: Text(item.category),
+                subtitle: item.detail == null
+                    ? Text(item.category)
+                    : Text('${item.category}\n${item.detail!}'),
                 trailing: DropdownButton<SyncConflictSide>(
                   value: selected,
                   items: const [

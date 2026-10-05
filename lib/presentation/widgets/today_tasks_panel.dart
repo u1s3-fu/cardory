@@ -164,6 +164,17 @@ class _TodayTile extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (todo.inProgress && !todo.done) ...[
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            message: '任务进行中',
+                            child: Icon(
+                              Icons.play_circle_outline_rounded,
+                              size: 15,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(

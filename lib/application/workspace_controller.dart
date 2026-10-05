@@ -381,6 +381,16 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     return updated;
   }
 
+  /// 切换待办「进行中」状态（已完成任务忽略）。
+  Future<void> setTodoInProgress(
+    TodoData todo, {
+    required bool inProgress,
+  }) async {
+    if (todo.done) return;
+    await _rowLevel.setTodoInProgress(todo.id, inProgress: inProgress);
+    await _afterWrite();
+  }
+
   /// 任务完成率自动记录项目进度（设置开启时）：对涉及的每个项目按
   /// 顶层任务完成率计算，与最近一条进度记录不同才追加自动记录。
   /// 调用前需已完成 _afterWrite（依赖最新投影）；有写入时再次刷新。

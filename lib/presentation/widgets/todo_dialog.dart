@@ -38,6 +38,7 @@ class _TodoDialogState extends State<TodoDialog> {
   late ProjectPriority _priority = widget.todo?.priority ?? ProjectPriority.p2;
   late DateTime? _startDate = widget.todo?.startDate;
   late DateTime? _endDate = widget.todo?.endDate;
+  late bool _inProgress = widget.todo?.inProgress ?? false;
   String? _error;
 
   Future<void> _pickDate(bool start) async {
@@ -168,6 +169,19 @@ class _TodoDialogState extends State<TodoDialog> {
                 onChanged: (v) => setState(() => _priority = v ?? _priority),
               ),
               const SizedBox(height: 12),
+              SwitchListTile(
+                key: const Key('todo-in-progress'),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: CardoryColors.gray300),
+                ),
+                title: const Text('进行中'),
+                subtitle: const Text('标记为已开始、尚未完成的任务'),
+                value: _inProgress,
+                onChanged: (value) => setState(() => _inProgress = value),
+              ),
+              const SizedBox(height: 12),
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 shape: RoundedRectangleBorder(
@@ -229,6 +243,7 @@ class _TodoDialogState extends State<TodoDialog> {
                 projectTitle: _project?.title ?? '未关联项目',
                 priority: _priority,
                 done: widget.todo?.done ?? false,
+                inProgress: _inProgress && !(widget.todo?.done ?? false),
                 subTodos: _subTodos,
               ),
             );

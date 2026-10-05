@@ -118,6 +118,7 @@ class SqlCipherDataMapper {
             projectTitle: projectTitles[row.projectId] ?? '未关联项目',
             priority: ProjectPriority.fromName(row.priority),
             done: row.status == 'done',
+            inProgress: row.status == 'doing',
             subTodos: (childByParent[row.id] ?? const <Task>[])
                 .map(
                   (child) => SubTodoData(

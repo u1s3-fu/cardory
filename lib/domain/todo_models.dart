@@ -15,6 +15,7 @@ class TodoData {
     required this.projectTitle,
     required this.priority,
     required this.done,
+    this.inProgress = false,
     this.subTodos = const [],
   });
 
@@ -27,6 +28,9 @@ class TodoData {
   final String projectTitle;
   final ProjectPriority priority;
   final bool done;
+
+  /// 任务进行中（未完成但已开始）；完成态忽略此标记。
+  final bool inProgress;
   final List<SubTodoData> subTodos;
 
   String get dateRangeText {
@@ -62,6 +66,7 @@ class TodoData {
     String? projectTitle,
     ProjectPriority? priority,
     bool? done,
+    bool? inProgress,
     List<SubTodoData>? subTodos,
   }) => TodoData(
     id: id,
@@ -73,6 +78,7 @@ class TodoData {
     projectTitle: projectTitle ?? this.projectTitle,
     priority: priority ?? this.priority,
     done: done ?? this.done,
+    inProgress: inProgress ?? this.inProgress,
     subTodos: subTodos ?? this.subTodos,
   );
 
@@ -86,6 +92,7 @@ class TodoData {
     'projectTitle': projectTitle,
     'priority': priority.name,
     'done': done,
+    'inProgress': inProgress,
     'subTodos': subTodos.map((item) => item.toJson()).toList(),
   };
 }

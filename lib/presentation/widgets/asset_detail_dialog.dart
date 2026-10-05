@@ -109,6 +109,13 @@ class AssetDetailDialog extends StatelessWidget {
                   context,
                 ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板'))),
               ),
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                  '账号与密码仅保存在本机保险库中，不会随云同步上传到其他设备。',
+                  style: TextStyle(fontSize: 11.5, height: 1.45),
+                ),
+              ),
               _AssetDetailRow(label: '备注 / 用途', value: asset.note),
               const SizedBox(height: 8),
               Text('关联附件', style: Theme.of(context).textTheme.labelMedium),

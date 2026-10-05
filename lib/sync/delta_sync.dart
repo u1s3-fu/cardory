@@ -95,10 +95,17 @@ class DeltaFeedCodec {
 
 /// 一条无法用 LWW 自动裁决的记录（时间戳相等但载荷不同）。
 class DeltaConflict {
-  const DeltaConflict({required this.record, required this.localUpdatedAt});
+  const DeltaConflict({
+    required this.record,
+    required this.localUpdatedAt,
+    this.differingFields = const [],
+  });
 
   final DeltaRecord record;
   final int localUpdatedAt;
+
+  /// 与本地当前行存在差异的字段名（updatedAt 除外），供界面呈现差异明细。
+  final List<String> differingFields;
 
   String get entityType => record.entityType;
   String get entityId => record.entityId;
@@ -145,6 +152,38 @@ class DeltaApplier {
   static int _rankOf(DeltaRecord record) =>
       _entityRank[record.entityType] ?? (_entityRank.length ~/ 2);
 
+  /// 上一次 [_applyRow] 判定为冲突时与本地行的差异字段名。apply 循环
+  /// 串行执行、判定后立即读取，不跨事件使用。
+  List<String> _lastConflictFields = const [];
+
+  /// 比较快照与本地行的 JSON 值差异（updatedAt 除外；双向覆盖键缺失）。
+  static List<String> _differingFieldsOf(
+    Map<String, dynamic> incoming,
+    Map<String, dynamic> existing,
+  ) {
+    String encode(Object? value) {
+      try {
+        return jsonEncode(value);
+      } catch (_) {
+        return value.toString();
+      }
+    }
+
+    final differing = <String>[];
+    for (final key in incoming.keys) {
+      if (key == 'updatedAt') continue;
+      if (!existing.containsKey(key) ||
+          encode(incoming[key]) != encode(existing[key])) {
+        differing.add(key);
+      }
+    }
+    for (final key in existing.keys) {
+      if (key == 'updatedAt' || incoming.containsKey(key)) continue;
+      differing.add(key);
+    }
+    return differing;
+  }
+
   Future<DeltaApplyResult> apply(Iterable<DeltaRecord> records) async {
     var applied = 0;
     var skipped = 0;
@@ -174,6 +213,7 @@ class DeltaApplier {
                 DeltaConflict(
                   record: record,
                   localUpdatedAt: _payloadUpdatedAt(record),
+                  differingFields: _lastConflictFields,
                 ),
               );
           }
@@ -328,6 +368,10 @@ class DeltaApplier {
       if (jsonEncode(incoming.toJson()) == jsonEncode(existing.toJson())) {
         return _ApplyOutcome.skipped;
       }
+      _lastConflictFields = _differingFieldsOf(
+        incoming.toJson(),
+        existing.toJson(),
+      );
       return _ApplyOutcome.conflict;
     }
     final target = preserve?.call(existing, incoming) ?? incoming;

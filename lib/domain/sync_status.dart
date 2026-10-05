@@ -22,6 +22,7 @@ class SyncConflictItem {
     required this.category,
     required this.title,
     required this.side,
+    this.detail,
   });
 
   final String id;
@@ -29,13 +30,40 @@ class SyncConflictItem {
   final String title;
   final SyncConflictSide side;
 
+  /// 冲突明细说明（如「差异字段：标题、截止日期」），可为空。
+  final String? detail;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'category': category,
     'title': title,
     'side': side.name,
+    if (detail != null) 'detail': detail,
   };
 }
+
+/// 同步载荷字段的中文名（用于冲突差异明细展示；未收录字段原样展示）。
+String syncFieldLabel(String key) => switch (key) {
+  'title' || 'name' => '标题',
+  'description' || 'notes' || 'note' => '备注',
+  'startAt' || 'startDate' => '开始日期',
+  'dueAt' || 'endDate' => '截止日期',
+  'priority' => '优先级',
+  'status' => '状态',
+  'progress' => '进度',
+  'projectId' => '所属项目',
+  'parentTaskId' => '父任务',
+  'sortOrder' => '排序',
+  'completedAt' => '完成时间',
+  'color' => '颜色',
+  'deletedAt' => '删除标记',
+  'tagsJson' => '标签',
+  'metadataJson' => '扩展信息',
+  'categoryIdsJson' => '分类',
+  'fileName' => '文件名',
+  'mimeType' => '文件类型',
+  _ => key,
+};
 
 class SyncResultSummary {
   const SyncResultSummary({

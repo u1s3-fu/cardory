@@ -762,6 +762,9 @@ class SyncCoordinator implements WorkspaceSyncService {
                 category: conflict.entityType,
                 title: conflict.entityId,
                 side: SyncConflictSide.local,
+                detail: conflict.differingFields.isEmpty
+                    ? null
+                    : '差异字段：${conflict.differingFields.map(syncFieldLabel).join('、')}',
               ),
           ],
           conflictKind: SyncConflictKind.entityLevel,

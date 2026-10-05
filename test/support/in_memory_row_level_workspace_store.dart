@@ -93,6 +93,15 @@ class InMemoryRowLevelWorkspaceStore implements RowLevelWorkspaceStore {
   }
 
   @override
+  Future<void> setTodoInProgress(String todoId, {required bool inProgress}) {
+    final todo = _read().todos.firstWhere((item) => item.id == todoId);
+    if (todo.done) return Future.value();
+    return _commit(
+      _mutations.updateTodo(_read(), todo.copyWith(inProgress: inProgress)),
+    );
+  }
+
+  @override
   Future<void> addSubTodo(TodoData todo, SubTodoData subTodo) => _commit(
     _mutations.updateTodo(
       _read(),

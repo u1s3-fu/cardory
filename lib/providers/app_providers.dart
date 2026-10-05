@@ -20,6 +20,7 @@ import '../services/home_widget_data_service.dart';
 import '../services/local_due_reminder_service.dart';
 import '../services/shared_prefs_calendar_push_registry.dart';
 import '../services/system_calendar_service.dart';
+import '../services/windows_due_reminder_service.dart';
 import '../sync/sync_coordinator.dart';
 import '../sync/sync_credentials.dart';
 import '../sync/sync_provider_registry.dart';
@@ -63,10 +64,14 @@ final widgetDataServiceProvider = Provider<WidgetDataService>(
   (ref) => const HomeWidgetDataService(),
 );
 
-/// 到期提醒服务：通知基础设施仅移动端接入，桌面端空实现。
+/// 到期提醒服务：移动端用系统通知，Windows 用 local_notifier 桌面通知，
+/// 其余平台空实现（无通知基础设施）。
 final dueReminderServiceProvider = Provider<DueReminderService>((ref) {
   if (Platform.isAndroid || Platform.isIOS) {
     return LocalDueReminderService();
+  }
+  if (Platform.isWindows) {
+    return WindowsDueReminderService();
   }
   return const NullDueReminderService();
 });
