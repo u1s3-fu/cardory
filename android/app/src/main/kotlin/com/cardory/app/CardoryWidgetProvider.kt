@@ -59,11 +59,16 @@ class CardoryWidgetProvider : AppWidgetProvider() {
                     val root = JSONObject(payload)
                     val todos = root.optJSONArray("todos")
                     val pendingCount = root.optInt("pendingCount", 0)
+                    val overdueCount = root.optInt("overdueCount", 0)
+                    val dueTodayCount = root.optInt("dueTodayCount", 0)
 
-                    // 标题栏：显示待办数量
+                    // 标题栏：待办数量 + 逾期/今日截止汇总（有值时展示）
+                    val title = StringBuilder("待办 ($pendingCount)")
+                    if (overdueCount > 0) title.append(" · 逾期 $overdueCount")
+                    if (dueTodayCount > 0) title.append(" · 今日 $dueTodayCount")
                     views.setTextViewText(
                         R.id.widget_title,
-                        "待办 ($pendingCount)"
+                        title.toString()
                     )
 
                     // 填充条目

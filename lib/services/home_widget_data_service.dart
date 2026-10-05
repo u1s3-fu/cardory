@@ -79,6 +79,19 @@ class HomeWidgetDataService implements WidgetDataService {
     final pendingCount = data.todos.where((t) => !t.done).length;
     final totalCount = data.todos.length;
 
+    // 逾期与今日截止汇总（未完成任务按本地日期键比较）。
+    var overdueCount = 0;
+    var dueTodayCount = 0;
+    for (final t in data.todos) {
+      if (t.done || t.endDate == null) continue;
+      final due = DateTime(t.endDate!.year, t.endDate!.month, t.endDate!.day);
+      if (due.isBefore(today)) {
+        overdueCount++;
+      } else if (!due.isAfter(today)) {
+        dueTodayCount++;
+      }
+    }
+
     final todos = items.map((t) {
       final endDateStr = t.endDate != null
           ? '${t.endDate!.year}-${_pad(t.endDate!.month)}-${_pad(t.endDate!.day)}'
@@ -110,6 +123,8 @@ class HomeWidgetDataService implements WidgetDataService {
       'todos': todos,
       'pendingCount': pendingCount,
       'totalCount': totalCount,
+      'overdueCount': overdueCount,
+      'dueTodayCount': dueTodayCount,
     });
   }
 

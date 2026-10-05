@@ -21,22 +21,26 @@ struct WidgetEntry: TimelineEntry {
     let todos: [WidgetTodo]
     let pendingCount: Int
     let totalCount: Int
+    let overdueCount: Int
+    let dueTodayCount: Int
 }
 
 // MARK: - 数据读取
 
 func loadWidgetData() -> WidgetEntry {
     guard let shared = UserDefaults(suiteName: "group.com.cardoryapp.widget") else {
-        return WidgetEntry(date: Date(), todos: [], pendingCount: 0, totalCount: 0)
+        return WidgetEntry(date: Date(), todos: [], pendingCount: 0, totalCount: 0, overdueCount: 0, dueTodayCount: 0)
     }
     guard let payload = shared.string(forKey: "cardory_todos"),
           let data = payload.data(using: .utf8) else {
-        return WidgetEntry(date: Date(), todos: [], pendingCount: 0, totalCount: 0)
+        return WidgetEntry(date: Date(), todos: [], pendingCount: 0, totalCount: 0, overdueCount: 0, dueTodayCount: 0)
     }
     do {
         if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
             let pendingCount = json["pendingCount"] as? Int ?? 0
             let totalCount = json["totalCount"] as? Int ?? 0
+            let overdueCount = json["overdueCount"] as? Int ?? 0
+            let dueTodayCount = json["dueTodayCount"] as? Int ?? 0
             var todos: [WidgetTodo] = []
             if let arr = json["todos"] as? [[String: Any]] {
                 for item in arr.prefix(5) {
@@ -61,11 +65,13 @@ func loadWidgetData() -> WidgetEntry {
                 date: Date(),
                 todos: todos,
                 pendingCount: pendingCount,
-                totalCount: totalCount
+                totalCount: totalCount,
+                overdueCount: overdueCount,
+                dueTodayCount: dueTodayCount
             )
         }
     } catch {}
-    return WidgetEntry(date: Date(), todos: [], pendingCount: 0, totalCount: 0)
+    return WidgetEntry(date: Date(), todos: [], pendingCount: 0, totalCount: 0, overdueCount: 0, dueTodayCount: 0)
 }
 
 // MARK: - TimelineProvider
@@ -79,7 +85,9 @@ struct CardoryProvider: TimelineProvider {
                 WidgetTodo(id: "2", title: "购买食材", priority: "p1", priorityLabel: "中", projectTitle: "生活", endDate: nil, subTodoCount: 0, subTodoDoneCount: 0, isOverdue: false, isDueSoon: false)
             ],
             pendingCount: 2,
-            totalCount: 2
+            totalCount: 2,
+            overdueCount: 0,
+            dueTodayCount: 1
         )
     }
 
@@ -117,11 +125,11 @@ struct CardoryWidgetEntryView: View {
         VStack(alignment: .leading, spacing: 0) {
             // 标题栏
             HStack {
-                Text("待办")
+                Text(entry.overdueCount > 0 ? "待办 · 逾期 \(entry.overdueCount)" : "待办")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(Color(red: 0.420, green: 0.384, blue: 0.875))
                 Spacer()
-                Text("\(entry.pendingCount)")
+                Text(entry.dueTodayCount > 0 ? "今日 \(entry.dueTodayCount)" : "\(entry.pendingCount)")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.secondary)
             }

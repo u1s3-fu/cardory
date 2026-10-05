@@ -254,17 +254,19 @@ class TimerCard extends StatelessWidget {
   }
 }
 
-/// 耗时统计卡片：今日/本周专注与项目耗时 Top 5。
+/// 耗时统计卡片：今日/本周/本月专注与项目耗时 Top 5。
 class StatsCard extends StatelessWidget {
   const StatsCard({
     super.key,
     required this.todaySeconds,
     required this.weekSeconds,
+    required this.monthSeconds,
     required this.projectTotals,
   });
 
   final int todaySeconds;
   final int weekSeconds;
+  final int monthSeconds;
   final List<(String, int)> projectTotals;
 
   @override
@@ -284,6 +286,10 @@ class StatsCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _StatTile(label: '本周专注', seconds: weekSeconds),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _StatTile(label: '本月专注', seconds: monthSeconds),
               ),
             ],
           ),

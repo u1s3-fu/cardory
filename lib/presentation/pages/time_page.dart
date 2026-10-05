@@ -251,6 +251,19 @@ class _TimePageState extends State<TimePage> {
     return total;
   }
 
+  int get _monthSeconds {
+    final (start, end) = calendarRangeBounds(CalendarRange.month, _now);
+    var total = 0;
+    for (final entry in _entries) {
+      if (entry.isRunning) continue;
+      final day = localDayKey(entry.startedAt);
+      if (!day.isBefore(start) && !day.isAfter(end)) {
+        total += entry.durationSeconds;
+      }
+    }
+    return total;
+  }
+
   List<(String, int)> get _projectTotals {
     final titles = {
       for (final project in widget.projects) project.id: project.title,
@@ -358,6 +371,7 @@ class _TimePageState extends State<TimePage> {
     final statsCard = StatsCard(
       todaySeconds: _todaySeconds,
       weekSeconds: _weekSeconds,
+      monthSeconds: _monthSeconds,
       projectTotals: _projectTotals,
     );
     final entriesCard = EntriesCard(

@@ -45,7 +45,8 @@ Future<void> showAboutCardoryDialog(
               ),
               const SizedBox(height: 14),
               const Text(
-                '以项目看板与待办为核心的个人进度管理应用。'
+                '以项目看板与待办为核心的个人进度管理应用（单用户设计：'
+                '数据在个人设备间加密同步，不含多人协作与分享）。'
                 '数据以加密容器持久化，支持本地、目录、WebDAV 与 S3 兼容存储同步。',
                 style: TextStyle(fontSize: 13.5, height: 1.55),
               ),
