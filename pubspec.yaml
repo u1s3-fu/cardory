@@ -22,7 +22,7 @@ publish_to: 'none' # 如需发布到 pub.dev，请删除此行
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # Windows 中 build-name 用作产品与文件版本的主/次/修订号，
 # build-number 用作构建后缀。
-version: 0.4.2+7
+version: 0.4.3+8
 
 environment:
   sdk: ^3.12.0
@@ -56,6 +56,9 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   shared_preferences: ^2.5.5
   flutter_timezone: ^5.1.0
+  # 本地备份包（.cardorybackup）的 zip 容器：内容均为密文（整库快照 +
+  # 附件密文），zip 仅作打包容器，不承担加密职责。
+  archive: ^3.6.1
 
 dev_dependencies:
   flutter_test:
