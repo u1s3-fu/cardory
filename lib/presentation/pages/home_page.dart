@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -19,6 +20,7 @@ import '../../routing/app_router.dart';
 import '../../services/github_update_service.dart';
 import '../../services/system_calendar_service.dart';
 import '../../services/update_skip_store.dart';
+import '../../sync/local_backup_service.dart';
 import '../app_section.dart';
 import '../cardory_theme.dart';
 import '../dialogs/about_dialog.dart';
@@ -33,6 +35,7 @@ import '../widgets/kanban_board.dart';
 import '../widgets/overview.dart';
 import '../widgets/project_dialog.dart';
 import '../widgets/project_list_panel.dart';
+import '../widgets/recycle_bin_dialog.dart';
 import '../widgets/reminder_panel.dart';
 import '../widgets/section_nav.dart';
 import '../widgets/sidebar.dart';
@@ -285,6 +288,8 @@ class _HomePageState extends State<HomePage> {
         category: category,
         connectionTester: widget.connectionTester,
         dueReminderPermissionDenied: _controller.dueReminderPermissionDenied,
+        onExportBackup: _exportBackup,
+        onOpenRecycleBin: _openRecycleBin,
       ),
     );
     if (result == null) return;
@@ -304,6 +309,39 @@ class _HomePageState extends State<HomePage> {
       _showError(error);
     }
   }
+
+  /// 导出加密备份：选择保存目录后打包整库快照与附件密文。
+  /// 返回结果提示；用户取消目录选择返回 null。
+  Future<String?> _exportBackup() async {
+    final directory = await FilePicker.getDirectoryPath(
+      dialogTitle: '选择备份保存位置',
+    );
+    if (directory == null || !mounted) return null;
+    final store = _attachmentStore;
+    final attachments = store == null
+        ? const <AttachmentData>[]
+        : _data.projects
+              .expand((project) => project.attachments)
+              .where((attachment) => attachment.storageKey.isNotEmpty)
+              .toList();
+    final result =
+        await LocalBackupService(
+          vaultRepository: widget.vaultRepository,
+        ).exportToDirectory(
+          directoryPath: directory,
+          attachmentStore: store,
+          attachments: attachments,
+        );
+    if (!mounted) return null;
+    if (result.hasMissingAttachments) {
+      return '备份已导出：${result.fileName}（${result.attachmentCount} 个附件）。'
+          '以下附件文件缺失未纳入：${result.missingAttachmentNames.join('、')}。';
+    }
+    return '备份已导出：${result.fileName}（含 ${result.attachmentCount} 个附件）。';
+  }
+
+  Future<void> _openRecycleBin() =>
+      RecycleBinDialog.show(context, controller: _controller);
 
   Future<void> _sync() async {
     await _controller.synchronize();

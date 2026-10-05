@@ -538,6 +538,9 @@ void main() {
 
     await tester.tap(find.text('设置').first);
     await pumpUiFrames(tester);
+    // 设置分区新增「数据安全」卡片后，按钮可能落在视口之外。
+    await tester.ensureVisible(find.text('立即同步'));
+    await pumpUiFrames(tester);
     await tester.tap(find.text('立即同步'));
     await pumpUiFrames(tester);
 

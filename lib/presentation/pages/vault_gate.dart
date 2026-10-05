@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -9,6 +10,7 @@ import '../../domain/cardory_models.dart';
 import '../../domain/cardory_repository.dart';
 import '../../domain/sync_credentials.dart';
 import '../../sync/cloud_restore_service.dart';
+import '../../sync/local_backup_service.dart';
 import '../cardory_logo.dart';
 import '../cardory_theme.dart';
 import '../widgets/cloud_restore_dialog.dart';
@@ -52,6 +54,10 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
   String? _error;
   bool _busy = false;
   bool _legacyDataDetected = false;
+
+  /// 创建保险库前必须勾选的密码风险确认：密码是唯一解锁凭据，
+  /// 没有恢复码、无法重置。
+  bool _riskAcknowledged = false;
 
   @override
   void initState() {
@@ -125,6 +131,10 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
   Future<void> _submit() async {
     if (_busy) return;
     final setup = _accessState == CardoryAccessState.setupRequired;
+    if (setup && !_riskAcknowledged) {
+      setState(() => _error = '请先确认已了解忘记密码的风险。');
+      return;
+    }
     if (setup && _password.text != _confirmation.text) {
       setState(() => _error = '两次输入的密码不一致。');
       return;
@@ -178,6 +188,49 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
     if (ok) {
       // 恢复成功，重新检测保险库状态以进入应用。
       await _inspect();
+    }
+  }
+
+  /// 从本地备份包（.cardorybackup）恢复：选择文件 → 输入备份密码 →
+  /// 整库替换并安装附件。恢复成功后以备份密码解锁进入工作台。
+  Future<void> _restoreFromLocalBackup() async {
+    if (_busy) return;
+    setState(() => _error = null);
+    final picked = await FilePicker.pickFiles(
+      dialogTitle: '选择备份文件',
+      type: FileType.any,
+    );
+    final archivePath = picked.isEmpty ? null : picked.single.path;
+    if (archivePath == null || !mounted) return;
+    if (!archivePath.endsWith(LocalBackupService.fileExtension)) {
+      setState(
+        () =>
+            _error = '所选文件不是 Cardory 备份包（${LocalBackupService.fileExtension}）。',
+      );
+      return;
+    }
+    final password = await showDialog<String>(
+      context: context,
+      builder: (_) => const _BackupPasswordDialog(),
+    );
+    if (password == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await LocalBackupService(
+        vaultRepository: widget.vaultRepository,
+        attachmentRepositoryFactory: widget.attachmentRepositoryFactory,
+      ).restore(archivePath: archivePath, password: password);
+      // 以备份创建时的密码作为本机保险库密码，后续自动解锁沿用。
+      await widget.vaultCredentialStore.writePassword(password);
+      if (!mounted) return;
+      widget.onUnlocked(result);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = error.toString();
+        });
+      }
     }
   }
 
@@ -305,6 +358,45 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                           prefixIcon: Icon(Icons.password),
                         ),
                       ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              size: 20,
+                              color: Colors.amber.shade900,
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                '密码是解锁数据的唯一凭据：没有恢复码、无法重置。'
+                                '忘记密码将永久丢失全部数据，任何人都无法找回。',
+                                style: TextStyle(fontSize: 12.5, height: 1.45),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      CheckboxListTile(
+                        key: const Key('vault-risk-acknowledged'),
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        dense: true,
+                        title: const Text(
+                          '我已了解：忘记密码将无法找回数据，会妥善保管密码。',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                        value: _riskAcknowledged,
+                        onChanged: (value) =>
+                            setState(() => _riskAcknowledged = value ?? false),
+                      ),
                     ],
                     if (_error != null) ...[
                       const SizedBox(height: 12),
@@ -337,6 +429,12 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                         icon: const Icon(Icons.cloud_download_outlined),
                         label: const Text('从云端恢复'),
                       ),
+                      TextButton.icon(
+                        key: const Key('open-local-backup-restore'),
+                        onPressed: _busy ? null : _restoreFromLocalBackup,
+                        icon: const Icon(Icons.restore_outlined),
+                        label: const Text('从本地备份恢复'),
+                      ),
                     ],
                   ],
                 ),
@@ -347,4 +445,52 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
       ),
     );
   }
+}
+
+/// 备份恢复的密码输入对话框：返回备份创建时使用的保险库密码。
+class _BackupPasswordDialog extends StatefulWidget {
+  const _BackupPasswordDialog();
+
+  @override
+  State<_BackupPasswordDialog> createState() => _BackupPasswordDialogState();
+}
+
+class _BackupPasswordDialogState extends State<_BackupPasswordDialog> {
+  final _password = TextEditingController();
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_password.text.isEmpty) return;
+    Navigator.pop(context, _password.text);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('输入备份密码'),
+    content: PasswordTextField(
+      controller: _password,
+      autofocus: true,
+      onChanged: (_) => setState(() {}),
+      onSubmitted: (_) => _submit(),
+      decoration: const InputDecoration(
+        labelText: '备份创建时使用的密码',
+        prefixIcon: Icon(Icons.password),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('取消'),
+      ),
+      FilledButton(
+        onPressed: _password.text.isEmpty ? null : _submit,
+        child: const Text('恢复'),
+      ),
+    ],
+  );
 }

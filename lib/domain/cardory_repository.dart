@@ -43,6 +43,10 @@ abstract interface class VaultRepository {
   Future<CardoryLoadResult> setup(String password);
   Future<CardoryLoadResult> unlockWithPassword(String password);
   Future<CardoryLoadResult> restoreFromBackup(List<int> bytes, String password);
+
+  /// 导出整库加密快照字节（VACUUM INTO 的 SQLCipher 密文副本），
+  /// 供本地备份打包使用。
+  Future<List<int>> exportContainer();
   Future<void> changePassword(String currentPassword, String newPassword);
 }
 

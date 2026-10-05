@@ -25,6 +25,8 @@ class SettingsDialog extends StatefulWidget {
     this.onSave,
     this.connectionTester,
     this.dueReminderPermissionDenied = false,
+    this.onExportBackup,
+    this.onOpenRecycleBin,
   }) : assert(!embedded || onSave != null);
 
   final AppSettings settings;
@@ -37,6 +39,13 @@ class SettingsDialog extends StatefulWidget {
 
   /// 通知权限已被拒绝（移动端）：到期通知分区展示引导提示。
   final bool dueReminderPermissionDenied;
+
+  /// 导出加密备份。返回用户可读的结果提示；返回 null 表示用户取消。
+  /// 未提供时隐藏导出入口。
+  final Future<String?> Function()? onExportBackup;
+
+  /// 打开回收站。未提供时隐藏回收站入口。
+  final VoidCallback? onOpenRecycleBin;
 
   @override
   State<SettingsDialog> createState() => _SettingsDialogState();
@@ -59,6 +68,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
   late final List<AssetTemplate> _assetTemplates = [
     ...widget.settings.assetTemplates,
   ];
+
+  // 数据安全分区状态。
+  bool _exportingBackup = false;
 
   // 本地数据分区状态。
   late final TextEditingController _localDataPath = TextEditingController(
@@ -252,6 +264,38 @@ class _SettingsDialogState extends State<SettingsDialog> {
           onChanged: (value) => setState(() => _autoLockEnabled = value),
         ),
       ],
+      if (_shows(SettingsCategoryType.dataSafety)) ...[
+        const SizedBox(height: 22),
+        const Text('数据安全', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 10),
+        const Text(
+          '备份为单个加密文件（.cardorybackup）：整库快照由保险库密码加密，'
+          '附件以各自的密文原样打包。请妥善保管密码——忘记备份密码将无法恢复。',
+          style: TextStyle(fontSize: 12.5, height: 1.45),
+        ),
+        const SizedBox(height: 12),
+        if (widget.onExportBackup != null)
+          FilledButton.tonalIcon(
+            key: const Key('export-backup'),
+            onPressed: _exportingBackup ? null : _exportBackup,
+            icon: _exportingBackup
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.backup_outlined),
+            label: Text(_exportingBackup ? '正在导出…' : '导出加密备份'),
+          ),
+        if (widget.onOpenRecycleBin != null) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            key: const Key('open-recycle-bin'),
+            onPressed: widget.onOpenRecycleBin,
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('打开回收站'),
+          ),
+        ],
+      ],
       if (_shows(SettingsCategoryType.sync)) ...[
         const SizedBox(height: 22),
         const Text('数据与同步', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -277,6 +321,29 @@ class _SettingsDialogState extends State<SettingsDialog> {
       ],
     ],
   );
+
+  Future<void> _exportBackup() async {
+    final export = widget.onExportBackup;
+    if (export == null || _exportingBackup) return;
+    setState(() => _exportingBackup = true);
+    String? message;
+    try {
+      message = await export();
+    } catch (error) {
+      message = '备份导出失败：$error';
+    } finally {
+      if (mounted) setState(() => _exportingBackup = false);
+    }
+    if (message == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: message.startsWith('备份导出失败')
+            ? Theme.of(context).colorScheme.error
+            : null,
+      ),
+    );
+  }
 
   static String _templateFieldSummary(AssetTemplate template) =>
       template.fields.isEmpty

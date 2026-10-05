@@ -1,7 +1,7 @@
 import '../domain/cardory_models.dart';
 import '../domain/sync_credentials.dart';
 
-enum SettingsCategoryType { workspace, security, sync }
+enum SettingsCategoryType { workspace, security, dataSafety, sync }
 
 class SettingsResult {
   const SettingsResult({

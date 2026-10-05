@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../application/recycle_bin_store.dart';
 import '../application/row_level_workspace_store.dart';
 import '../application/time_tracking_store.dart';
 import '../application/workspace_controller_factory.dart';
 import '../data/attachment_store.dart';
 import '../data/repositories/drift_row_level_workspace_store.dart';
+import '../data/repositories/recycle_bin_repository.dart';
 import '../data/runtime/sqlcipher_vault_store.dart';
 import '../domain/attachment_repository.dart';
 import '../domain/calendar_push_registry.dart';
@@ -99,6 +101,14 @@ final timeTrackingStoreBuilderProvider = Provider<TimeTrackingStoreBuilder>(
   },
 );
 
+/// 回收站存储的惰性构建器：与行级写入存储共用数据库会话。
+final recycleBinStoreBuilderProvider = Provider<RecycleBinStoreBuilder>(
+  (ref) => () {
+    final database = ref.watch(sqlCipherVaultStoreProvider).database;
+    return database == null ? null : RecycleBinRepository(database);
+  },
+);
+
 typedef SyncConnectionTester =
     Future<void> Function(AppSettings settings, SyncCredentials credentials);
 
@@ -125,6 +135,7 @@ final workspaceControllerFactoryProvider = Provider<WorkspaceControllerFactory>(
     ),
     attachmentRepositoryFactory: ref.watch(attachmentRepositoryFactoryProvider),
     rowLevelStoreBuilder: ref.watch(rowLevelStoreBuilderProvider),
+    recycleBinStoreBuilder: ref.watch(recycleBinStoreBuilderProvider),
     widgetDataService: ref.watch(widgetDataServiceProvider),
   ),
 );

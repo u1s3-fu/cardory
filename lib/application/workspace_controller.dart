@@ -7,11 +7,13 @@ import '../domain/attachment_repository.dart';
 import '../domain/cardory_repository.dart';
 import '../domain/dependency_schedule.dart';
 import '../domain/due_reminder_service.dart';
+import '../domain/recycle_bin_models.dart';
 import '../domain/schedule_queries.dart';
 import '../domain/sync_status.dart';
 import '../services/system_calendar_service.dart';
 import '../domain/widget_data_service.dart';
 import '../domain/workspace_sync_service.dart';
+import 'recycle_bin_store.dart';
 import 'row_level_workspace_store.dart';
 import 'workspace_mutation_service.dart';
 import 'workspace_settings_service.dart';
@@ -29,6 +31,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     required this.syncService,
     required this.attachmentRepositoryFactory,
     this.rowLevelStore,
+    this.recycleBinStore,
     WidgetDataService widgetDataService = const NullWidgetDataService(),
     // ignore: prefer_initializing_formals —— 命名参数不能以下划线开头。
     DueReminderService dueReminderService = const NullDueReminderService(),
@@ -81,6 +84,17 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     final store = rowLevelStore;
     if (store == null) {
       throw StateError('行级写入存储未注入，无法执行业务写入。');
+    }
+    return store;
+  }
+
+  /// 回收站存储；未注入时回收站查询/恢复会抛错（测试可不注入）。
+  final RecycleBinStore? recycleBinStore;
+
+  RecycleBinStore get _recycleBin {
+    final store = recycleBinStore;
+    if (store == null) {
+      throw StateError('回收站存储未注入。');
     }
     return store;
   }
@@ -386,6 +400,17 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     Set<String> tagIds,
   ) async {
     await _rowLevel.updateAssetsTags(assetIds, tagIds);
+    await _afterWrite();
+  }
+
+  // ---- 回收站 ----
+
+  Future<List<RecycleBinEntry>> loadRecycleBinEntries() =>
+      _recycleBin.loadEntries();
+
+  /// 恢复一条软删除记录并刷新投影（恢复经 sync_changes 同步到其他设备）。
+  Future<void> restoreRecycleBinEntry(RecycleBinEntry entry) async {
+    await _recycleBin.restore(entry.type, entry.id);
     await _afterWrite();
   }
 

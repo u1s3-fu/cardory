@@ -142,6 +142,9 @@ class _FakeVaultRepository implements VaultRepository {
   ) async {}
 
   @override
+  Future<List<int>> exportContainer() async => const [1];
+
+  @override
   Future<CardoryLoadResult> restoreFromBackup(
     List<int> bytes,
     String password,

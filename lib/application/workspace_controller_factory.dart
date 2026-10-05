@@ -6,6 +6,7 @@ import '../domain/sync_credentials.dart';
 import '../domain/widget_data_service.dart';
 import '../services/system_calendar_service.dart';
 import '../domain/workspace_sync_service.dart';
+import 'recycle_bin_store.dart';
 import 'row_level_workspace_store.dart';
 import 'workspace_controller.dart';
 import 'workspace_settings_service.dart';
@@ -25,6 +26,7 @@ class WorkspaceControllerFactory {
     required this.syncServiceFactory,
     required this.attachmentRepositoryFactory,
     this.rowLevelStoreBuilder,
+    this.recycleBinStoreBuilder,
     this.widgetDataService = const NullWidgetDataService(),
     this.dueReminderService = const NullDueReminderService(),
     this.systemCalendarService,
@@ -41,6 +43,10 @@ class WorkspaceControllerFactory {
   /// 惰性获取行级写入存储：保险库解锁后数据库才可用，控制器创建时
   /// 才调用；返回 null 时业务写入会在控制器处抛错。
   final RowLevelWorkspaceStoreBuilder? rowLevelStoreBuilder;
+
+  /// 惰性获取回收站存储（与行级写入存储共用数据库会话）。
+  final RecycleBinStoreBuilder? recycleBinStoreBuilder;
+
   final WidgetDataService widgetDataService;
   final DueReminderService dueReminderService;
 
@@ -58,6 +64,7 @@ class WorkspaceControllerFactory {
     syncService: syncServiceFactory(),
     attachmentRepositoryFactory: attachmentRepositoryFactory,
     rowLevelStore: rowLevelStoreBuilder?.call(),
+    recycleBinStore: recycleBinStoreBuilder?.call(),
     widgetDataService: widgetDataService,
     dueReminderService: dueReminderService,
     systemCalendarService: systemCalendarService,

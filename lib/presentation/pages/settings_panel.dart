@@ -63,6 +63,13 @@ class SettingsPanel extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _SettingsCategory(
+          icon: Icons.health_and_safety_outlined,
+          title: '数据安全',
+          description: '加密备份导出与回收站',
+          onPressed: () => onOpenSettings(SettingsCategoryType.dataSafety),
+        ),
+        const SizedBox(height: 10),
+        _SettingsCategory(
           icon: Icons.sync_rounded,
           title: '数据与同步',
           description: '同步方式：${_syncProviderLabel(settings.syncProvider)}',
