@@ -22,6 +22,10 @@ abstract interface class RowLevelWorkspaceStore {
 
   Future<void> deleteProject(String projectId);
 
+  /// 追加一条自动生成的项目进度记录（任务完成率联动），与手动记录同一
+  /// 事务与 sync_changes 通道；项目不存在或已删除时静默跳过。
+  Future<void> recordAutoProjectProgress(String projectId, double progress);
+
   /// 看板拖拽排序：按 [orderedProjects] 的顺序写入阶段与 sortOrder，
   /// 列表未覆盖的行保持原相对顺序追加在后。
   Future<void> reorderProjects(List<ProjectData> orderedProjects);

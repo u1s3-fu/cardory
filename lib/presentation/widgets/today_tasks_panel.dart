@@ -14,9 +14,13 @@ class TodayTasksPanel extends StatelessWidget {
     required this.now,
     required this.onToggleTodo,
     required this.onOpenTodo,
+    this.blockedIds = const <String>{},
   });
 
   final List<TodoData> todos;
+
+  /// 被未完成前置依赖阻塞的任务 id（今日面板同步呈现甘特依赖语义）。
+  final Set<String> blockedIds;
 
   /// 当前时间（测试可注入固定值）。
   final DateTime now;
@@ -61,6 +65,7 @@ class TodayTasksPanel extends StatelessWidget {
                 todo: todo,
                 now: now,
                 overdue: true,
+                blocked: blockedIds.contains(todo.id),
                 onToggleTodo: onToggleTodo,
                 onOpenTodo: onOpenTodo,
               ),
@@ -69,6 +74,7 @@ class TodayTasksPanel extends StatelessWidget {
                 todo: todo,
                 now: now,
                 overdue: false,
+                blocked: blockedIds.contains(todo.id),
                 onToggleTodo: onToggleTodo,
                 onOpenTodo: onOpenTodo,
               ),
@@ -86,6 +92,7 @@ class _TodayTile extends StatelessWidget {
     required this.overdue,
     required this.onToggleTodo,
     required this.onOpenTodo,
+    this.blocked = false,
   });
 
   final TodoData todo;
@@ -93,6 +100,9 @@ class _TodayTile extends StatelessWidget {
   final bool overdue;
   final Future<TodoData> Function(TodoData todo) onToggleTodo;
   final Future<TodoData?> Function(TodoData todo) onOpenTodo;
+
+  /// 前置任务未完成，任务暂不可开始。
+  final bool blocked;
 
   @override
   Widget build(BuildContext context) {
@@ -141,6 +151,19 @@ class _TodayTile extends StatelessWidget {
                     Row(
                       children: [
                         PriorityBadge(priority: todo.priority),
+                        if (blocked && !todo.done) ...[
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            message: '前置任务未完成，暂不可开始',
+                            child: Icon(
+                              Icons.link_rounded,
+                              size: 14,
+                              color: cardoryEnsureWhiteContrast(
+                                CardoryColors.warning,
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(

@@ -13,6 +13,7 @@ import '../../domain/cardory_models.dart';
 import '../../domain/milestone_models.dart';
 import '../../domain/time_models.dart';
 import '../db/app_database.dart' as db;
+import 'repository_support.dart' show repositoryUuid;
 import 'asset_repository.dart';
 import 'attachment_repositories.dart';
 import 'dependency_repository.dart';
@@ -95,6 +96,22 @@ class DriftRowLevelWorkspaceStore
   @override
   Future<void> deleteProject(String projectId) =>
       _projects.softDelete(projectId);
+
+  @override
+  Future<void> recordAutoProjectProgress(String projectId, double progress) =>
+      _db.transaction(() async {
+        final row = await _projectRow(projectId);
+        if (row == null) return;
+        await _createProgressEntry(
+          projectId,
+          ProjectProgressEntry(
+            id: repositoryUuid.v4(),
+            note: '按任务完成率自动记录',
+            progress: progress,
+            createdAt: DateTime.now(),
+          ),
+        );
+      });
 
   @override
   Future<void> reorderProjects(List<ProjectData> orderedProjects) =>

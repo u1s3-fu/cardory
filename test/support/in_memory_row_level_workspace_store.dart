@@ -44,6 +44,33 @@ class InMemoryRowLevelWorkspaceStore implements RowLevelWorkspaceStore {
       _commit(_mutations.deleteProject(_read(), projectId).data);
 
   @override
+  Future<void> recordAutoProjectProgress(
+    String projectId,
+    double progress,
+  ) async {
+    final data = _read();
+    final index = data.projects.indexWhere(
+      (project) => project.id == projectId,
+    );
+    if (index < 0) return;
+    final project = data.projects[index];
+    final entry = ProjectProgressEntry(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      note: '按任务完成率自动记录',
+      progress: progress,
+      createdAt: DateTime.now(),
+    );
+    _commit(
+      data.copyWith(
+        projects: [...data.projects]
+          ..[index] = project.copyWith(
+            progressEntries: [...project.progressEntries, entry],
+          ),
+      ),
+    );
+  }
+
+  @override
   Future<void> reorderProjects(List<ProjectData> orderedProjects) =>
       _commit(_read().copyWith(projects: List.of(orderedProjects)));
 

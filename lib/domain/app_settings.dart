@@ -19,6 +19,8 @@ class AppSettings {
     this.autoLockEnabled = true,
     this.dueRemindersEnabled = true,
     this.dueReminderLeadDays = 7,
+    this.taskDueRemindersEnabled = true,
+    this.autoProgressFromTasks = false,
     this.syncProvider = SyncProviderType.none,
     this.syncDirectoryPath = '',
     this.webDavUrl = '',
@@ -51,6 +53,12 @@ class AppSettings {
 
   /// 到期提醒提前天数窗口（1/3/7/14）。
   final int dueReminderLeadDays;
+
+  /// 任务截止系统通知开关（默认开；关闭后任务截止仅应用内展示）。
+  final bool taskDueRemindersEnabled;
+
+  /// 按任务完成率自动记录项目进度（默认关；开启后勾选任务自动追加进度记录）。
+  final bool autoProgressFromTasks;
   final SyncProviderType syncProvider;
   final String syncDirectoryPath;
   final String webDavUrl;
@@ -101,6 +109,8 @@ class AppSettings {
     autoLockEnabled: json['autoLockEnabled'] as bool? ?? true,
     dueRemindersEnabled: json['dueRemindersEnabled'] as bool? ?? true,
     dueReminderLeadDays: json['dueReminderLeadDays'] as int? ?? 7,
+    taskDueRemindersEnabled: json['taskDueRemindersEnabled'] as bool? ?? true,
+    autoProgressFromTasks: json['autoProgressFromTasks'] as bool? ?? false,
     syncProvider:
         SyncProviderType.values
             .where((value) => value.name == json['syncProvider'])
@@ -142,6 +152,8 @@ class AppSettings {
     'autoLockEnabled': autoLockEnabled,
     'dueRemindersEnabled': dueRemindersEnabled,
     'dueReminderLeadDays': dueReminderLeadDays,
+    'taskDueRemindersEnabled': taskDueRemindersEnabled,
+    'autoProgressFromTasks': autoProgressFromTasks,
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -177,6 +189,8 @@ class AppSettings {
     'autoLockEnabled': autoLockEnabled,
     'dueRemindersEnabled': dueRemindersEnabled,
     'dueReminderLeadDays': dueReminderLeadDays,
+    'taskDueRemindersEnabled': taskDueRemindersEnabled,
+    'autoProgressFromTasks': autoProgressFromTasks,
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -206,6 +220,8 @@ class AppSettings {
       autoLockEnabled: remote.autoLockEnabled,
       dueRemindersEnabled: remote.dueRemindersEnabled,
       dueReminderLeadDays: remote.dueReminderLeadDays,
+      taskDueRemindersEnabled: remote.taskDueRemindersEnabled,
+      autoProgressFromTasks: remote.autoProgressFromTasks,
       syncProvider: remote.syncProvider,
       syncDirectoryPath: remote.syncDirectoryPath,
       webDavUrl: remote.webDavUrl,
@@ -238,6 +254,8 @@ class AppSettings {
     bool? autoLockEnabled,
     bool? dueRemindersEnabled,
     int? dueReminderLeadDays,
+    bool? taskDueRemindersEnabled,
+    bool? autoProgressFromTasks,
     SyncProviderType? syncProvider,
     String? syncDirectoryPath,
     String? webDavUrl,
@@ -269,6 +287,9 @@ class AppSettings {
     autoLockEnabled: autoLockEnabled ?? this.autoLockEnabled,
     dueRemindersEnabled: dueRemindersEnabled ?? this.dueRemindersEnabled,
     dueReminderLeadDays: dueReminderLeadDays ?? this.dueReminderLeadDays,
+    taskDueRemindersEnabled:
+        taskDueRemindersEnabled ?? this.taskDueRemindersEnabled,
+    autoProgressFromTasks: autoProgressFromTasks ?? this.autoProgressFromTasks,
     syncProvider: syncProvider ?? this.syncProvider,
     syncDirectoryPath: syncDirectoryPath ?? this.syncDirectoryPath,
     webDavUrl: webDavUrl ?? this.webDavUrl,

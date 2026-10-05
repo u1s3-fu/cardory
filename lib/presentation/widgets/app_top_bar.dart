@@ -3,20 +3,24 @@ import 'package:flutter/material.dart';
 import '../cardory_logo.dart';
 import '../cardory_theme.dart';
 
-/// 应用顶部栏：Logo + 标题 + 设置入口。
+/// 应用顶部栏：Logo + 标题 + 搜索与设置入口。
 ///
-/// 紧凑模式下隐藏品牌名，仅保留标题与设置按钮。
+/// 紧凑模式下隐藏品牌名，仅保留标题与操作按钮。
 class AppTopBar extends StatelessWidget {
   const AppTopBar({
     super.key,
     required this.compact,
     required this.title,
     required this.onOpenSettings,
+    this.onSearch,
   });
 
   final bool compact;
   final String title;
   final VoidCallback onOpenSettings;
+
+  /// 全局搜索入口；null 时不显示搜索按钮（测试简化场景）。
+  final VoidCallback? onSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +66,13 @@ class AppTopBar extends StatelessWidget {
               ),
             ),
           ),
+          if (onSearch != null)
+            IconButton(
+              key: const Key('open-global-search'),
+              tooltip: '搜索',
+              onPressed: onSearch,
+              icon: const Icon(Icons.search_rounded, size: 20),
+            ),
           IconButton(
             tooltip: '设置',
             onPressed: onOpenSettings,

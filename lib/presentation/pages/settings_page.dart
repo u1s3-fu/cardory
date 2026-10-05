@@ -64,6 +64,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
       widget.settings.keepAttachmentExtensionOnRename;
   late bool _autoLockEnabled = widget.settings.autoLockEnabled;
   late bool _dueRemindersEnabled = widget.settings.dueRemindersEnabled;
+  late bool _taskDueRemindersEnabled = widget.settings.taskDueRemindersEnabled;
+  late bool _autoProgressFromTasks = widget.settings.autoProgressFromTasks;
   late int _dueReminderLeadDays = widget.settings.dueReminderLeadDays;
   late final List<AssetTemplate> _assetTemplates = [
     ...widget.settings.assetTemplates,
@@ -230,6 +232,27 @@ class _SettingsDialogState extends State<SettingsDialog> {
               ],
             ),
           ),
+        SwitchListTile.adaptive(
+          key: const Key('task-due-reminders-enabled'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('任务截止系统通知'),
+          subtitle: Text(
+            Platform.isAndroid || Platform.isIOS
+                ? '截止日提醒进入系统通知（应用内今日面板始终展示）'
+                : '截止日提醒进入系统通知——仅移动端支持，桌面端保留应用内展示',
+          ),
+          value: _taskDueRemindersEnabled,
+          onChanged: (value) =>
+              setState(() => _taskDueRemindersEnabled = value),
+        ),
+        SwitchListTile.adaptive(
+          key: const Key('auto-progress-from-tasks'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('按任务完成率自动记录项目进度'),
+          subtitle: const Text('勾选任务后自动追加项目进度记录，与最近记录相同则跳过'),
+          value: _autoProgressFromTasks,
+          onChanged: (value) => setState(() => _autoProgressFromTasks = value),
+        ),
         if (_dueRemindersEnabled)
           DropdownButtonFormField<int>(
             key: const Key('due-reminder-lead-days'),
@@ -404,6 +427,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
         keepAttachmentExtensionOnRename: _keepAttachmentExtensionOnRename,
         autoLockEnabled: _autoLockEnabled,
         dueRemindersEnabled: _dueRemindersEnabled,
+        taskDueRemindersEnabled: _taskDueRemindersEnabled,
+        autoProgressFromTasks: _autoProgressFromTasks,
         dueReminderLeadDays: _dueReminderLeadDays,
         assetTemplates: List.of(_assetTemplates),
         syncProvider: sync?.provider == SyncProviderType.selfHosted

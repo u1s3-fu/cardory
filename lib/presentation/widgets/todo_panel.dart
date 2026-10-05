@@ -15,6 +15,7 @@ class TodoPanel extends StatelessWidget {
     required this.onToggleSubTodo,
     required this.onOpenTodo,
     required this.onDeleteTodo,
+    this.blockedIds = const <String>{},
   });
 
   final List<TodoData> todos;
@@ -24,6 +25,9 @@ class TodoPanel extends StatelessWidget {
   onToggleSubTodo;
   final Future<void> Function(TodoData todo) onOpenTodo;
   final Future<bool> Function(TodoData todo) onDeleteTodo;
+
+  /// 被未完成前置依赖阻塞的任务 id（甘特依赖的待办语义呈现）。
+  final Set<String> blockedIds;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -65,6 +69,7 @@ class TodoPanel extends StatelessWidget {
                   onToggleSubTodo: onToggleSubTodo,
                   onOpenTodo: onOpenTodo,
                   onDeleteTodo: onDeleteTodo,
+                  blocked: blockedIds.contains(todo.id),
                 ),
               );
             },
@@ -83,6 +88,7 @@ class TodoTile extends StatelessWidget {
     required this.onToggleSubTodo,
     required this.onOpenTodo,
     required this.onDeleteTodo,
+    this.blocked = false,
   });
 
   final TodoData todo;
@@ -91,6 +97,9 @@ class TodoTile extends StatelessWidget {
   onToggleSubTodo;
   final Future<void> Function(TodoData todo) onOpenTodo;
   final Future<bool> Function(TodoData todo) onDeleteTodo;
+
+  /// 前置任务未完成，任务暂不可开始。
+  final bool blocked;
 
   @override
   Widget build(BuildContext context) {
@@ -165,6 +174,48 @@ class TodoTile extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            if (blocked && !todo.done) ...[
+                              const SizedBox(width: 8),
+                              Tooltip(
+                                message: '前置任务未完成，暂不可开始',
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: CardoryColors.warning.withValues(
+                                      alpha: 0.14,
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.link_rounded,
+                                        size: 11,
+                                        color: cardoryEnsureWhiteContrast(
+                                          CardoryColors.warning,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        '被阻塞',
+                                        style: TextStyle(
+                                          color: cardoryEnsureWhiteContrast(
+                                            CardoryColors.warning,
+                                          ),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                             if (todo.done) ...[
                               const SizedBox(width: 8),
                               Container(

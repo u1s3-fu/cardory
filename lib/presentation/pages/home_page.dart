@@ -30,6 +30,7 @@ import '../settings_models.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/asset_detail_dialog.dart';
 import '../widgets/confirm_dialogs.dart';
+import '../widgets/global_search_dialog.dart';
 import '../widgets/hero_header.dart';
 import '../widgets/kanban_board.dart';
 import '../widgets/overview.dart';
@@ -309,6 +310,21 @@ class _HomePageState extends State<HomePage> {
       _showError(error);
     }
   }
+
+  /// 全局搜索：项目/待办/资产/里程碑按标题检索并跳转。
+  Future<void> _openSearch() => GlobalSearchDialog.show(
+    context,
+    GlobalSearchDialog(
+      projects: _data.projects,
+      todos: _data.todos,
+      assets: _data.assets,
+      loadMilestones: _controller.loadMilestones,
+      onOpenProject: _openProject,
+      onOpenTodo: _openTodo,
+      onOpenAsset: _editAsset,
+      onOpenGantt: () => context.go(ganttRoutePath),
+    ),
+  );
 
   /// 导出加密备份：选择保存目录后打包整库快照与附件密文。
   /// 返回结果提示；用户取消目录选择返回 null。
@@ -785,6 +801,7 @@ class _HomePageState extends State<HomePage> {
                     compact: compact,
                     title: _sectionTitle,
                     onOpenSettings: _openSettings,
+                    onSearch: _openSearch,
                   ),
                   Expanded(
                     child: Row(
@@ -931,6 +948,7 @@ class _HomeSectionContent extends StatelessWidget {
         now: DateTime.now(),
         onToggleTodo: state._toggleTodo,
         onOpenTodo: state._openTodo,
+        blockedIds: state._controller.blockedTodoIds,
       ),
       const SizedBox(height: 22),
       KanbanBoard(
@@ -967,6 +985,7 @@ class _TodosSectionContent extends StatelessWidget {
     onToggleSubTodo: state._toggleSubTodo,
     onOpenTodo: state._openTodo,
     onDeleteTodo: state._deleteTodo,
+    blockedIds: state._controller.blockedTodoIds,
   );
 }
 
@@ -1033,6 +1052,8 @@ class _GanttSectionContent extends StatelessWidget {
       projects: state._data.projects,
       todos: state._data.todos,
       onEditTodo: state._openTodo,
+      onAddDependency: state._controller.addTaskDependency,
+      onDeleteDependency: state._controller.deleteTaskDependency,
     );
   }
 }

@@ -117,3 +117,22 @@ List<DependencyScheduleUpdate> propagateDependencySchedule({
   }
   return updates;
 }
+
+/// 计算当前被未完成前置阻塞的任务 id 集合（纯函数）。
+///
+/// 一个任务被阻塞 = 存在 finish_to_start 前置依赖，且前置任务在
+/// [todos] 中可见（未删除）且未完成；前置已删除或已完成时不阻塞。
+Set<String> computeBlockedTodoIds(
+  List<TodoData> todos,
+  List<TaskDependencyData> dependencies,
+) {
+  final undone = {
+    for (final todo in todos)
+      if (!todo.done) todo.id,
+  };
+  return {
+    for (final dependency in dependencies)
+      if (undone.contains(dependency.predecessorTaskId))
+        dependency.successorTaskId,
+  };
+}

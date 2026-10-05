@@ -226,3 +226,36 @@ Map<String, AssetNextDue> assetNextDueDates(
   }
   return next;
 }
+
+/// 任务截止条目：未完成任务的截止日（本地日期键），复用资产到期提醒
+/// 规划管道。AssetDueEntry 在此作通用到期条目使用：assetId=任务 id、
+/// fieldLabel='截止'、fieldKey='task-due'（去重键/通知 id 因此与资产
+/// 条目天然隔离）。结果按 date 升序、同日按标题排序。
+List<AssetDueEntry> taskDueEntries(
+  List<TodoData> todos, {
+  (DateTime start, DateTime end)? bounds,
+}) {
+  final entries = <AssetDueEntry>[];
+  for (final todo in todos) {
+    if (todo.done || todo.endDate == null) continue;
+    final day = localDayKey(todo.endDate!);
+    final (start, end) = bounds ?? (day, day);
+    if (day.isBefore(start) || day.isAfter(end)) continue;
+    entries.add(
+      AssetDueEntry(
+        assetId: todo.id,
+        assetName: todo.title,
+        date: day,
+        fieldLabel: '截止',
+        fieldKey: 'task-due',
+        title: '任务截止 · ${todo.title}',
+      ),
+    );
+  }
+  entries.sort((a, b) {
+    final byDate = a.date.compareTo(b.date);
+    if (byDate != 0) return byDate;
+    return a.assetName.compareTo(b.assetName);
+  });
+  return entries;
+}

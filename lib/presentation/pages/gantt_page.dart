@@ -22,6 +22,8 @@ class GanttPage extends StatefulWidget {
     required this.projects,
     required this.todos,
     required this.onEditTodo,
+    this.onAddDependency,
+    this.onDeleteDependency,
     this.now,
   });
 
@@ -31,6 +33,15 @@ class GanttPage extends StatefulWidget {
 
   /// 打开待办编辑对话框（排期调整入口：开始/截止日期）。
   final Future<TodoData?> Function(TodoData todo) onEditTodo;
+
+  /// 依赖写入口：缺省时直接写行级存储；由工作台注入控制器包装时，
+  /// 写入后统一刷新（依赖缓存/提醒/小组件跟随更新）。
+  final Future<void> Function({
+    required String predecessorTaskId,
+    required String successorTaskId,
+  })?
+  onAddDependency;
+  final Future<void> Function(String id)? onDeleteDependency;
 
   /// 当前时间（测试可注入固定值）。
   final DateTime? now;
@@ -184,10 +195,16 @@ class _GanttPageState extends State<GanttPage> {
     );
     if (result == null) return;
     try {
-      await widget.store.addDependency(
-        predecessorTaskId: result.$1,
-        successorTaskId: result.$2,
-      );
+      final write =
+          widget.onAddDependency ??
+          ({
+            required String predecessorTaskId,
+            required String successorTaskId,
+          }) => widget.store.addDependency(
+            predecessorTaskId: predecessorTaskId,
+            successorTaskId: successorTaskId,
+          );
+      await write(predecessorTaskId: result.$1, successorTaskId: result.$2);
     } on StateError catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -200,7 +217,10 @@ class _GanttPageState extends State<GanttPage> {
 
   Future<void> _deleteDependency(TaskDependencyData dependency) =>
       _guard(() async {
-        await widget.store.deleteDependency(dependency.id);
+        final delete =
+            widget.onDeleteDependency ??
+            (String id) => widget.store.deleteDependency(id);
+        await delete(dependency.id);
         await _reload();
       });
 }

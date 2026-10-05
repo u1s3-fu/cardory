@@ -7,6 +7,7 @@ import '../domain/attachment_repository.dart';
 import '../domain/cardory_repository.dart';
 import '../domain/dependency_schedule.dart';
 import '../domain/due_reminder_service.dart';
+import '../domain/milestone_models.dart';
 import '../domain/recycle_bin_models.dart';
 import '../domain/schedule_queries.dart';
 import '../domain/sync_status.dart';
@@ -76,6 +77,10 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
   String? _error;
   bool _loading = true;
   bool _recoveredFromBackup = false;
+
+  /// 任务依赖缓存：随投影刷新（加载/写入/同步回读）一并更新，
+  /// 供待办与今日面板呈现「被前置阻塞」状态。读取失败保持旧值或为空。
+  List<TaskDependencyData> _dependencies = const [];
   AttachmentRepository? _attachmentRepository;
 
   /// 行级写入存储；未注入时任何业务写入都会抛错，防止界面悄悄退化回
@@ -107,6 +112,35 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
   bool get recoveredFromBackup => _recoveredFromBackup;
   AttachmentRepository? get attachmentRepository => _attachmentRepository;
   SyncStatus get syncStatus => syncService.status;
+
+  /// 当前被未完成前置阻塞的任务 id 集合（随依赖缓存刷新）。
+  Set<String> get blockedTodoIds =>
+      computeBlockedTodoIds(_data.todos, _dependencies);
+
+  /// 读取任务依赖（甘特页/搜索等一次性使用；UI 常驻展示用 [blockedTodoIds]）。
+  Future<List<TaskDependencyData>> loadDependencies() =>
+      _rowLevel.loadDependencies();
+
+  /// 读取全部里程碑（全局搜索等一次性使用）。
+  Future<List<MilestoneData>> loadMilestones() => _rowLevel.loadMilestones();
+
+  /// 建立任务依赖并刷新缓存（进入同步通道）。
+  Future<void> addTaskDependency({
+    required String predecessorTaskId,
+    required String successorTaskId,
+  }) async {
+    await _rowLevel.addDependency(
+      predecessorTaskId: predecessorTaskId,
+      successorTaskId: successorTaskId,
+    );
+    await _afterWrite();
+  }
+
+  /// 删除任务依赖并刷新缓存（进入同步通道）。
+  Future<void> deleteTaskDependency(String id) async {
+    await _rowLevel.deleteDependency(id);
+    await _afterWrite();
+  }
 
   Future<void> initialize([CardoryLoadResult? initialResult]) async {
     _loading = true;
@@ -144,6 +178,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     _loading = false;
     _error = null;
     _notifyListeners();
+    await _refreshDependencies();
     _updateWidget();
     await _runDueReminders();
     await _reconcileSystemCalendar();
@@ -162,6 +197,18 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
       _notifyListeners();
     } catch (_) {
       // 见上方注释：静默保留已提交的本地投影。
+    }
+    await _refreshDependencies();
+  }
+
+  /// 刷新任务依赖缓存；失败保持旧值（阻塞标识是附加呈现，不阻断主流程）。
+  Future<void> _refreshDependencies() async {
+    final store = rowLevelStore;
+    if (store == null) return;
+    try {
+      _dependencies = await store.loadDependencies();
+    } catch (error) {
+      debugPrint('WorkspaceController.refreshDependencies failed: $error');
     }
   }
 
@@ -282,6 +329,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
   Future<void> addTodo(TodoData todo) async {
     await _rowLevel.addTodo(todo);
     await _afterWrite();
+    await _recordAutoProjectProgress({todo.projectId});
   }
 
   Future<void> updateTodo(TodoData todo) async {
@@ -298,6 +346,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
       await _applyDependencySchedule({todo.id});
     }
     await _afterWrite();
+    await _recordAutoProjectProgress({original.projectId, todo.projectId});
   }
 
   /// 两个可空时刻是否落在不同的本地日期（null 与非 null 也算变更）。
@@ -308,8 +357,16 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
   }
 
   Future<void> deleteTodo(String todoId) async {
+    String? projectId;
+    for (final item in _data.todos) {
+      if (item.id == todoId) {
+        projectId = item.projectId;
+        break;
+      }
+    }
     await _rowLevel.deleteTodo(todoId);
     await _afterWrite();
+    await _recordAutoProjectProgress({projectId});
   }
 
   Future<TodoData> toggleTodo(TodoData todo) async {
@@ -320,7 +377,35 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
       await _applyDependencySchedule({todo.id});
     }
     await _afterWrite();
+    await _recordAutoProjectProgress({todo.projectId});
     return updated;
+  }
+
+  /// 任务完成率自动记录项目进度（设置开启时）：对涉及的每个项目按
+  /// 顶层任务完成率计算，与最近一条进度记录不同才追加自动记录。
+  /// 调用前需已完成 _afterWrite（依赖最新投影）；有写入时再次刷新。
+  Future<void> _recordAutoProjectProgress(Iterable<String?> projectIds) async {
+    if (!_settings.autoProgressFromTasks) return;
+    var changed = false;
+    for (final projectId in projectIds) {
+      if (projectId == null || projectId.isEmpty) continue;
+      if (!_data.projects.any((project) => project.id == projectId)) continue;
+      final tasks = _data.todos
+          .where((todo) => todo.projectId == projectId)
+          .toList();
+      if (tasks.isEmpty) continue;
+      final ratio = tasks.where((todo) => todo.done).length / tasks.length;
+      final project = _data.projects.firstWhere(
+        (project) => project.id == projectId,
+      );
+      final last = project.progressEntries.isEmpty
+          ? null
+          : project.progressEntries.last.progress;
+      if (last != null && (last - ratio).abs() < 0.0001) continue;
+      await _rowLevel.recordAutoProjectProgress(projectId, ratio);
+      changed = true;
+    }
+    if (changed) await _afterWrite();
   }
 
   /// 依赖约束传播：seed（完成/改期的任务）沿后继链自动排期，
@@ -463,31 +548,60 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     });
   }
 
-  /// 扫描资产到期并驱动系统通知（解锁加载、数据写入、设置变更后调用）。
+  /// 扫描资产到期与任务截止并驱动系统通知（解锁加载、数据写入、设置变更
+  /// 后调用）。两类条目共用提醒规划管道（见 taskDueEntries），去重键与
+  /// 通知 id 按实体 id 天然隔离。
   ///
-  /// 提醒失败绝不阻断主流程；未开启时清空全部预约通知。
+  /// 提醒失败绝不阻断主流程；两类开关均关闭或无条目时清空全部预约通知。
   Future<void> _runDueReminders() async {
     try {
-      if (!_settings.dueRemindersEnabled) {
+      final assetsEnabled = _settings.dueRemindersEnabled;
+      final tasksEnabled = _settings.taskDueRemindersEnabled;
+      if (!assetsEnabled && !tasksEnabled) {
         await _dueReminderService.cancelAll();
         return;
       }
       final today = localDayKey(DateTime.now());
       final horizon = today.add(Duration(days: _settings.dueReminderLeadDays));
-      List<AssetDueEntry> entriesIn(DateTime start, DateTime end) =>
-          assetDueEntries(
-            _data.assets,
-            _settings.assetTemplates,
-            bounds: (start, end),
-          );
-      final notifiedKeys = await _dueReminderService.loadNotifiedKeys();
-      final plan = planDueReminders(
-        overdue: entriesIn(
+      List<AssetDueEntry> assetEntriesIn(DateTime start, DateTime end) =>
+          assetsEnabled
+          ? assetDueEntries(
+              _data.assets,
+              _settings.assetTemplates,
+              bounds: (start, end),
+            )
+          : const <AssetDueEntry>[];
+      List<AssetDueEntry> taskEntriesIn(DateTime start, DateTime end) =>
+          tasksEnabled
+          ? taskDueEntries(_data.todos, bounds: (start, end))
+          : const <AssetDueEntry>[];
+      final overdue = [
+        ...assetEntriesIn(
           today.subtract(const Duration(days: 3)),
           today.subtract(const Duration(days: 1)),
         ),
-        dueToday: entriesIn(today, today),
-        upcoming: entriesIn(today.add(const Duration(days: 1)), horizon),
+        ...taskEntriesIn(
+          today.subtract(const Duration(days: 3)),
+          today.subtract(const Duration(days: 1)),
+        ),
+      ];
+      final dueToday = [
+        ...assetEntriesIn(today, today),
+        ...taskEntriesIn(today, today),
+      ];
+      final upcoming = [
+        ...assetEntriesIn(today.add(const Duration(days: 1)), horizon),
+        ...taskEntriesIn(today.add(const Duration(days: 1)), horizon),
+      ];
+      if (overdue.isEmpty && dueToday.isEmpty && upcoming.isEmpty) {
+        await _dueReminderService.cancelAll();
+        return;
+      }
+      final notifiedKeys = await _dueReminderService.loadNotifiedKeys();
+      final plan = planDueReminders(
+        overdue: overdue,
+        dueToday: dueToday,
+        upcoming: upcoming,
         notifiedKeys: notifiedKeys,
       );
       if (!_dueReminderPermissionDenied &&
