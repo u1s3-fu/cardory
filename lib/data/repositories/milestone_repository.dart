@@ -67,7 +67,7 @@ class MilestoneRepository {
   }
 
   /// 用行快照更新里程碑业务字段。
-  Future<void> update(Milestone milestone) async {
+  Future<void> update(Milestone milestone, {Set<String>? changedFields}) async {
     final now = _clock();
     await _db.transaction(() async {
       await (_db.update(
@@ -90,6 +90,7 @@ class MilestoneRepository {
         payload: rowPayload(milestone, updatedAt: now),
         deviceId: _deviceId,
         createdAt: now,
+        changedFields: changedFields,
       );
     });
   }

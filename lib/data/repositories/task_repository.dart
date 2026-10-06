@@ -3,6 +3,8 @@
 // 约束：任务层级最多两层（父任务 + 直接子任务）；子任务必须与父任务属于
 // 同一项目；父任务不可被删除后再建子任务。所有写操作在同一事务内完成
 // 实体行 + updatedAt/tombstone + sync_changes（完整 payload）。
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../db/app_database.dart';
@@ -55,6 +57,8 @@ class TaskRepository {
     int? estimateMinutes,
     int? createdAt,
     int? completedAt,
+    List<String> tags = const [],
+    String? repeatRule,
   }) async {
     if (parentTaskId != null) {
       await _assertValidParent(parentTaskId, projectId);
@@ -78,6 +82,8 @@ class TaskRepository {
               estimateMinutes: Value(estimateMinutes),
               completedAt: Value(completedAt),
               sortOrder: Value(sortOrder),
+              tagsJson: Value(jsonEncode(tags)),
+              repeatRule: Value(repeatRule),
               createdAt: createdAt ?? now,
               updatedAt: now,
             ),
@@ -101,7 +107,9 @@ class TaskRepository {
   }
 
   /// 用行快照更新任务的全部业务字段（不修改 deletedAt/createdAt）。
-  Future<void> update(Task task) async {
+  ///
+  /// [changedFields] 为本次实际变更的载荷键集合（null = 旧格式整行 LWW）。
+  Future<void> update(Task task, {Set<String>? changedFields}) async {
     final now = _clock();
     await _db.transaction(() async {
       await (_db.update(
@@ -119,6 +127,8 @@ class TaskRepository {
           estimateMinutes: Value(task.estimateMinutes),
           completedAt: Value(task.completedAt),
           sortOrder: Value(task.sortOrder),
+          tagsJson: Value(task.tagsJson),
+          repeatRule: Value(task.repeatRule),
           updatedAt: Value(now),
         ),
       );
@@ -130,6 +140,7 @@ class TaskRepository {
         payload: rowPayload(task, updatedAt: now),
         deviceId: _deviceId,
         createdAt: now,
+        changedFields: changedFields,
       );
     });
   }
@@ -162,6 +173,7 @@ class TaskRepository {
         payload: rowPayload(updated, updatedAt: now),
         deviceId: _deviceId,
         createdAt: now,
+        changedFields: const {'status', 'completedAt'},
       );
     });
   }
@@ -231,6 +243,7 @@ class TaskRepository {
       payload: rowPayload(row, deletedAt: now, updatedAt: now),
       deviceId: _deviceId,
       createdAt: now,
+      changedFields: const {'deletedAt'},
     );
   }
 

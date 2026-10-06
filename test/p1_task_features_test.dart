@@ -154,6 +154,98 @@ void main() {
     });
   });
 
+  group('重复任务生成下一次', () {
+    late _MemoryRepository repository;
+    late support.InMemoryRowLevelWorkspaceStore rowLevelStore;
+    late WorkspaceController controller;
+
+    setUp(() {
+      repository = _MemoryRepository(
+        CardoryData(
+          projects: [
+            ProjectData(
+              id: 'p1',
+              title: '项目一',
+              description: '',
+              priority: ProjectPriority.p1,
+              stage: ProjectStage.doing,
+              progressEntries: const [],
+            ),
+          ],
+          todos: [
+            TodoData(
+              id: 't1',
+              title: '周会',
+              projectId: 'p1',
+              projectTitle: '项目一',
+              priority: ProjectPriority.p2,
+              done: false,
+              startDate: DateTime(2026, 10, 5),
+              endDate: DateTime(2026, 10, 5),
+              tags: const ['例行'],
+              repeatFrequency: RepeatFrequency.weekly,
+              subTodos: const [
+                SubTodoData(id: 's1', content: '准备材料', done: false),
+              ],
+            ),
+          ],
+        ),
+      );
+      rowLevelStore = support.InMemoryRowLevelWorkspaceStore(
+        () => repository.data,
+        (data) => repository.data = data,
+      );
+      controller = WorkspaceController(
+        repository: repository,
+        vaultRepository: repository,
+        settingsService: WorkspaceSettingsService(
+          repository: repository,
+          credentialStore: _MemoryCredentialStore(),
+        ),
+        syncService: SyncCoordinator(
+          repository: repository,
+          providerFactory: (_) async =>
+              throw const SyncUnavailableException('not used'),
+          attachmentRepositoryFactory: (_) => _NoopAttachments(),
+        ),
+        attachmentRepositoryFactory: (_) => _NoopAttachments(),
+        rowLevelStore: rowLevelStore,
+      );
+    });
+
+    tearDown(() => controller.dispose());
+
+    test('完成后生成平移一周的下一次任务（含标签与子待办）', () async {
+      await controller.initialize(await repository.load());
+      final todo = controller.data.todos.firstWhere((item) => item.id == 't1');
+      await controller.toggleTodo(todo);
+
+      final todos = controller.data.todos;
+      expect(todos, hasLength(2));
+      final next = todos.firstWhere((item) => item.id != 't1');
+      expect(next.title, '周会');
+      expect(next.done, isFalse);
+      expect(next.tags, ['例行']);
+      expect(next.repeatFrequency, RepeatFrequency.weekly);
+      expect(next.startDate, DateTime(2026, 10, 12));
+      expect(next.endDate, DateTime(2026, 10, 12));
+      expect(next.subTodos.single.content, '准备材料');
+    });
+
+    test('撤销完成不再生成下一次', () async {
+      await controller.initialize(await repository.load());
+      final undone = controller.data.todos.firstWhere(
+        (item) => item.id == 't1',
+      );
+      await controller.toggleTodo(undone);
+      final done = controller.data.todos.firstWhere((item) => item.id == 't1');
+      expect(done.done, isTrue);
+      await controller.toggleTodo(done);
+      // 撤销后不再追加：仍是 2 条（原任务 + 第一次生成）。
+      expect(controller.data.todos, hasLength(2));
+    });
+  });
+
   group('任务完成率自动记录项目进度', () {
     late _MemoryRepository repository;
     late support.InMemoryRowLevelWorkspaceStore rowLevelStore;

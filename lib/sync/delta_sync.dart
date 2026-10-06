@@ -34,6 +34,7 @@ class DeltaRecord {
     required this.payload,
     required this.deviceId,
     required this.createdAt,
+    this.changedFields,
   });
 
   factory DeltaRecord.fromChange(db.SyncChange change) => DeltaRecord(
@@ -44,7 +45,11 @@ class DeltaRecord {
     payload: jsonDecode(change.payloadJson) as Map<String, dynamic>,
     deviceId: change.deviceId,
     createdAt: change.createdAt,
+    changedFields: _parseChangedFields(change.changedFields),
   );
+
+  /// 本次写入实际变更的载荷键（null = 旧格式，整行 LWW）。
+  final Set<String>? changedFields;
 
   factory DeltaRecord.fromJson(Map<String, dynamic> json) => DeltaRecord(
     changeId: json['changeId'] as String,
@@ -54,7 +59,18 @@ class DeltaRecord {
     payload: (json['payload'] as Map).cast<String, dynamic>(),
     deviceId: json['deviceId'] as String,
     createdAt: json['createdAt'] as int,
+    changedFields: _parseChangedFields(json['changedFields'] as String?),
   );
+
+  static Set<String>? _parseChangedFields(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      return decoded.whereType<String>().toSet();
+    } catch (_) {
+      return null;
+    }
+  }
 
   final String changeId;
   final String entityType;
@@ -72,6 +88,8 @@ class DeltaRecord {
     'payload': payload,
     'deviceId': deviceId,
     'createdAt': createdAt,
+    if (changedFields != null)
+      'changedFields': jsonEncode(changedFields!.toList()),
   };
 }
 
@@ -155,6 +173,34 @@ class DeltaApplier {
   /// 上一次 [_applyRow] 判定为冲突时与本地行的差异字段名。apply 循环
   /// 串行执行、判定后立即读取，不跨事件使用。
   List<String> _lastConflictFields = const [];
+
+  /// SQL 列名（snake_case）→ 载荷 JSON 键（camelCase，drift 默认命名）。
+  static String _jsonKeyOf(String sqlName) {
+    final parts = sqlName.split('_');
+    return parts.first +
+        [
+          for (final part in parts.skip(1))
+            part.isEmpty ? '' : '${part[0].toUpperCase()}${part.substring(1)}',
+        ].join();
+  }
+
+  /// 补齐旧版本 feed 载荷缺失的新增列：以列默认值（或 null）回填，
+  /// 保证 typed fromJson 在跨版本同步下不因缺键崩溃。
+  static Map<String, dynamic> _normalizePayload(
+    TableInfo table,
+    Map<String, dynamic> payload,
+  ) {
+    final normalized = Map<String, dynamic>.of(payload);
+    for (final column in table.$columns) {
+      final key = _jsonKeyOf(column.name);
+      if (normalized.containsKey(key)) continue;
+      final constant = column.defaultValue is Constant
+          ? column.defaultValue! as Constant
+          : null;
+      normalized[key] = constant?.value;
+    }
+    return normalized;
+  }
 
   /// 比较快照与本地行的 JSON 值差异（updatedAt 除外；双向覆盖键缺失）。
   static List<String> _differingFieldsOf(
@@ -249,6 +295,7 @@ class DeltaApplier {
       case 'project':
         return _applyRow(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.projects,
           fromJson: db.Project.fromJson,
@@ -256,6 +303,7 @@ class DeltaApplier {
       case 'task':
         return _applyRow(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.tasks,
           fromJson: db.Task.fromJson,
@@ -264,6 +312,7 @@ class DeltaApplier {
         // 资产的敏感字段（账号/密码）不出同步通道：覆盖时保留本地列。
         return _applyRow<db.Asset>(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.assets,
           fromJson: db.Asset.fromJson,
@@ -273,6 +322,7 @@ class DeltaApplier {
       case 'asset_tag':
         return _applyRow(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.assetTags,
           fromJson: db.AssetTag.fromJson,
@@ -280,6 +330,7 @@ class DeltaApplier {
       case 'attachment':
         return _applyRow(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.attachments,
           fromJson: db.Attachment.fromJson,
@@ -287,6 +338,7 @@ class DeltaApplier {
       case 'attachment_category':
         return _applyRow(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.attachmentCategories,
           fromJson: db.AttachmentCategory.fromJson,
@@ -294,6 +346,7 @@ class DeltaApplier {
       case 'project_progress_entry':
         return _applyRow(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.projectProgressEntries,
           fromJson: db.ProjectProgressEntry.fromJson,
@@ -301,6 +354,7 @@ class DeltaApplier {
       case 'time_entry':
         return _applyRow(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.timeEntries,
           fromJson: db.TimeEntry.fromJson,
@@ -308,6 +362,7 @@ class DeltaApplier {
       case 'pomodoro_session':
         return _applyRow(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.pomodoroSessions,
           fromJson: db.PomodoroSession.fromJson,
@@ -315,6 +370,7 @@ class DeltaApplier {
       case 'task_dependency':
         return _applyRow(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.taskDependencies,
           fromJson: db.TaskDependency.fromJson,
@@ -322,6 +378,7 @@ class DeltaApplier {
       case 'milestone':
         return _applyRow(
           record,
+          entityType: record.entityType,
           incomingUpdatedAt: incomingUpdatedAt,
           table: _db.milestones,
           fromJson: db.Milestone.fromJson,
@@ -331,12 +388,21 @@ class DeltaApplier {
     }
   }
 
-  /// 通用行级 LWW：读当前行 → 比较 updatedAt → 写入或跳过。
+  /// 通用行级应用：
   ///
-  /// [preserve] 允许在覆盖前把本地独有列（如资产 sensitiveJson，不出同步
-  /// 通道）从当前行合并进远端行。
+  /// - 本地无行：整行插入（远端删除不存在的行幂等跳过）；
+  /// - 旧格式记录（changedFields == null）：整行 LWW（updatedAt 比较）；
+  /// - 新格式记录：按 changedFields 逐字段 LWW——只应用字段时间戳比本地
+  ///   sync_field_metas 更新的列，与本机对其他列的并发修改自动合并。
+  ///
+  /// 逐字段合并通过「以本地行为底、叠加应用字段」重建完整载荷后走 typed
+  /// fromJson 整行写实现；applied 后把应用字段的 meta 抬到记录时间戳，
+  /// 旧格式整行应用则把全部字段 meta 抬到 incomingUpdatedAt（后续字段级
+  /// 合并以它为基线）。[preserve] 允许在整行覆盖前把本地独有列（如资产
+  /// sensitiveJson，不出同步通道）合并进远端行。
   Future<_ApplyOutcome> _applyRow<T extends DataClass>(
     DeltaRecord record, {
+    required String entityType,
     required int incomingUpdatedAt,
     required TableInfo table,
     required T Function(Map<String, dynamic>) fromJson,
@@ -347,7 +413,7 @@ class DeltaApplier {
     if (idColumn == null || updatedAtColumn == null) {
       return _ApplyOutcome.skipped;
     }
-    final incoming = fromJson(record.payload);
+    final incoming = fromJson(_normalizePayload(table, record.payload));
     final existing =
         await (table.select()..where((_) => idColumn.equals(record.entityId)))
             .getSingleOrNull();
@@ -357,6 +423,12 @@ class DeltaApplier {
         return _ApplyOutcome.skipped;
       }
       await _db.into(table).insert(incoming as Insertable<dynamic>);
+      await _adoptFieldMeta(
+        entityType: entityType,
+        entityId: record.entityId,
+        row: incoming.toJson(),
+        timestamp: incomingUpdatedAt,
+      );
       return _ApplyOutcome.applied;
     }
     final currentUpdatedAt =
@@ -364,20 +436,143 @@ class DeltaApplier {
     if (incomingUpdatedAt < currentUpdatedAt) {
       return _ApplyOutcome.skipped;
     }
-    if (incomingUpdatedAt == currentUpdatedAt) {
-      if (jsonEncode(incoming.toJson()) == jsonEncode(existing.toJson())) {
-        return _ApplyOutcome.skipped;
+
+    final changed = record.changedFields;
+    if (changed == null || changed.isEmpty) {
+      if (incomingUpdatedAt == currentUpdatedAt) {
+        if (jsonEncode(incoming.toJson()) == jsonEncode(existing.toJson())) {
+          return _ApplyOutcome.skipped;
+        }
+        _lastConflictFields = _differingFieldsOf(
+          incoming.toJson(),
+          existing.toJson(),
+        );
+        return _ApplyOutcome.conflict;
       }
-      _lastConflictFields = _differingFieldsOf(
-        incoming.toJson(),
-        existing.toJson(),
+      final target = preserve?.call(existing, incoming) ?? incoming;
+      await (_db.update(table)..where((_) => idColumn.equals(record.entityId)))
+          .write(target as Insertable<dynamic>);
+      await _adoptFieldMeta(
+        entityType: entityType,
+        entityId: record.entityId,
+        row: target.toJson(),
+        timestamp: incomingUpdatedAt,
       );
-      return _ApplyOutcome.conflict;
+      return _ApplyOutcome.applied;
     }
-    final target = preserve?.call(existing, incoming) ?? incoming;
+
+    // 新格式：逐字段 LWW。meta 缺失视为 0（首次收到该字段的远端变更
+    // 总能应用，与整行 LWW 的首同步行为一致）。
+    final incomingJson = incoming.toJson();
+    final localRowDeleted = existing.toJson()['deletedAt'] != null;
+    final applied = <String, int>{};
+    final appliedColumns = <String, Expression>{};
+    for (final field in changed) {
+      if (field == 'id' || !incomingJson.containsKey(field)) continue;
+      final localTs = await _fieldMetaTs(
+        entityType: entityType,
+        entityId: record.entityId,
+        field: field,
+      );
+      if (incomingUpdatedAt < localTs) continue;
+      if (localRowDeleted && field != 'deletedAt') {
+        // 墓碑行只推进 meta，不改数据（保持已删除事实）。
+        applied[field] = incomingUpdatedAt;
+        continue;
+      }
+      final column = table.columnsByName[_sqlKeyOf(field)];
+      if (column == null) continue;
+      final value = incomingJson[field];
+      appliedColumns[column.name] = value == null
+          ? const Constant(null)
+          : Variable(value);
+      applied[field] = incomingUpdatedAt;
+    }
+    if (applied.isEmpty) return _ApplyOutcome.skipped;
+    // 行时间戳只前进（含删除/恢复的字段写入），保持审计与 LWW 语义。
+    // 用 RawValuesInsertable 只写应用列：DataClass 整行写会跳过 null 的
+    // 可空列（toColumns(nullToAbsent: true)），恢复（deletedAt=null）将
+    // 永远无法清除本地墓碑。
+    appliedColumns[updatedAtColumn.name] = Variable(
+      incomingUpdatedAt > currentUpdatedAt
+          ? incomingUpdatedAt
+          : currentUpdatedAt,
+    );
     await (_db.update(table)..where((_) => idColumn.equals(record.entityId)))
-        .write(target as Insertable<dynamic>);
+        .write(RawValuesInsertable<T>(appliedColumns));
+    await _saveFieldMeta(
+      entityType: entityType,
+      entityId: record.entityId,
+      fields: applied,
+    );
     return _ApplyOutcome.applied;
+  }
+
+  /// 载荷 JSON 键（camelCase）→ SQL 列名（snake_case，drift 默认命名）。
+  static String _sqlKeyOf(String jsonKey) {
+    final buffer = StringBuffer();
+    for (var i = 0; i < jsonKey.length; i++) {
+      final char = jsonKey[i];
+      if (_isUpper(char) && i > 0) buffer.write('_');
+      buffer.write(char.toLowerCase());
+    }
+    return buffer.toString();
+  }
+
+  static bool _isUpper(String char) =>
+      char.toUpperCase() == char && char.toLowerCase() != char;
+
+  /// 把 [row] 的全部字段 meta 抬到 [timestamp]（整行应用/插入后调用）。
+  Future<void> _adoptFieldMeta({
+    required String entityType,
+    required String entityId,
+    required Map<String, dynamic> row,
+    required int timestamp,
+  }) async {
+    final fields = <String, int>{
+      for (final key in row.keys)
+        if (key != 'id') key: timestamp,
+    };
+    await _saveFieldMeta(
+      entityType: entityType,
+      entityId: entityId,
+      fields: fields,
+    );
+  }
+
+  Future<int> _fieldMetaTs({
+    required String entityType,
+    required String entityId,
+    required String field,
+  }) async {
+    final row =
+        await (_db.select(_db.syncFieldMetas)..where(
+              (r) =>
+                  r.entityType.equals(entityType) &
+                  r.entityId.equals(entityId) &
+                  r.fieldName.equals(field),
+            ))
+            .getSingleOrNull();
+    return row?.updatedAt ?? 0;
+  }
+
+  Future<void> _saveFieldMeta({
+    required String entityType,
+    required String entityId,
+    required Map<String, int> fields,
+  }) async {
+    for (final entry in fields.entries) {
+      await _db
+          .into(_db.syncFieldMetas)
+          .insertOnConflictUpdate(
+            db.SyncFieldMetasCompanion.insert(
+              entityType: entityType,
+              entityId: entityId,
+              fieldName: entry.key,
+              updatedAt: entry.value,
+            ),
+          );
+    }
   }
 
   TableInfo? _tableOf(String entityType) => switch (entityType) {

@@ -66,6 +66,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   late bool _dueRemindersEnabled = widget.settings.dueRemindersEnabled;
   late bool _taskDueRemindersEnabled = widget.settings.taskDueRemindersEnabled;
   late bool _autoProgressFromTasks = widget.settings.autoProgressFromTasks;
+  late bool _kanbanHideEmptyColumns = widget.settings.kanbanHideEmptyColumns;
   late int _dueReminderLeadDays = widget.settings.dueReminderLeadDays;
   late final List<AssetTemplate> _assetTemplates = [
     ...widget.settings.assetTemplates,
@@ -74,17 +75,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
   // 数据安全分区状态。
   bool _exportingBackup = false;
 
-  /// 到期/截止系统通知的副标题（按平台区分通知能力）。
-  static String get _dueReminderSubtitle {
-    if (Platform.isAndroid || Platform.isIOS) {
-      return '到期日/截止日提醒进入系统通知（应用内日历与今日面板始终展示）';
-    }
-    if (Platform.isWindows) {
-      return '到期日/截止日提醒进入系统通知（应用内日历与今日面板始终展示）';
-    }
-    return '到期日/截止日提醒进入系统通知——仅移动端与 Windows 支持，'
-        '本平台保留应用内展示';
-  }
+  /// 到期/截止系统通知的副标题（全平台均已接入系统通知）。
+  static const String _dueReminderSubtitle = '到期日/截止日提醒进入系统通知（应用内日历与今日面板始终展示）';
 
   // 本地数据分区状态。
   late final TextEditingController _localDataPath = TextEditingController(
@@ -256,6 +248,14 @@ class _SettingsDialogState extends State<SettingsDialog> {
           subtitle: const Text('勾选任务后自动追加项目进度记录，与最近记录相同则跳过'),
           value: _autoProgressFromTasks,
           onChanged: (value) => setState(() => _autoProgressFromTasks = value),
+        ),
+        SwitchListTile.adaptive(
+          key: const Key('kanban-hide-empty-columns'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('看板隐藏空阶段列'),
+          subtitle: const Text('没有任何项目的阶段不再占位渲染'),
+          value: _kanbanHideEmptyColumns,
+          onChanged: (value) => setState(() => _kanbanHideEmptyColumns = value),
         ),
         if (_dueRemindersEnabled)
           DropdownButtonFormField<int>(
@@ -433,6 +433,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         dueRemindersEnabled: _dueRemindersEnabled,
         taskDueRemindersEnabled: _taskDueRemindersEnabled,
         autoProgressFromTasks: _autoProgressFromTasks,
+        kanbanHideEmptyColumns: _kanbanHideEmptyColumns,
         dueReminderLeadDays: _dueReminderLeadDays,
         assetTemplates: List.of(_assetTemplates),
         syncProvider: sync?.provider == SyncProviderType.selfHosted

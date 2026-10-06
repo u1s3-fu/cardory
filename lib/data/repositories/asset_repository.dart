@@ -105,7 +105,7 @@ class AssetRepository {
     )..where((row) => row.id.equals(assetId))).getSingle();
   }
 
-  Future<void> update(Asset asset) async {
+  Future<void> update(Asset asset, {Set<String>? changedFields}) async {
     final now = _clock();
     await _db.transaction(() async {
       await (_db.update(
@@ -137,6 +137,7 @@ class AssetRepository {
         ),
         deviceId: _deviceId,
         createdAt: now,
+        changedFields: changedFields,
       );
     });
   }

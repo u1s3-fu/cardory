@@ -1452,6 +1452,29 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _tagsJsonMeta = const VerificationMeta(
+    'tagsJson',
+  );
+  @override
+  late final GeneratedColumn<String> tagsJson = GeneratedColumn<String>(
+    'tags_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _repeatRuleMeta = const VerificationMeta(
+    'repeatRule',
+  );
+  @override
+  late final GeneratedColumn<String> repeatRule = GeneratedColumn<String>(
+    'repeat_rule',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1499,6 +1522,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     estimateMinutes,
     completedAt,
     sortOrder,
+    tagsJson,
+    repeatRule,
     createdAt,
     updatedAt,
     deletedAt,
@@ -1601,6 +1626,18 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
       );
     }
+    if (data.containsKey('tags_json')) {
+      context.handle(
+        _tagsJsonMeta,
+        tagsJson.isAcceptableOrUnknown(data['tags_json']!, _tagsJsonMeta),
+      );
+    }
+    if (data.containsKey('repeat_rule')) {
+      context.handle(
+        _repeatRuleMeta,
+        repeatRule.isAcceptableOrUnknown(data['repeat_rule']!, _repeatRuleMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1680,6 +1717,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       )!,
+      tagsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tags_json'],
+      )!,
+      repeatRule: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}repeat_rule'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}created_at'],
@@ -1714,6 +1759,12 @@ class Task extends DataClass implements Insertable<Task> {
   final int? estimateMinutes;
   final int? completedAt;
   final int sortOrder;
+
+  /// 自由标签（JSON 字符串数组；无中央标签登记表）。
+  final String tagsJson;
+
+  /// 重复规则（JSON：{"freq":"daily|weekly|monthly"}）；null 表示不重复。
+  final String? repeatRule;
   final int createdAt;
   final int updatedAt;
   final int? deletedAt;
@@ -1730,6 +1781,8 @@ class Task extends DataClass implements Insertable<Task> {
     this.estimateMinutes,
     this.completedAt,
     required this.sortOrder,
+    required this.tagsJson,
+    this.repeatRule,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -1761,6 +1814,10 @@ class Task extends DataClass implements Insertable<Task> {
       map['completed_at'] = Variable<int>(completedAt);
     }
     map['sort_order'] = Variable<int>(sortOrder);
+    map['tags_json'] = Variable<String>(tagsJson);
+    if (!nullToAbsent || repeatRule != null) {
+      map['repeat_rule'] = Variable<String>(repeatRule);
+    }
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
@@ -1795,6 +1852,10 @@ class Task extends DataClass implements Insertable<Task> {
           ? const Value.absent()
           : Value(completedAt),
       sortOrder: Value(sortOrder),
+      tagsJson: Value(tagsJson),
+      repeatRule: repeatRule == null && nullToAbsent
+          ? const Value.absent()
+          : Value(repeatRule),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent
@@ -1821,6 +1882,8 @@ class Task extends DataClass implements Insertable<Task> {
       estimateMinutes: serializer.fromJson<int?>(json['estimateMinutes']),
       completedAt: serializer.fromJson<int?>(json['completedAt']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      tagsJson: serializer.fromJson<String>(json['tagsJson']),
+      repeatRule: serializer.fromJson<String?>(json['repeatRule']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       deletedAt: serializer.fromJson<int?>(json['deletedAt']),
@@ -1842,6 +1905,8 @@ class Task extends DataClass implements Insertable<Task> {
       'estimateMinutes': serializer.toJson<int?>(estimateMinutes),
       'completedAt': serializer.toJson<int?>(completedAt),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'tagsJson': serializer.toJson<String>(tagsJson),
+      'repeatRule': serializer.toJson<String?>(repeatRule),
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'deletedAt': serializer.toJson<int?>(deletedAt),
@@ -1861,6 +1926,8 @@ class Task extends DataClass implements Insertable<Task> {
     Value<int?> estimateMinutes = const Value.absent(),
     Value<int?> completedAt = const Value.absent(),
     int? sortOrder,
+    String? tagsJson,
+    Value<String?> repeatRule = const Value.absent(),
     int? createdAt,
     int? updatedAt,
     Value<int?> deletedAt = const Value.absent(),
@@ -1879,6 +1946,8 @@ class Task extends DataClass implements Insertable<Task> {
         : this.estimateMinutes,
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
     sortOrder: sortOrder ?? this.sortOrder,
+    tagsJson: tagsJson ?? this.tagsJson,
+    repeatRule: repeatRule.present ? repeatRule.value : this.repeatRule,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -1903,6 +1972,10 @@ class Task extends DataClass implements Insertable<Task> {
           ? data.completedAt.value
           : this.completedAt,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      tagsJson: data.tagsJson.present ? data.tagsJson.value : this.tagsJson,
+      repeatRule: data.repeatRule.present
+          ? data.repeatRule.value
+          : this.repeatRule,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -1924,6 +1997,8 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('estimateMinutes: $estimateMinutes, ')
           ..write('completedAt: $completedAt, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('tagsJson: $tagsJson, ')
+          ..write('repeatRule: $repeatRule, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -1945,6 +2020,8 @@ class Task extends DataClass implements Insertable<Task> {
     estimateMinutes,
     completedAt,
     sortOrder,
+    tagsJson,
+    repeatRule,
     createdAt,
     updatedAt,
     deletedAt,
@@ -1965,6 +2042,8 @@ class Task extends DataClass implements Insertable<Task> {
           other.estimateMinutes == this.estimateMinutes &&
           other.completedAt == this.completedAt &&
           other.sortOrder == this.sortOrder &&
+          other.tagsJson == this.tagsJson &&
+          other.repeatRule == this.repeatRule &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -1983,6 +2062,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<int?> estimateMinutes;
   final Value<int?> completedAt;
   final Value<int> sortOrder;
+  final Value<String> tagsJson;
+  final Value<String?> repeatRule;
   final Value<int> createdAt;
   final Value<int> updatedAt;
   final Value<int?> deletedAt;
@@ -2000,6 +2081,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.estimateMinutes = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.tagsJson = const Value.absent(),
+    this.repeatRule = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -2018,6 +2101,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.estimateMinutes = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.tagsJson = const Value.absent(),
+    this.repeatRule = const Value.absent(),
     required int createdAt,
     required int updatedAt,
     this.deletedAt = const Value.absent(),
@@ -2041,6 +2126,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<int>? estimateMinutes,
     Expression<int>? completedAt,
     Expression<int>? sortOrder,
+    Expression<String>? tagsJson,
+    Expression<String>? repeatRule,
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
     Expression<int>? deletedAt,
@@ -2059,6 +2146,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (estimateMinutes != null) 'estimate_minutes': estimateMinutes,
       if (completedAt != null) 'completed_at': completedAt,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (tagsJson != null) 'tags_json': tagsJson,
+      if (repeatRule != null) 'repeat_rule': repeatRule,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -2079,6 +2168,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Value<int?>? estimateMinutes,
     Value<int?>? completedAt,
     Value<int>? sortOrder,
+    Value<String>? tagsJson,
+    Value<String?>? repeatRule,
     Value<int>? createdAt,
     Value<int>? updatedAt,
     Value<int?>? deletedAt,
@@ -2097,6 +2188,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
       estimateMinutes: estimateMinutes ?? this.estimateMinutes,
       completedAt: completedAt ?? this.completedAt,
       sortOrder: sortOrder ?? this.sortOrder,
+      tagsJson: tagsJson ?? this.tagsJson,
+      repeatRule: repeatRule ?? this.repeatRule,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -2143,6 +2236,12 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (tagsJson.present) {
+      map['tags_json'] = Variable<String>(tagsJson.value);
+    }
+    if (repeatRule.present) {
+      map['repeat_rule'] = Variable<String>(repeatRule.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
     }
@@ -2173,6 +2272,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('estimateMinutes: $estimateMinutes, ')
           ..write('completedAt: $completedAt, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('tagsJson: $tagsJson, ')
+          ..write('repeatRule: $repeatRule, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -7533,6 +7634,17 @@ class $SyncChangesTable extends SyncChanges
     requiredDuringInsert: false,
     defaultValue: const Constant('{}'),
   );
+  static const VerificationMeta _changedFieldsMeta = const VerificationMeta(
+    'changedFields',
+  );
+  @override
+  late final GeneratedColumn<String> changedFields = GeneratedColumn<String>(
+    'changed_fields',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _baseRevisionMeta = const VerificationMeta(
     'baseRevision',
   );
@@ -7584,6 +7696,7 @@ class $SyncChangesTable extends SyncChanges
     entityId,
     operation,
     payloadJson,
+    changedFields,
     baseRevision,
     createdAt,
     deviceId,
@@ -7636,6 +7749,15 @@ class $SyncChangesTable extends SyncChanges
         payloadJson.isAcceptableOrUnknown(
           data['payload_json']!,
           _payloadJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('changed_fields')) {
+      context.handle(
+        _changedFieldsMeta,
+        changedFields.isAcceptableOrUnknown(
+          data['changed_fields']!,
+          _changedFieldsMeta,
         ),
       );
     }
@@ -7702,6 +7824,10 @@ class $SyncChangesTable extends SyncChanges
         DriftSqlType.string,
         data['${effectivePrefix}payload_json'],
       )!,
+      changedFields: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}changed_fields'],
+      ),
       baseRevision: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}base_revision'],
@@ -7733,6 +7859,9 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
   final String entityId;
   final String operation;
   final String payloadJson;
+
+  /// 本次写入实际变更的列名（JSON 数组）；null 表示旧格式（整行 LWW）。
+  final String? changedFields;
   final String? baseRevision;
   final int createdAt;
   final String deviceId;
@@ -7743,6 +7872,7 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
     required this.entityId,
     required this.operation,
     required this.payloadJson,
+    this.changedFields,
     this.baseRevision,
     required this.createdAt,
     required this.deviceId,
@@ -7756,6 +7886,9 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
     map['entity_id'] = Variable<String>(entityId);
     map['operation'] = Variable<String>(operation);
     map['payload_json'] = Variable<String>(payloadJson);
+    if (!nullToAbsent || changedFields != null) {
+      map['changed_fields'] = Variable<String>(changedFields);
+    }
     if (!nullToAbsent || baseRevision != null) {
       map['base_revision'] = Variable<String>(baseRevision);
     }
@@ -7774,6 +7907,9 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
       entityId: Value(entityId),
       operation: Value(operation),
       payloadJson: Value(payloadJson),
+      changedFields: changedFields == null && nullToAbsent
+          ? const Value.absent()
+          : Value(changedFields),
       baseRevision: baseRevision == null && nullToAbsent
           ? const Value.absent()
           : Value(baseRevision),
@@ -7796,6 +7932,7 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
       entityId: serializer.fromJson<String>(json['entityId']),
       operation: serializer.fromJson<String>(json['operation']),
       payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      changedFields: serializer.fromJson<String?>(json['changedFields']),
       baseRevision: serializer.fromJson<String?>(json['baseRevision']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
       deviceId: serializer.fromJson<String>(json['deviceId']),
@@ -7811,6 +7948,7 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
       'entityId': serializer.toJson<String>(entityId),
       'operation': serializer.toJson<String>(operation),
       'payloadJson': serializer.toJson<String>(payloadJson),
+      'changedFields': serializer.toJson<String?>(changedFields),
       'baseRevision': serializer.toJson<String?>(baseRevision),
       'createdAt': serializer.toJson<int>(createdAt),
       'deviceId': serializer.toJson<String>(deviceId),
@@ -7824,6 +7962,7 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
     String? entityId,
     String? operation,
     String? payloadJson,
+    Value<String?> changedFields = const Value.absent(),
     Value<String?> baseRevision = const Value.absent(),
     int? createdAt,
     String? deviceId,
@@ -7834,6 +7973,9 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
     entityId: entityId ?? this.entityId,
     operation: operation ?? this.operation,
     payloadJson: payloadJson ?? this.payloadJson,
+    changedFields: changedFields.present
+        ? changedFields.value
+        : this.changedFields,
     baseRevision: baseRevision.present ? baseRevision.value : this.baseRevision,
     createdAt: createdAt ?? this.createdAt,
     deviceId: deviceId ?? this.deviceId,
@@ -7852,6 +7994,9 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
       payloadJson: data.payloadJson.present
           ? data.payloadJson.value
           : this.payloadJson,
+      changedFields: data.changedFields.present
+          ? data.changedFields.value
+          : this.changedFields,
       baseRevision: data.baseRevision.present
           ? data.baseRevision.value
           : this.baseRevision,
@@ -7871,6 +8016,7 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
           ..write('entityId: $entityId, ')
           ..write('operation: $operation, ')
           ..write('payloadJson: $payloadJson, ')
+          ..write('changedFields: $changedFields, ')
           ..write('baseRevision: $baseRevision, ')
           ..write('createdAt: $createdAt, ')
           ..write('deviceId: $deviceId, ')
@@ -7886,6 +8032,7 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
     entityId,
     operation,
     payloadJson,
+    changedFields,
     baseRevision,
     createdAt,
     deviceId,
@@ -7900,6 +8047,7 @@ class SyncChange extends DataClass implements Insertable<SyncChange> {
           other.entityId == this.entityId &&
           other.operation == this.operation &&
           other.payloadJson == this.payloadJson &&
+          other.changedFields == this.changedFields &&
           other.baseRevision == this.baseRevision &&
           other.createdAt == this.createdAt &&
           other.deviceId == this.deviceId &&
@@ -7912,6 +8060,7 @@ class SyncChangesCompanion extends UpdateCompanion<SyncChange> {
   final Value<String> entityId;
   final Value<String> operation;
   final Value<String> payloadJson;
+  final Value<String?> changedFields;
   final Value<String?> baseRevision;
   final Value<int> createdAt;
   final Value<String> deviceId;
@@ -7923,6 +8072,7 @@ class SyncChangesCompanion extends UpdateCompanion<SyncChange> {
     this.entityId = const Value.absent(),
     this.operation = const Value.absent(),
     this.payloadJson = const Value.absent(),
+    this.changedFields = const Value.absent(),
     this.baseRevision = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.deviceId = const Value.absent(),
@@ -7935,6 +8085,7 @@ class SyncChangesCompanion extends UpdateCompanion<SyncChange> {
     required String entityId,
     required String operation,
     this.payloadJson = const Value.absent(),
+    this.changedFields = const Value.absent(),
     this.baseRevision = const Value.absent(),
     required int createdAt,
     required String deviceId,
@@ -7952,6 +8103,7 @@ class SyncChangesCompanion extends UpdateCompanion<SyncChange> {
     Expression<String>? entityId,
     Expression<String>? operation,
     Expression<String>? payloadJson,
+    Expression<String>? changedFields,
     Expression<String>? baseRevision,
     Expression<int>? createdAt,
     Expression<String>? deviceId,
@@ -7964,6 +8116,7 @@ class SyncChangesCompanion extends UpdateCompanion<SyncChange> {
       if (entityId != null) 'entity_id': entityId,
       if (operation != null) 'operation': operation,
       if (payloadJson != null) 'payload_json': payloadJson,
+      if (changedFields != null) 'changed_fields': changedFields,
       if (baseRevision != null) 'base_revision': baseRevision,
       if (createdAt != null) 'created_at': createdAt,
       if (deviceId != null) 'device_id': deviceId,
@@ -7978,6 +8131,7 @@ class SyncChangesCompanion extends UpdateCompanion<SyncChange> {
     Value<String>? entityId,
     Value<String>? operation,
     Value<String>? payloadJson,
+    Value<String?>? changedFields,
     Value<String?>? baseRevision,
     Value<int>? createdAt,
     Value<String>? deviceId,
@@ -7990,6 +8144,7 @@ class SyncChangesCompanion extends UpdateCompanion<SyncChange> {
       entityId: entityId ?? this.entityId,
       operation: operation ?? this.operation,
       payloadJson: payloadJson ?? this.payloadJson,
+      changedFields: changedFields ?? this.changedFields,
       baseRevision: baseRevision ?? this.baseRevision,
       createdAt: createdAt ?? this.createdAt,
       deviceId: deviceId ?? this.deviceId,
@@ -8015,6 +8170,9 @@ class SyncChangesCompanion extends UpdateCompanion<SyncChange> {
     }
     if (payloadJson.present) {
       map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (changedFields.present) {
+      map['changed_fields'] = Variable<String>(changedFields.value);
     }
     if (baseRevision.present) {
       map['base_revision'] = Variable<String>(baseRevision.value);
@@ -8042,10 +8200,333 @@ class SyncChangesCompanion extends UpdateCompanion<SyncChange> {
           ..write('entityId: $entityId, ')
           ..write('operation: $operation, ')
           ..write('payloadJson: $payloadJson, ')
+          ..write('changedFields: $changedFields, ')
           ..write('baseRevision: $baseRevision, ')
           ..write('createdAt: $createdAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('acknowledgedAt: $acknowledgedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncFieldMetasTable extends SyncFieldMetas
+    with TableInfo<$SyncFieldMetasTable, SyncFieldMeta> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncFieldMetasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _entityTypeMeta = const VerificationMeta(
+    'entityType',
+  );
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fieldNameMeta = const VerificationMeta(
+    'fieldName',
+  );
+  @override
+  late final GeneratedColumn<String> fieldName = GeneratedColumn<String>(
+    'field_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    entityType,
+    entityId,
+    fieldName,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_field_metas';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncFieldMeta> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('entity_type')) {
+      context.handle(
+        _entityTypeMeta,
+        entityType.isAcceptableOrUnknown(data['entity_type']!, _entityTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('field_name')) {
+      context.handle(
+        _fieldNameMeta,
+        fieldName.isAcceptableOrUnknown(data['field_name']!, _fieldNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldNameMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {entityType, entityId, fieldName};
+  @override
+  SyncFieldMeta map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncFieldMeta(
+      entityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_type'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      fieldName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_name'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncFieldMetasTable createAlias(String alias) {
+    return $SyncFieldMetasTable(attachedDatabase, alias);
+  }
+}
+
+class SyncFieldMeta extends DataClass implements Insertable<SyncFieldMeta> {
+  final String entityType;
+  final String entityId;
+  final String fieldName;
+  final int updatedAt;
+  const SyncFieldMeta({
+    required this.entityType,
+    required this.entityId,
+    required this.fieldName,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    map['field_name'] = Variable<String>(fieldName);
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  SyncFieldMetasCompanion toCompanion(bool nullToAbsent) {
+    return SyncFieldMetasCompanion(
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      fieldName: Value(fieldName),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory SyncFieldMeta.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncFieldMeta(
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      fieldName: serializer.fromJson<String>(json['fieldName']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String>(entityId),
+      'fieldName': serializer.toJson<String>(fieldName),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  SyncFieldMeta copyWith({
+    String? entityType,
+    String? entityId,
+    String? fieldName,
+    int? updatedAt,
+  }) => SyncFieldMeta(
+    entityType: entityType ?? this.entityType,
+    entityId: entityId ?? this.entityId,
+    fieldName: fieldName ?? this.fieldName,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  SyncFieldMeta copyWithCompanion(SyncFieldMetasCompanion data) {
+    return SyncFieldMeta(
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      fieldName: data.fieldName.present ? data.fieldName.value : this.fieldName,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncFieldMeta(')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('fieldName: $fieldName, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(entityType, entityId, fieldName, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncFieldMeta &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.fieldName == this.fieldName &&
+          other.updatedAt == this.updatedAt);
+}
+
+class SyncFieldMetasCompanion extends UpdateCompanion<SyncFieldMeta> {
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String> fieldName;
+  final Value<int> updatedAt;
+  final Value<int> rowid;
+  const SyncFieldMetasCompanion({
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.fieldName = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncFieldMetasCompanion.insert({
+    required String entityType,
+    required String entityId,
+    required String fieldName,
+    required int updatedAt,
+    this.rowid = const Value.absent(),
+  }) : entityType = Value(entityType),
+       entityId = Value(entityId),
+       fieldName = Value(fieldName),
+       updatedAt = Value(updatedAt);
+  static Insertable<SyncFieldMeta> custom({
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? fieldName,
+    Expression<int>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (fieldName != null) 'field_name': fieldName,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncFieldMetasCompanion copyWith({
+    Value<String>? entityType,
+    Value<String>? entityId,
+    Value<String>? fieldName,
+    Value<int>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return SyncFieldMetasCompanion(
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      fieldName: fieldName ?? this.fieldName,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (fieldName.present) {
+      map['field_name'] = Variable<String>(fieldName.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncFieldMetasCompanion(')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('fieldName: $fieldName, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8074,6 +8555,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $MilestonesTable milestones = $MilestonesTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
   late final $SyncChangesTable syncChanges = $SyncChangesTable(this);
+  late final $SyncFieldMetasTable syncFieldMetas = $SyncFieldMetasTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8092,6 +8574,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     milestones,
     settings,
     syncChanges,
+    syncFieldMetas,
   ];
 }
 
@@ -9669,6 +10152,8 @@ typedef $$TasksTableCreateCompanionBuilder =
       Value<int?> estimateMinutes,
       Value<int?> completedAt,
       Value<int> sortOrder,
+      Value<String> tagsJson,
+      Value<String?> repeatRule,
       required int createdAt,
       required int updatedAt,
       Value<int?> deletedAt,
@@ -9688,6 +10173,8 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<int?> estimateMinutes,
       Value<int?> completedAt,
       Value<int> sortOrder,
+      Value<String> tagsJson,
+      Value<String?> repeatRule,
       Value<int> createdAt,
       Value<int> updatedAt,
       Value<int?> deletedAt,
@@ -9905,6 +10392,16 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tagsJson => $composableBuilder(
+    column: $table.tagsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get repeatRule => $composableBuilder(
+    column: $table.repeatRule,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10179,6 +10676,16 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get tagsJson => $composableBuilder(
+    column: $table.tagsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get repeatRule => $composableBuilder(
+    column: $table.repeatRule,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -10283,6 +10790,14 @@ class $$TasksTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<String> get tagsJson =>
+      $composableBuilder(column: $table.tagsJson, builder: (column) => column);
+
+  GeneratedColumn<String> get repeatRule => $composableBuilder(
+    column: $table.repeatRule,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -10539,6 +11054,8 @@ class $$TasksTableTableManager
                 Value<int?> estimateMinutes = const Value.absent(),
                 Value<int?> completedAt = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<String> tagsJson = const Value.absent(),
+                Value<String?> repeatRule = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<int?> deletedAt = const Value.absent(),
@@ -10556,6 +11073,8 @@ class $$TasksTableTableManager
                 estimateMinutes: estimateMinutes,
                 completedAt: completedAt,
                 sortOrder: sortOrder,
+                tagsJson: tagsJson,
+                repeatRule: repeatRule,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -10575,6 +11094,8 @@ class $$TasksTableTableManager
                 Value<int?> estimateMinutes = const Value.absent(),
                 Value<int?> completedAt = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<String> tagsJson = const Value.absent(),
+                Value<String?> repeatRule = const Value.absent(),
                 required int createdAt,
                 required int updatedAt,
                 Value<int?> deletedAt = const Value.absent(),
@@ -10592,6 +11113,8 @@ class $$TasksTableTableManager
                 estimateMinutes: estimateMinutes,
                 completedAt: completedAt,
                 sortOrder: sortOrder,
+                tagsJson: tagsJson,
+                repeatRule: repeatRule,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -14900,6 +15423,7 @@ typedef $$SyncChangesTableCreateCompanionBuilder =
       required String entityId,
       required String operation,
       Value<String> payloadJson,
+      Value<String?> changedFields,
       Value<String?> baseRevision,
       required int createdAt,
       required String deviceId,
@@ -14913,6 +15437,7 @@ typedef $$SyncChangesTableUpdateCompanionBuilder =
       Value<String> entityId,
       Value<String> operation,
       Value<String> payloadJson,
+      Value<String?> changedFields,
       Value<String?> baseRevision,
       Value<int> createdAt,
       Value<String> deviceId,
@@ -14951,6 +15476,11 @@ class $$SyncChangesTableFilterComposer
 
   ColumnFilters<String> get payloadJson => $composableBuilder(
     column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get changedFields => $composableBuilder(
+    column: $table.changedFields,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15009,6 +15539,11 @@ class $$SyncChangesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get changedFields => $composableBuilder(
+    column: $table.changedFields,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get baseRevision => $composableBuilder(
     column: $table.baseRevision,
     builder: (column) => ColumnOrderings(column),
@@ -15055,6 +15590,11 @@ class $$SyncChangesTableAnnotationComposer
 
   GeneratedColumn<String> get payloadJson => $composableBuilder(
     column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get changedFields => $composableBuilder(
+    column: $table.changedFields,
     builder: (column) => column,
   );
 
@@ -15111,6 +15651,7 @@ class $$SyncChangesTableTableManager
                 Value<String> entityId = const Value.absent(),
                 Value<String> operation = const Value.absent(),
                 Value<String> payloadJson = const Value.absent(),
+                Value<String?> changedFields = const Value.absent(),
                 Value<String?> baseRevision = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
                 Value<String> deviceId = const Value.absent(),
@@ -15122,6 +15663,7 @@ class $$SyncChangesTableTableManager
                 entityId: entityId,
                 operation: operation,
                 payloadJson: payloadJson,
+                changedFields: changedFields,
                 baseRevision: baseRevision,
                 createdAt: createdAt,
                 deviceId: deviceId,
@@ -15135,6 +15677,7 @@ class $$SyncChangesTableTableManager
                 required String entityId,
                 required String operation,
                 Value<String> payloadJson = const Value.absent(),
+                Value<String?> changedFields = const Value.absent(),
                 Value<String?> baseRevision = const Value.absent(),
                 required int createdAt,
                 required String deviceId,
@@ -15146,6 +15689,7 @@ class $$SyncChangesTableTableManager
                 entityId: entityId,
                 operation: operation,
                 payloadJson: payloadJson,
+                changedFields: changedFields,
                 baseRevision: baseRevision,
                 createdAt: createdAt,
                 deviceId: deviceId,
@@ -15186,6 +15730,200 @@ typedef $$SyncChangesTableProcessedTableManager =
       SyncChange,
       PrefetchHooks Function()
     >;
+typedef $$SyncFieldMetasTableCreateCompanionBuilder =
+    SyncFieldMetasCompanion Function({
+      required String entityType,
+      required String entityId,
+      required String fieldName,
+      required int updatedAt,
+      Value<int> rowid,
+    });
+typedef $$SyncFieldMetasTableUpdateCompanionBuilder =
+    SyncFieldMetasCompanion Function({
+      Value<String> entityType,
+      Value<String> entityId,
+      Value<String> fieldName,
+      Value<int> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$SyncFieldMetasTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncFieldMetasTable> {
+  $$SyncFieldMetasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldName => $composableBuilder(
+    column: $table.fieldName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncFieldMetasTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncFieldMetasTable> {
+  $$SyncFieldMetasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldName => $composableBuilder(
+    column: $table.fieldName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncFieldMetasTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncFieldMetasTable> {
+  $$SyncFieldMetasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldName =>
+      $composableBuilder(column: $table.fieldName, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$SyncFieldMetasTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncFieldMetasTable,
+          SyncFieldMeta,
+          $$SyncFieldMetasTableFilterComposer,
+          $$SyncFieldMetasTableOrderingComposer,
+          $$SyncFieldMetasTableAnnotationComposer,
+          $$SyncFieldMetasTableCreateCompanionBuilder,
+          $$SyncFieldMetasTableUpdateCompanionBuilder,
+          (
+            SyncFieldMeta,
+            BaseReferences<_$AppDatabase, $SyncFieldMetasTable, SyncFieldMeta>,
+          ),
+          SyncFieldMeta,
+          PrefetchHooks Function()
+        > {
+  $$SyncFieldMetasTableTableManager(
+    _$AppDatabase db,
+    $SyncFieldMetasTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncFieldMetasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncFieldMetasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncFieldMetasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> entityType = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String> fieldName = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncFieldMetasCompanion(
+                entityType: entityType,
+                entityId: entityId,
+                fieldName: fieldName,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String entityType,
+                required String entityId,
+                required String fieldName,
+                required int updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SyncFieldMetasCompanion.insert(
+                entityType: entityType,
+                entityId: entityId,
+                fieldName: fieldName,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SyncFieldMetasTable, SyncFieldMeta>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SyncFieldMetasTable,
+                    SyncFieldMeta
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncFieldMetasTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncFieldMetasTable,
+      SyncFieldMeta,
+      $$SyncFieldMetasTableFilterComposer,
+      $$SyncFieldMetasTableOrderingComposer,
+      $$SyncFieldMetasTableAnnotationComposer,
+      $$SyncFieldMetasTableCreateCompanionBuilder,
+      $$SyncFieldMetasTableUpdateCompanionBuilder,
+      (
+        SyncFieldMeta,
+        BaseReferences<_$AppDatabase, $SyncFieldMetasTable, SyncFieldMeta>,
+      ),
+      SyncFieldMeta,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -15219,4 +15957,6 @@ class $AppDatabaseManager {
       $$SettingsTableTableManager(_db, _db.settings);
   $$SyncChangesTableTableManager get syncChanges =>
       $$SyncChangesTableTableManager(_db, _db.syncChanges);
+  $$SyncFieldMetasTableTableManager get syncFieldMetas =>
+      $$SyncFieldMetasTableTableManager(_db, _db.syncFieldMetas);
 }

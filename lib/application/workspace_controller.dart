@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
 import '../domain/calendar_push_registry.dart';
 import '../domain/calendar_sync.dart';
@@ -375,10 +376,53 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     // 前置任务完成：后继任务自动排期（撤销完成不重排）。
     if (updated.done && !todo.done) {
       await _applyDependencySchedule({todo.id});
+      await _spawnNextRepeat(todo);
     }
     await _afterWrite();
     await _recordAutoProjectProgress({todo.projectId});
     return updated;
+  }
+
+  /// 重复任务完成后生成下一次：整体平移一个周期（日期缺失或撤销完成
+  /// 不生成）；新任务继承标题/说明/优先级/标签/重复规则与子待办。
+  Future<void> _spawnNextRepeat(TodoData todo) async {
+    final frequency = todo.repeatFrequency;
+    if (frequency == null) return;
+    if (todo.startDate == null && todo.endDate == null) return;
+    final next = TodoData(
+      id: const Uuid().v4(),
+      title: todo.title,
+      description: todo.description,
+      startDate: todo.startDate == null
+          ? null
+          : shiftByRepeat(frequency, todo.startDate!),
+      endDate: todo.endDate == null
+          ? null
+          : shiftByRepeat(frequency, todo.endDate!),
+      projectId: todo.projectId,
+      projectTitle: todo.projectTitle,
+      priority: todo.priority,
+      done: false,
+      tags: todo.tags,
+      repeatFrequency: frequency,
+      subTodos: [
+        for (final subTodo in todo.subTodos)
+          SubTodoData(
+            id: const Uuid().v4(),
+            content: subTodo.content,
+            done: false,
+            createdAt: DateTime.now(),
+            dueAt: subTodo.dueAt == null
+                ? null
+                : shiftByRepeat(frequency, subTodo.dueAt!),
+          ),
+      ],
+    );
+    try {
+      await _rowLevel.addTodo(next);
+    } catch (error) {
+      debugPrint('WorkspaceController.spawnNextRepeat failed: $error');
+    }
   }
 
   /// 切换待办「进行中」状态（已完成任务忽略）。

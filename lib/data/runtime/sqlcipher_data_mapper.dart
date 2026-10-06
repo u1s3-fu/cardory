@@ -119,6 +119,13 @@ class SqlCipherDataMapper {
             priority: ProjectPriority.fromName(row.priority),
             done: row.status == 'done',
             inProgress: row.status == 'doing',
+            tags: [
+              for (final tag in (jsonDecode(row.tagsJson) as List? ?? const []))
+                if (tag is String) tag,
+            ],
+            repeatFrequency: RepeatFrequency.values
+                .where((value) => value.name == row.repeatRule)
+                .firstOrNull,
             subTodos: (childByParent[row.id] ?? const <Task>[])
                 .map(
                   (child) => SubTodoData(

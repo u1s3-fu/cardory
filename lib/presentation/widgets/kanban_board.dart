@@ -16,6 +16,7 @@ class KanbanBoard extends StatelessWidget {
     required this.onEditProject,
     required this.onDeleteProject,
     required this.onReorderProject,
+    this.hideEmptyColumns = false,
   });
 
   final CardoryData data;
@@ -23,6 +24,9 @@ class KanbanBoard extends StatelessWidget {
   final Future<void> Function(ProjectData project) onOpenProject;
   final Future<void> Function(ProjectData project) onEditProject;
   final Future<void> Function(ProjectData project) onDeleteProject;
+
+  /// 为 true 时不渲染没有任何项目的阶段列（本机偏好）。
+  final bool hideEmptyColumns;
 
   /// 拖拽落点回调：把 [project] 移动到 [stage] 列的 [insertIndex] 位置
   /// （插入到该列当前第 insertIndex 张卡之前，超过列尾则追加）。
@@ -42,26 +46,35 @@ class KanbanBoard extends StatelessWidget {
       LayoutBuilder(
         builder: (context, constraints) {
           const spacing = 12.0;
-          final columnCount = constraints.maxWidth >= 960
-              ? 4
-              : constraints.maxWidth >= 560
-              ? 2
-              : 1;
-          final columnWidth =
-              (constraints.maxWidth - spacing * (columnCount - 1)) /
-              columnCount;
           final projectsByStage = {
             for (final stage in ProjectStage.values) stage: <ProjectData>[],
           };
           for (final project in data.projects) {
             projectsByStage[project.stage]!.add(project);
           }
+          final visibleStages = [
+            for (final stage in ProjectStage.values)
+              if (!hideEmptyColumns || projectsByStage[stage]!.isNotEmpty)
+                stage,
+          ];
+          var columnCount = constraints.maxWidth >= 960
+              ? 4
+              : constraints.maxWidth >= 560
+              ? 2
+              : 1;
+          // 隐藏空列后可见列数可能少于宽度档位，避免列被压得过窄。
+          if (visibleStages.length < columnCount) {
+            columnCount = visibleStages.length;
+          }
+          final columnWidth =
+              (constraints.maxWidth - spacing * (columnCount - 1)) /
+              columnCount;
           return Wrap(
             key: const Key('kanban-responsive-board'),
             spacing: spacing,
             runSpacing: spacing,
             children: [
-              for (final stage in ProjectStage.values)
+              for (final stage in visibleStages)
                 KanbanColumn(
                   width: columnWidth,
                   stage: stage,

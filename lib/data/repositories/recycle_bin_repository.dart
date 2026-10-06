@@ -141,6 +141,7 @@ class RecycleBinRepository implements RecycleBinStore {
       payload: _restorePayload(row.toJson(), now),
       deviceId: _deviceId,
       createdAt: now,
+      changedFields: const {'deletedAt'},
     );
   }
 
@@ -163,6 +164,7 @@ class RecycleBinRepository implements RecycleBinStore {
       payload: _restorePayload(row.toJson(), now),
       deviceId: _deviceId,
       createdAt: now,
+      changedFields: const {'deletedAt'},
     );
   }
 
@@ -189,6 +191,7 @@ class RecycleBinRepository implements RecycleBinStore {
       ),
       deviceId: _deviceId,
       createdAt: now,
+      changedFields: const {'deletedAt'},
     );
   }
 
@@ -217,6 +220,7 @@ class RecycleBinRepository implements RecycleBinStore {
       payload: _restorePayload(row.toJson(), now),
       deviceId: _deviceId,
       createdAt: now,
+      changedFields: const {'deletedAt'},
     );
   }
 

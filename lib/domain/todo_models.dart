@@ -4,6 +4,17 @@ import 'cardory_enums.dart';
 import 'cardory_utils.dart';
 
 /// 待办实体。
+/// 任务重复频率：完成一次后自动生成下一次（间隔固定的简单周期）。
+enum RepeatFrequency { daily, weekly, monthly }
+
+/// 把 [date] 按重复频率推移一个周期（monthly 溢出日期由 DateTime 归一化）。
+DateTime shiftByRepeat(RepeatFrequency frequency, DateTime date) =>
+    switch (frequency) {
+      RepeatFrequency.daily => date.add(const Duration(days: 1)),
+      RepeatFrequency.weekly => date.add(const Duration(days: 7)),
+      RepeatFrequency.monthly => DateTime(date.year, date.month + 1, date.day),
+    };
+
 class TodoData {
   const TodoData({
     required this.id,
@@ -16,6 +27,8 @@ class TodoData {
     required this.priority,
     required this.done,
     this.inProgress = false,
+    this.tags = const [],
+    this.repeatFrequency,
     this.subTodos = const [],
   });
 
@@ -31,6 +44,12 @@ class TodoData {
 
   /// 任务进行中（未完成但已开始）；完成态忽略此标记。
   final bool inProgress;
+
+  /// 自由标签（无中央登记表，直接存于任务行）。
+  final List<String> tags;
+
+  /// 重复频率；null 表示不重复。完成任务后由应用层生成下一次。
+  final RepeatFrequency? repeatFrequency;
   final List<SubTodoData> subTodos;
 
   String get dateRangeText {
@@ -67,6 +86,8 @@ class TodoData {
     ProjectPriority? priority,
     bool? done,
     bool? inProgress,
+    List<String>? tags,
+    RepeatFrequency? repeatFrequency,
     List<SubTodoData>? subTodos,
   }) => TodoData(
     id: id,
@@ -79,6 +100,8 @@ class TodoData {
     priority: priority ?? this.priority,
     done: done ?? this.done,
     inProgress: inProgress ?? this.inProgress,
+    tags: tags ?? this.tags,
+    repeatFrequency: repeatFrequency ?? this.repeatFrequency,
     subTodos: subTodos ?? this.subTodos,
   );
 
@@ -93,6 +116,8 @@ class TodoData {
     'priority': priority.name,
     'done': done,
     'inProgress': inProgress,
+    'tags': tags,
+    'repeatFrequency': repeatFrequency?.name,
     'subTodos': subTodos.map((item) => item.toJson()).toList(),
   };
 }
@@ -156,3 +181,10 @@ DateTime? _readSubTodoCreatedAt(Map<String, dynamic> json) {
     return null;
   }
 }
+
+/// 重复频率的中文标签。
+String repeatFrequencyLabel(RepeatFrequency frequency) => switch (frequency) {
+  RepeatFrequency.daily => '每天',
+  RepeatFrequency.weekly => '每周',
+  RepeatFrequency.monthly => '每月',
+};

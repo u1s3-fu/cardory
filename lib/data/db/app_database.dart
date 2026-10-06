@@ -21,6 +21,7 @@ part 'app_database.g.dart';
     Milestones,
     Settings,
     SyncChanges,
+    SyncFieldMetas,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -54,7 +55,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -73,13 +74,20 @@ class AppDatabase extends _$AppDatabase {
   /// 从 [from] 版本迁移到下一个版本。
   ///
   /// v1 → v2 新增里程碑表（甘特/里程碑模块），v1 库中不存在里程碑数据，无需回填；
-  /// v2 → v3 attachments 新增可空列 asset_id（附件关联资产），历史行为 NULL 无需回填。
+  /// v2 → v3 attachments 新增可空列 asset_id（附件关联资产），历史行为 NULL 无需回填；
+  /// v3 → v4 字段级同步合并（sync_changes.changed_fields + sync_field_metas 表）
+  /// 与待办扩展（tasks.tags_json / tasks.repeat_rule），新增列均有默认值、新表为空，无需回填。
   Future<void> _upgradeFrom(Migrator migrator, int from) async {
     switch (from) {
       case 1:
         await migrator.createTable(milestones);
       case 2:
         await migrator.addColumn(attachments, attachments.assetId);
+      case 3:
+        await migrator.createTable(syncFieldMetas);
+        await migrator.addColumn(syncChanges, syncChanges.changedFields);
+        await migrator.addColumn(tasks, tasks.tagsJson);
+        await migrator.addColumn(tasks, tasks.repeatRule);
       default:
         throw StateError('未知的数据库版本来源：$from');
     }
@@ -133,6 +141,12 @@ class Tasks extends Table {
   IntColumn get estimateMinutes => integer().nullable()();
   IntColumn get completedAt => integer().nullable()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  /// 自由标签（JSON 字符串数组；无中央标签登记表）。
+  TextColumn get tagsJson => text().withDefault(const Constant('[]'))();
+
+  /// 重复规则（JSON：{"freq":"daily|weekly|monthly"}）；null 表示不重复。
+  TextColumn get repeatRule => text().nullable()();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
   IntColumn get deletedAt => integer().nullable()();
@@ -301,6 +315,9 @@ class SyncChanges extends Table {
   TextColumn get entityId => text()();
   TextColumn get operation => text()();
   TextColumn get payloadJson => text().withDefault(const Constant('{}'))();
+
+  /// 本次写入实际变更的列名（JSON 数组）；null 表示旧格式（整行 LWW）。
+  TextColumn get changedFields => text().nullable()();
   TextColumn get baseRevision => text().nullable()();
   IntColumn get createdAt => integer()();
   TextColumn get deviceId => text()();
@@ -308,4 +325,16 @@ class SyncChanges extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {id};
+}
+
+/// 字段级同步合并的本地时间戳（v4）：记录本机对每个实体列的最后写入
+/// 时间，供增量应用做逐字段 LWW（字段级自动合并）。
+class SyncFieldMetas extends Table {
+  TextColumn get entityType => text()();
+  TextColumn get entityId => text()();
+  TextColumn get fieldName => text()();
+  IntColumn get updatedAt => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {entityType, entityId, fieldName};
 }

@@ -39,6 +39,8 @@ class _TodoDialogState extends State<TodoDialog> {
   late DateTime? _startDate = widget.todo?.startDate;
   late DateTime? _endDate = widget.todo?.endDate;
   late bool _inProgress = widget.todo?.inProgress ?? false;
+  late List<String> _tags = List.of(widget.todo?.tags ?? const []);
+  late RepeatFrequency? _repeat = widget.todo?.repeatFrequency;
   String? _error;
 
   Future<void> _pickDate(bool start) async {
@@ -169,6 +171,33 @@ class _TodoDialogState extends State<TodoDialog> {
                 onChanged: (v) => setState(() => _priority = v ?? _priority),
               ),
               const SizedBox(height: 12),
+              DropdownButtonFormField<RepeatFrequency>(
+                key: const Key('todo-repeat'),
+                initialValue: _repeat,
+                decoration: const InputDecoration(
+                  labelText: '重复',
+                  helperText: '完成后自动生成下一次任务（按开始/截止日期平移）',
+                ),
+                items: const [
+                  DropdownMenuItem(value: null, child: Text('不重复')),
+                  DropdownMenuItem(
+                    value: RepeatFrequency.daily,
+                    child: Text('每天'),
+                  ),
+                  DropdownMenuItem(
+                    value: RepeatFrequency.weekly,
+                    child: Text('每周'),
+                  ),
+                  DropdownMenuItem(
+                    value: RepeatFrequency.monthly,
+                    child: Text('每月'),
+                  ),
+                ],
+                onChanged: (v) => setState(() => _repeat = v),
+              ),
+              const SizedBox(height: 12),
+              _TagsField(tags: _tags, onChanged: (tags) => _tags = tags),
+              const SizedBox(height: 12),
               SwitchListTile(
                 key: const Key('todo-in-progress'),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -244,6 +273,8 @@ class _TodoDialogState extends State<TodoDialog> {
                 priority: _priority,
                 done: widget.todo?.done ?? false,
                 inProgress: _inProgress && !(widget.todo?.done ?? false),
+                tags: _tags,
+                repeatFrequency: _repeat,
                 subTodos: _subTodos,
               ),
             );
@@ -253,4 +284,77 @@ class _TodoDialogState extends State<TodoDialog> {
       ],
     );
   }
+}
+
+/// 标签编辑：回车/失焦添加 chip，点击删除。
+class _TagsField extends StatefulWidget {
+  const _TagsField({required this.tags, required this.onChanged});
+
+  final List<String> tags;
+  final ValueChanged<List<String>> onChanged;
+
+  @override
+  State<_TagsField> createState() => _TagsFieldState();
+}
+
+class _TagsFieldState extends State<_TagsField> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _commit() {
+    final value = _controller.text.trim();
+    if (value.isEmpty) return;
+    if (widget.tags.contains(value)) {
+      _controller.clear();
+      return;
+    }
+    _controller.clear();
+    setState(() => widget.onChanged([...widget.tags, value]));
+  }
+
+  void _remove(String tag) {
+    setState(
+      () => widget.onChanged(widget.tags.where((item) => item != tag).toList()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => InputDecorator(
+    decoration: const InputDecoration(
+      labelText: '标签（回车添加）',
+      helperText: '自由标签，用于自我标记与筛选',
+    ),
+    child: Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final tag in widget.tags)
+          InputChip(
+            key: Key('todo-tag-\$tag'),
+            label: Text(tag, style: const TextStyle(fontSize: 12)),
+            visualDensity: VisualDensity.compact,
+            onDeleted: () => _remove(tag),
+          ),
+        IntrinsicWidth(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 96),
+            child: TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                hintText: '新标签',
+                border: InputBorder.none,
+                isDense: true,
+              ),
+              onSubmitted: (_) => _commit(),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }

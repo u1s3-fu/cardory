@@ -87,11 +87,29 @@ class DriftRowLevelWorkspaceStore
             dueAt: Value(_millis(updated.endDate)),
             currentProgress: updated.progress,
           ),
+          changedFields: _projectChangedFields(original, updated),
         );
         await _reconcileProgressEntries(updated.id, original, updated);
         await _reconcileCategories(updated.id, original, updated);
         await _reconcileAttachments(updated.id, original, updated);
       });
+
+  /// 项目编辑的字段级差异（载荷键名）；无差异返回 null（旧格式整行）。
+  Set<String>? _projectChangedFields(
+    ProjectData original,
+    ProjectData updated,
+  ) {
+    final changed = <String>{
+      if (original.title != updated.title) 'name',
+      if (original.description != updated.description) 'description',
+      if (original.stage != updated.stage) 'status',
+      if (original.priority != updated.priority) 'priority',
+      if (_millis(original.startDate) != _millis(updated.startDate)) 'startAt',
+      if (_millis(original.endDate) != _millis(updated.endDate)) 'dueAt',
+      if (original.progress != updated.progress) 'currentProgress',
+    };
+    return changed.isEmpty ? null : changed;
+  }
 
   @override
   Future<void> deleteProject(String projectId) =>
@@ -166,6 +184,7 @@ class DriftRowLevelWorkspaceStore
       if (row == null) continue;
       await _projects.updateProgressEntry(
         row.copyWith(progress: entry.progress, note: entry.note),
+        changedFields: const {'progress', 'note'},
       );
     }
     for (final id in before.keys.where((id) => !updatedIds.contains(id))) {
@@ -310,6 +329,8 @@ class DriftRowLevelWorkspaceStore
       startAt: _millis(todo.startDate),
       dueAt: _millis(todo.endDate),
       sortOrder: await _nextTaskSortOrder(),
+      tags: todo.tags,
+      repeatRule: todo.repeatFrequency?.name,
     );
     for (final (index, subTodo) in todo.subTodos.indexed) {
       await _createSubTodo(todo.id, projectId, subTodo, index);
@@ -338,10 +359,35 @@ class DriftRowLevelWorkspaceStore
             completedAt: Value(
               updated.done ? (original.done ? row.completedAt : now) : null,
             ),
+            tagsJson: jsonEncode(updated.tags),
+            repeatRule: Value(updated.repeatFrequency?.name),
           ),
+          changedFields: _taskChangedFields(original, updated),
         );
         await _reconcileSubTodos(updated, original.subTodos, updated.subTodos);
       });
+
+  /// 待办编辑的字段级差异（载荷键名）；无差异返回 null（旧格式整行）。
+  Set<String>? _taskChangedFields(TodoData original, TodoData updated) {
+    final changed = <String>{
+      if (original.title != updated.title) 'title',
+      if (original.description != updated.description) 'notes',
+      if (original.projectId != updated.projectId) 'projectId',
+      if (original.priority != updated.priority) 'priority',
+      if (_millis(original.startDate) != _millis(updated.startDate)) 'startAt',
+      if (_millis(original.endDate) != _millis(updated.endDate)) 'dueAt',
+      // status 由 done/inProgress 共同决定；completedAt 随完成态变化，
+      // 一并纳入差异集合（值未变时逐字段合并幂等无害）。
+      if (original.done != updated.done ||
+          original.inProgress != updated.inProgress) ...[
+        'status',
+        'completedAt',
+      ],
+      if (!_sameIds(original.tags, updated.tags)) 'tagsJson',
+      if (original.repeatFrequency != updated.repeatFrequency) 'repeatRule',
+    };
+    return changed.isEmpty ? null : changed;
+  }
 
   @override
   Future<void> deleteTodo(String todoId) => _tasks.softDelete(todoId);
@@ -429,6 +475,11 @@ class DriftRowLevelWorkspaceStore
           ),
           dueAt: Value(_millis(subTodo.dueAt)),
         ),
+        changedFields: {
+          if (previous.content != subTodo.content) 'title',
+          if (previous.done != subTodo.done) ...['status', 'completedAt'],
+          if (_millis(previous.dueAt) != _millis(subTodo.dueAt)) 'dueAt',
+        },
       );
     }
     for (final id in before.keys.where((id) => !updatedIds.contains(id))) {
@@ -480,7 +531,25 @@ class DriftRowLevelWorkspaceStore
         metadataJson: jsonEncode(_assetMetadata(updated)),
         sensitiveJson: Value<String?>(jsonEncode(_assetSensitive(updated))),
       ),
+      changedFields: _assetChangedFields(original, updated),
     );
+  }
+
+  /// 资产编辑的字段级差异（载荷键名）；无差异返回 null（旧格式整行）。
+  /// 敏感列不出同步通道，不参与差异集合。
+  Set<String>? _assetChangedFields(AssetData original, AssetData updated) {
+    final changed = <String>{
+      if (original.type != updated.type) 'type',
+      if (original.name != updated.name) 'title',
+      if (original.path != updated.path) 'uriOrPath',
+      if (original.note != updated.note) 'note',
+      if (original.projectId != updated.projectId) 'projectId',
+      if (!_sameIds(original.tagIds, updated.tagIds)) 'tagsJson',
+      if (jsonEncode(_assetMetadata(original)) !=
+          jsonEncode(_assetMetadata(updated)))
+        'metadataJson',
+    };
+    return changed.isEmpty ? null : changed;
   }
 
   @override
@@ -735,6 +804,16 @@ class DriftRowLevelWorkspaceStore
           milestone.completedAt?.toUtc().millisecondsSinceEpoch,
         ),
       ),
+      changedFields: {
+        if (current.title != milestone.title) 'title',
+        if (current.note != milestone.note) 'note',
+        if (current.dueAt != milestone.dueAt.toUtc().millisecondsSinceEpoch)
+          'dueAt',
+        if (current.completed != milestone.completed) 'completed',
+        if (current.completedAt !=
+            milestone.completedAt?.toUtc().millisecondsSinceEpoch)
+          'completedAt',
+      },
     );
   }
 

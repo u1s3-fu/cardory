@@ -49,6 +49,41 @@ CREATE TABLE IF NOT EXISTS "attachments" (
 );
 ''';
 
+// v4 迁移会给 tasks / sync_changes 加列：真实 v2 库全表齐备，fixture 同样补齐旧结构。
+const _v2TasksDdl = '''
+CREATE TABLE IF NOT EXISTS "tasks" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "project_id" TEXT NULL,
+  "parent_task_id" TEXT NULL,
+  "title" TEXT NOT NULL,
+  "notes" TEXT NOT NULL DEFAULT '',
+  "status" TEXT NOT NULL,
+  "priority" TEXT NOT NULL,
+  "start_at" INTEGER NULL,
+  "due_at" INTEGER NULL,
+  "estimate_minutes" INTEGER NULL,
+  "completed_at" INTEGER NULL,
+  "sort_order" INTEGER NOT NULL DEFAULT 0,
+  "created_at" INTEGER NOT NULL,
+  "updated_at" INTEGER NOT NULL,
+  "deleted_at" INTEGER NULL
+);
+''';
+
+const _v2SyncChangesDdl = '''
+CREATE TABLE IF NOT EXISTS "sync_changes" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "entity_type" TEXT NOT NULL,
+  "entity_id" TEXT NOT NULL,
+  "operation" TEXT NOT NULL,
+  "payload_json" TEXT NOT NULL DEFAULT '{}',
+  "base_revision" TEXT NULL,
+  "created_at" INTEGER NOT NULL,
+  "device_id" TEXT NOT NULL,
+  "acknowledged_at" INTEGER NULL
+);
+''';
+
 void main() {
   late Directory tempDir;
   late File dbFile;
@@ -64,6 +99,8 @@ void main() {
       "updated_at) VALUES ('asset-1', 'software', 'Nginx', 0, 1000, 1000)",
     );
     raw.execute(_v2AttachmentsDdl);
+    raw.execute(_v2TasksDdl);
+    raw.execute(_v2SyncChangesDdl);
     raw.execute(
       "INSERT INTO attachments (id, file_name, storage_key, size_bytes, "
       "sha256, kind, is_local_only, encryption_key, category_ids_json, "

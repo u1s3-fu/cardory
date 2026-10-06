@@ -7,7 +7,7 @@ import 'package:cardory/domain/cardory_models.dart';
 import 'package:cardory/domain/due_reminder_service.dart';
 import 'package:cardory/presentation/widgets/todo_dialog.dart';
 import 'package:cardory/presentation/widgets/todo_panel.dart';
-import 'package:cardory/services/windows_due_reminder_service.dart';
+import 'package:cardory/services/desktop_due_reminder_service.dart';
 import 'package:cardory/sync/delta_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -108,7 +108,7 @@ void main() {
 
     test('已提醒键经 shared_preferences 往返；通知能力不可用时静默降级', () async {
       SharedPreferences.setMockInitialValues({});
-      final service = WindowsDueReminderService();
+      final service = DesktopDueReminderService();
 
       expect(await service.loadNotifiedKeys(), isEmpty);
       await service.saveNotifiedKeys({'a|b|2026-10-05'});

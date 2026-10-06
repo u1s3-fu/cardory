@@ -50,6 +50,10 @@ String rowPayload(
 ///
 /// [payload] 必须为实体完整字段的非空 JSON；空对象将被拒绝，保证同步协议
 /// 在拿到每条记录时都能独立重建实体，而不依赖跨记录推导。
+///
+/// [changedFields] 为本次写入实际变更的载荷键集合（驼峰，与 payload 键一致）：
+/// 提供时写入 sync_changes.changed_fields 并同步维护 sync_field_metas 本地
+/// 字段时间戳，远端据此做字段级 LWW 合并；缺省为 null（旧格式，整行 LWW）。
 Future<void> recordSyncChange(
   AppDatabase db, {
   required String entityType,
@@ -59,6 +63,7 @@ Future<void> recordSyncChange(
   required String deviceId,
   required int createdAt,
   String? baseRevision,
+  Set<String>? changedFields,
 }) async {
   if (payload.trim().isEmpty) {
     throw ArgumentError.value(
@@ -67,6 +72,9 @@ Future<void> recordSyncChange(
       'sync_changes 不允许空 payload，必须携带实体完整字段。',
     );
   }
+  final changed = changedFields == null || changedFields.isEmpty
+      ? null
+      : (changedFields.toList()..sort());
   await db
       .into(db.syncChanges)
       .insert(
@@ -77,8 +85,22 @@ Future<void> recordSyncChange(
           operation: operation,
           payloadJson: Value(payload),
           baseRevision: Value(baseRevision),
+          changedFields: Value(changed == null ? null : jsonEncode(changed)),
           createdAt: createdAt,
           deviceId: deviceId,
         ),
       );
+  if (changed == null) return;
+  for (final field in changed) {
+    await db
+        .into(db.syncFieldMetas)
+        .insertOnConflictUpdate(
+          SyncFieldMetasCompanion.insert(
+            entityType: entityType,
+            entityId: entityId,
+            fieldName: field,
+            updatedAt: createdAt,
+          ),
+        );
+  }
 }

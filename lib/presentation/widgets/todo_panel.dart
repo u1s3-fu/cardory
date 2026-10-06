@@ -294,9 +294,48 @@ class TodoTile extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            if (todo.repeatFrequency != null) ...[
+                              const SizedBox(width: 6),
+                              Tooltip(
+                                message:
+                                    '重复：${repeatFrequencyLabel(todo.repeatFrequency!)}',
+                                child: Icon(
+                                  Icons.repeat_rounded,
+                                  size: 14,
+                                  color: CardoryColors.gray500,
+                                ),
+                              ),
+                            ],
                             PriorityBadge(priority: todo.priority),
                           ],
                         ),
+                        if (todo.tags.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              for (final tag in todo.tags)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: CardoryColors.gray100,
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(
+                                    tag,
+                                    style: TextStyle(
+                                      color: CardoryColors.gray600,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

@@ -82,7 +82,7 @@ class ProjectRepository {
   }
 
   /// 用行快照更新项目的全部业务字段；createdAt 等时间戳保留原值。
-  Future<void> update(Project project) async {
+  Future<void> update(Project project, {Set<String>? changedFields}) async {
     final now = _clock();
     await _db.transaction(() async {
       await (_db.update(
@@ -110,6 +110,7 @@ class ProjectRepository {
         payload: rowPayload(project, updatedAt: now),
         deviceId: _deviceId,
         createdAt: now,
+        changedFields: changedFields,
       );
     });
   }
@@ -181,7 +182,10 @@ class ProjectRepository {
   }
 
   /// 用行快照更新进度记录的业务字段（note/progress）；recordedAt 与时间戳保留。
-  Future<void> updateProgressEntry(ProjectProgressEntry entry) async {
+  Future<void> updateProgressEntry(
+    ProjectProgressEntry entry, {
+    Set<String>? changedFields,
+  }) async {
     final now = _clock();
     await _db.transaction(() async {
       await (_db.update(

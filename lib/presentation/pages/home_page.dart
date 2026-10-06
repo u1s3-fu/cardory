@@ -953,6 +953,7 @@ class _HomeSectionContent extends StatelessWidget {
       const SizedBox(height: 22),
       KanbanBoard(
         data: state._data,
+        hideEmptyColumns: state._settings.kanbanHideEmptyColumns,
         onAddProject: state._addProject,
         onOpenProject: state._openProject,
         onEditProject: state._editProject,

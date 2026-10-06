@@ -48,6 +48,42 @@ CREATE TABLE IF NOT EXISTS "attachments" (
 );
 ''';
 
+/// v1 的 tasks 表 DDL（与 v4 中该表定义一致，v4 才加 tags_json / repeat_rule 列）。
+const _v1TasksDdl = '''
+CREATE TABLE IF NOT EXISTS "tasks" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "project_id" TEXT NULL,
+  "parent_task_id" TEXT NULL,
+  "title" TEXT NOT NULL,
+  "notes" TEXT NOT NULL DEFAULT '',
+  "status" TEXT NOT NULL,
+  "priority" TEXT NOT NULL,
+  "start_at" INTEGER NULL,
+  "due_at" INTEGER NULL,
+  "estimate_minutes" INTEGER NULL,
+  "completed_at" INTEGER NULL,
+  "sort_order" INTEGER NOT NULL DEFAULT 0,
+  "created_at" INTEGER NOT NULL,
+  "updated_at" INTEGER NOT NULL,
+  "deleted_at" INTEGER NULL
+);
+''';
+
+/// v1 的 sync_changes 表 DDL（与 v3 中该表定义一致，v4 才加 changed_fields 列）。
+const _v1SyncChangesDdl = '''
+CREATE TABLE IF NOT EXISTS "sync_changes" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "entity_type" TEXT NOT NULL,
+  "entity_id" TEXT NOT NULL,
+  "operation" TEXT NOT NULL,
+  "payload_json" TEXT NOT NULL DEFAULT '{}',
+  "base_revision" TEXT NULL,
+  "created_at" INTEGER NOT NULL,
+  "device_id" TEXT NOT NULL,
+  "acknowledged_at" INTEGER NULL
+);
+''';
+
 void main() {
   late Directory tempDir;
   late File dbFile;
@@ -60,6 +96,9 @@ void main() {
     raw.execute("PRAGMA key = 'test-key'");
     raw.execute(_v1ProjectsDdl);
     raw.execute(_v1AttachmentsDdl);
+    // v4 迁移会给 tasks / sync_changes 加列：真实 v1 库全表齐备，fixture 同样补齐。
+    raw.execute(_v1TasksDdl);
+    raw.execute(_v1SyncChangesDdl);
     raw.execute(
       "INSERT INTO projects (id, name, description, status, priority, "
       "sort_order, pinned, current_progress, created_at, updated_at) "
@@ -82,7 +121,7 @@ void main() {
     addTearDown(db.close);
 
     // v1 库逐版本推进：经 v2（里程碑表）一直迁到当前版本。
-    expect(db.schemaVersion, 3);
+    expect(db.schemaVersion, 4);
 
     // 历史数据在迁移后仍可读。
     final projects = await db.select(db.projects).get();

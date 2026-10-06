@@ -21,6 +21,7 @@ class AppSettings {
     this.dueReminderLeadDays = 7,
     this.taskDueRemindersEnabled = true,
     this.autoProgressFromTasks = false,
+    this.kanbanHideEmptyColumns = false,
     this.syncProvider = SyncProviderType.none,
     this.syncDirectoryPath = '',
     this.webDavUrl = '',
@@ -59,6 +60,9 @@ class AppSettings {
 
   /// 按任务完成率自动记录项目进度（默认关；开启后勾选任务自动追加进度记录）。
   final bool autoProgressFromTasks;
+
+  /// 看板隐藏空阶段列（默认关；仅影响本机渲染）。
+  final bool kanbanHideEmptyColumns;
   final SyncProviderType syncProvider;
   final String syncDirectoryPath;
   final String webDavUrl;
@@ -111,6 +115,7 @@ class AppSettings {
     dueReminderLeadDays: json['dueReminderLeadDays'] as int? ?? 7,
     taskDueRemindersEnabled: json['taskDueRemindersEnabled'] as bool? ?? true,
     autoProgressFromTasks: json['autoProgressFromTasks'] as bool? ?? false,
+    kanbanHideEmptyColumns: json['kanbanHideEmptyColumns'] as bool? ?? false,
     syncProvider:
         SyncProviderType.values
             .where((value) => value.name == json['syncProvider'])
@@ -154,6 +159,7 @@ class AppSettings {
     'dueReminderLeadDays': dueReminderLeadDays,
     'taskDueRemindersEnabled': taskDueRemindersEnabled,
     'autoProgressFromTasks': autoProgressFromTasks,
+    'kanbanHideEmptyColumns': kanbanHideEmptyColumns,
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -191,6 +197,7 @@ class AppSettings {
     'dueReminderLeadDays': dueReminderLeadDays,
     'taskDueRemindersEnabled': taskDueRemindersEnabled,
     'autoProgressFromTasks': autoProgressFromTasks,
+    'kanbanHideEmptyColumns': kanbanHideEmptyColumns,
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -222,6 +229,7 @@ class AppSettings {
       dueReminderLeadDays: remote.dueReminderLeadDays,
       taskDueRemindersEnabled: remote.taskDueRemindersEnabled,
       autoProgressFromTasks: remote.autoProgressFromTasks,
+      kanbanHideEmptyColumns: remote.kanbanHideEmptyColumns,
       syncProvider: remote.syncProvider,
       syncDirectoryPath: remote.syncDirectoryPath,
       webDavUrl: remote.webDavUrl,
@@ -256,6 +264,7 @@ class AppSettings {
     int? dueReminderLeadDays,
     bool? taskDueRemindersEnabled,
     bool? autoProgressFromTasks,
+    bool? kanbanHideEmptyColumns,
     SyncProviderType? syncProvider,
     String? syncDirectoryPath,
     String? webDavUrl,
