@@ -4,27 +4,31 @@ Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 F
 
 > **产品定位**：Cardory 面向**单用户个人项目管理**——数据在你自己的多台设备之间加密同步（手动 / 目录 / WebDAV / S3），不包含多人协作、任务指派与在线分享能力。
 
-![Version](https://img.shields.io/badge/version-0.2.3-blue) ![Flutter](https://img.shields.io/badge/Flutter-3.47.4-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.13.3-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-GPLv3-blue)
-
-> ⚠️ **破坏性数据不兼容**：`0.1.0-beta.1` 起，数据运行时由 AES `.cardory` 加密容器切换为 SQLCipher 加密数据库。旧版本（≤ 0.0.7）的数据文件**不会被读取或自动迁移**，升级前请先在旧版本中自行备份数据与附件。
+![Version](https://img.shields.io/github/v/release/u1s3-fu/cardory?color=blue&label=version) ![Flutter](https://img.shields.io/badge/Flutter-3.47.4-02569B?logo=flutter) ![Dart](https://img.shields.io/badge/Dart-3.13.3-0175C2?logo=dart) ![License](https://img.shields.io/badge/license-GPLv3-blue)
 
 ---
 
-## 软件作用
+## 下载安装
+
+前往 [GitHub Releases](https://github.com/u1s3-fu/cardory/releases) 下载最新版本安装包（Android / Windows / macOS，CI 随版本 tag 自动构建发布）。iOS 暂未提供安装包，需在 macOS 上自行构建（见 [CONTRIBUTING.md](CONTRIBUTING.md)）。
+
+---
+
+## 主要功能
 
 ### 项目管理
 
-- **项目看板**：创建、编辑、删除项目，直观总览所有项目及其状态
+- **项目看板**：创建、编辑、删除项目，总览所有项目及其状态
 - **阶段管理**：支持四级阶段流转 —— 计划中 → 进行中 → 待验收 → 已完成
-- **优先级划分**：P0（高优先级）/ P1（中）/ P2（普通）/ P3（低），颜色编码一目了然
+- **优先级划分**：P0（高优先级）/ P1（中）/ P2（普通）/ P3（低），以颜色区分
 - **进度追踪**：百分比进度条展示，关键节点可按时间线记录，阶段变更自动归档
 
 ### 待办管理
 
-- **多级待办**：支持主待办与子待办（SubTodo），灵活拆分任务
+- **多级待办**：支持主待办与子待办（SubTodo），拆分任务
 - **完成勾选**：勾选即归档，支持按完成状态筛选查看
 - **优先级提醒**：按 P0-P3 优先级排序与高亮显示
-- **日期范围**：可设定待办的起止日期，便于跟踪计划执行周期
+- **日期范围**：可设定待办的起止日期，跟踪计划执行周期
 
 ### 资产台账
 
@@ -34,9 +38,9 @@ Cardory 是一个以**项目看板、进度记录和待办管理**为核心的 F
 
 ### 自定义主题
 
-- **自由配色**：背景色与强调色自由搭配，打造个性化工作空间
-- **预设色板**：提供 7 种精心设计的预设主题色组合，一键切换
-- **自动暗色模式**：当选择深色背景时，文字与控件自动切换为亮色，无需手动配置
+- **自由配色**：背景色与强调色自由搭配
+- **预设色板**：7 种预设主题色组合，一键切换
+- **自动暗色模式**：深色背景下文字与控件自动切换为亮色
 
 ### 数据同步
 
@@ -73,68 +77,7 @@ Cardory 将安全放在首位；数据运行时是 SQLCipher 整库加密数据�
 
 ---
 
-## 架构设计
-
-### 模块边界
-
-项目按领域模型、应用用例、持久化、同步与展示模块组织。应用层通过仓储等端口依赖具体实现；`CardoryApp` 是 Flutter 根组件兼组合根，负责创建保险库会话、解锁状态与路由门禁。
-
-```
-┌─────────────────────────────────────────────┐
-│              Presentation 展示层             │
-│  (根组件 / 页面 / 门禁 / 对话框 / Widgets)   │
-├─────────────────────────────────────────────┤
-│              Application 应用层              │
-│  (工作区控制 / 设置 / 同步 / 附件用例)        │
-├─────────────────────────────────────────────┤
-│               Domain 领域层                  │
-│  (ProjectData / TodoData / AssetData 等)     │
-├─────────────────────────────────────────────┤
-│      Infrastructure 基础设施层               │
-│  (SQLCipher 数据库 / Repository / Sync)      │
-└─────────────────────────────────────────────┘
-```
-
-### 模块说明
-
-| 模块 | 目录 | 职责 |
-|------|------|------|
-| **入口** | `lib/main.dart` | 调用 `runCardoryApp()` 启动 Flutter 应用 |
-| **应用层** | `lib/application/` | 工作区会话、同步与附件用例、设置读写端口 |
-| **领域层** | `lib/domain/` | 核心业务模型：`ProjectData`、`TodoData`、`AssetData` 等 |
-| **数据层** | `lib/data/` | SQLCipher 数据库（drift）、Repository 族、附件加密存储、运行时保险库服务 |
-| **展示层** | `lib/presentation/` | 组合根（`CardoryApp`）、页面、门禁、对话框与复用组件 |
-| **状态层** | `lib/providers/` | Riverpod session-scoped Provider 组装与销毁 |
-| **路由层** | `lib/routing/` | go_router 业务路由与解锁门禁 redirect |
-| **同步层** | `lib/sync/` | `SyncProvider`、协调器与目录、WebDAV、自建 API、S3 后端 |
-| **平台服务** | `lib/services/` | 原生桌面小组件、更新检查等平台适配器 |
-
-### 关键设计模式
-
-- **仓储模式**：Repository 族（项目 / 任务 / 资产 / 附件 / 时间记录 / 番茄钟 / 依赖 / 同步变更 / 设置）承载全部数据库写路径，每次业务写入都在同一 drift 事务内完成实体更新 + 时间戳 + tombstone + `sync_changes` 审计
-- **策略模式**：`SyncProvider` 抽象接口，目录、WebDAV、自建 HTTP API 与 S3 兼容存储各自实现
-- **会话门禁**：数据库会话（`DatabaseSession`）在保险库解锁后建立、锁定/退出时关闭；`go_router` redirect 依据解锁状态控制页面可达性，未解锁仅能访问 `/vault`
-- **凭证分离**：`VaultCredentialStore` 与 `SyncCredentialStore` 分离保险库密码与同步凭据的管理与安全存储
-
-### 数据流
-
-```
-UI 写入口 → WorkspaceController → Repository 单事务写入 SQLCipher
-                ↓ 提交后
-        数据库回读 → 投影缓存 → 通知 UI（drift Stream / Provider）
-                ↓ 异步
-       VACUUM INTO 生成加密快照 + 附件/备份 manifest → 同步后端
-```
-
-### 状态管理
-
-应用使用 **Riverpod（flutter_riverpod）+ go_router** 组织运行时状态与导航。数据库会话与 Repository 由 `CardoryApp` 在解锁时建立、以 session-scoped Provider 注入；查询由数据库流驱动，命令只负责事务写入；`WorkspaceController` 保留为工作区投影缓存与既有页面写入口的过渡层，不再承担独立事实源。
-
----
-
-## 运行环境
-
-### 平台要求
+## 平台要求
 
 | 平台 | 最低版本 | 备注 |
 |------|----------|------|
@@ -143,46 +86,9 @@ UI 写入口 → WorkspaceController → Repository 单事务写入 SQLCipher
 | **iOS** | iOS 13+ | 基础 Runner 工程；WidgetKit 源码和共享组配置已提供，但 Widget Extension target 尚未接入 Xcode 工程 |
 | **macOS** | macOS 10.15+ | 沙盒已启用网络权限 |
 
-### 开发环境
+## 技术栈
 
-| 组件 | 版本 |
-|------|------|
-| **Flutter SDK** | `3.47.4`（stable，CI 已固定该版本） |
-| **Dart SDK** | `3.13.3`（约束 `3.12.0`） |
-| **Java / Kotlin** | JVM 21（Android） |
-| **Swift** | 5.x（iOS/macOS） |
-
-### 核心依赖
-
-下表列出各依赖的实际解析版本（以 `pubspec.lock` 为准；`pubspec.yaml` 中的声明约束可能带 `^` 前缀，表示兼容该版本的更新补丁）。
-
-| 依赖 | 版本 | 用途 |
-|------|------|------|
-| `path_provider` | `2.1.6` | 获取应用文档目录 |
-| `drift` | `2.34.4` | SQLite 响应式 ORM（表结构 / 查询 / 事务） |
-| `sqlite3` | `3.5.2` | 原生 SQLite 绑定（`hooks` 指向 SQLCipher 源码构建） |
-| `flutter_riverpod` | `3.4.3` | session-scoped 状态管理与依赖注入 |
-| `go_router` | `18.0.1` | 声明式路由与解锁门禁 redirect |
-| `uuid` | `4.6.0` | 跨设备同步 ID 生成 |
-| `flutter_secure_storage` | `10.3.1` | 平台原生安全存储（密码 / Token） |
-| `cryptography` | `2.9.0` | 附件 AES-256-GCM 加密与摘要校验 |
-| `http` | `1.6.0` | HTTP 客户端（自建服务同步） |
-| `crypto` | `3.0.7` | S3 请求摘要与签名辅助 |
-| `webdav_client` | `1.2.2` | WebDAV 兼容性支持 |
-| `package_info_plus` | `10.2.1` | 本地版本读取（更新检查） |
-| `url_launcher` | `6.3.2` | 打开更新页 / 仓库链接 |
-| `file_picker` | `12.2.0` | 系统文件选择（附件导入等） |
-| `path` | `1.9.1` | 路径操作 |
-| `home_widget` | `0.9.4` | Android / iOS 桌面小组件数据桥接 |
-
-### 开发依赖
-
-| 依赖 | 版本 | 用途 |
-|------|------|------|
-| `build_runner` | `2.15.1` | 代码生成驱动 |
-| `drift_dev` | `2.34.6` | drift 表代码生成 |
-| `flutter_lints` | `5.0.0` | 代码规范检查 |
-| `flutter_launcher_icons` | `0.14.4` | 自动生成多平台应用图标 |
+Flutter / Dart 编写，drift + SQLCipher 做加密持久化，Riverpod 管理状态，go_router 处理路由与门禁。完整依赖及版本约束见 [pubspec.yaml](pubspec.yaml)，实际解析版本以 [pubspec.lock](pubspec.lock) 为准。
 
 ---
 
@@ -212,68 +118,9 @@ UI 写入口 → WorkspaceController → Repository 单事务写入 SQLCipher
 
 ---
 
-## 快速开始
+## 开发与贡献
 
-```bash
-# 安装依赖
-flutter pub get
-
-# 静态分析
-flutter analyze
-
-# 运行测试
-flutter test
-
-# 启动应用（以 Windows 为例）
-flutter run -d windows
-```
-
-## 发布检查
-
-以下命令用于本地构建检查；GitHub Actions 的自动发布目前仅产出 Android、Windows 和 macOS，iOS 需要在 macOS 上单独构建，且当前不包含 Widget Extension target。
-
-```bash
-# 代码格式化检查
-dart format --output=none --set-exit-if-changed lib test
-
-# 严格静态分析
-flutter analyze --fatal-infos
-
-# 运行全部测试
-flutter test
-
-# 构建发布包
-flutter build windows --release     # Windows
-flutter build appbundle --release   # Android
-flutter build ios --release         # iOS（仅 macOS；不含 Widget Extension）
-flutter build macos --release       # macOS
-```
-
-## 应用图标
-
-应用图标源文件位于 `assets/branding/app_icon_source.png`（1024×1024），通过 `flutter_launcher_icons` 自动生成各平台图标。Windows 图标由 `tools/gen_win_icon.ps1` 脚本生成多尺寸标准 ICO 文件。
-
-## 目录结构
-
-```
-lib/
-├── main.dart                              # 最小启动入口
-├── application/                           # 应用用例与端口（工作区会话等）
-├── data/                                  # SQLCipher 数据库、仓储、附件存储、运行时服务
-│   ├── db/                                # drift 表定义与数据库会话（app_database.dart）
-│   ├── repositories/                      # Repository 族（单事务写入）
-│   └── runtime/                           # 保险库运行服务、快照应用、数据映射
-├── domain/                                # 领域模型与端口
-├── presentation/                          # Flutter 根组件、页面、门禁、对话框与组件
-├── providers/                             # Riverpod session-scoped Provider
-├── routing/                               # go_router 业务路由与门禁
-├── services/                              # 平台服务（如桌面小组件）
-└── sync/                                  # 同步协调器、凭据与四种同步后端
-    ├── directory_sync_provider.dart       # 本地目录同步
-    ├── webdav_sync_provider.dart          # WebDAV 同步
-    ├── self_hosted_api_sync_provider.dart # 自建 HTTP API 同步
-    └── s3_sync_provider.dart              # S3 兼容存储同步
-```
+环境搭建、构建与发布检查、架构设计（模块边界 / 设计模式 / 数据流 / 状态管理）、目录结构与应用图标见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 许可证
 
