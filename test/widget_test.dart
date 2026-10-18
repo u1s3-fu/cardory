@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cardory/presentation/pages/calendar_page.dart';
 import 'package:cardory/presentation/pages/time_page.dart';
+import 'package:cardory/presentation/widgets/today_tasks_panel.dart';
 
 import 'support/in_memory_row_level_workspace_store.dart';
 import 'support/in_memory_time_tracking_store.dart';
@@ -83,7 +84,7 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
       ),
     );
     await pumpUiFrames(tester);
@@ -103,7 +104,7 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
       ),
     );
     await pumpUiFrames(tester);
@@ -189,13 +190,63 @@ void main() {
             todo: todo,
             subTodo: todo.subTodos.single,
             onToggle: (_, _) async {},
+            onOpenDetail: (_, _) async {},
+            onDelete: (_, _) async => true,
+          ),
+        ),
+      ),
+    );
+
+    // 有提醒时间时列表只展示「提醒」，「添加」时间隐藏到详情弹窗。
+    expect(find.text('添加 2026-07-31 09:15'), findsNothing);
+    expect(find.text('提醒 2026-08-01 10:30'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('子待办无提醒时间时展示添加时间且无加号图标', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(260, 360);
+    addTearDown(tester.view.reset);
+    final todo = TodoData(
+      id: 'todo-created-only',
+      title: '待办',
+      projectId: '',
+      projectTitle: '未关联项目',
+      priority: ProjectPriority.p2,
+      done: false,
+      subTodos: const [
+        SubTodoData(
+          id: 'subtodo-created-only',
+          content: '仅记录添加时间',
+          done: false,
+        ),
+      ],
+    );
+    // 带添加时间的子待办（recordCreatedAt 开启时记录）。
+    final withCreatedAt = SubTodoData(
+      id: 'subtodo-created-only',
+      content: '仅记录添加时间',
+      done: false,
+      createdAt: DateTime(2026, 7, 31, 9, 15),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SubTodoTile(
+            todo: todo,
+            subTodo: withCreatedAt,
+            onToggle: (_, _) async {},
+            onOpenDetail: (_, _) async {},
+            onDelete: (_, _) async => true,
           ),
         ),
       ),
     );
 
     expect(find.text('添加 2026-07-31 09:15'), findsOneWidget);
-    expect(find.text('提醒 2026-08-01 10:30'), findsOneWidget);
+    // 「添加」标签前的加号图标已移除。
+    expect(find.byIcon(Icons.add_circle_outline_rounded), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -216,6 +267,7 @@ void main() {
           workspaceRepository: repository,
           syncRepository: repository,
           vaultCredentialStore: _MemoryVaultCredentialStore(),
+          credentialStore: _CredentialStore(null),
           attachmentRepositoryFactory: attachmentRepositoryFactory,
         ),
       );
@@ -232,6 +284,54 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('首页面板按设置顺序渲染，长按拖拽调序后持久化', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1600, 1600);
+    addTearDown(tester.view.reset);
+    final repository = _MemoryRepository();
+    repository.settings = const AppSettings(
+      homePanelOrder: [
+        HomePanel.reminders,
+        HomePanel.todayTasks,
+        HomePanel.kanban,
+      ],
+    );
+    await tester.pumpWidget(
+      CardoryApp(
+        vaultRepository: repository,
+        workspaceRepository: repository,
+        syncRepository: repository,
+        vaultCredentialStore: _MemoryVaultCredentialStore(),
+        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
+      ),
+    );
+    await pumpUiFrames(tester);
+
+    final reminderTitle = tester.getCenter(find.text('主要提醒'));
+    final todayTitle = tester.getCenter(find.text('今日任务'));
+    final kanbanTitle = tester.getCenter(find.text('项目看板'));
+    expect(reminderTitle.dy, lessThan(todayTitle.dy));
+    expect(todayTitle.dy, lessThan(kanbanTitle.dy));
+
+    // 长按「今日任务」卡片拖到「主要提醒」上：插入其前方。
+    final gesture = await tester.startGesture(todayTitle);
+    await tester.pump(const Duration(milliseconds: 700));
+    await gesture.moveBy(Offset(0, reminderTitle.dy - todayTitle.dy));
+    await tester.pump();
+    await tester.pumpAndSettle();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(repository.settings.homePanelOrder, [
+      HomePanel.todayTasks,
+      HomePanel.reminders,
+      HomePanel.kanban,
+    ]);
+    final todayAfter = tester.getCenter(find.text('今日任务'));
+    final reminderAfter = tester.getCenter(find.text('主要提醒'));
+    expect(todayAfter.dy, lessThan(reminderAfter.dy));
+  });
 
   for (final layout in <(String, Size, int)>[
     ('窄屏单列', const Size(400, 1600), 1),
@@ -284,7 +384,7 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
       ),
     );
     await pumpUiFrames(tester);
@@ -441,7 +541,7 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
         rowLevelStoreBuilder: () => rowLevelStore,
       ),
     );
@@ -713,7 +813,7 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
         rowLevelStoreBuilder: () => rowLevelStore,
       ),
     );
@@ -1016,6 +1116,8 @@ void main() {
                 onToggleTodo: (todo) async => todo,
                 onToggleSubTodo: (todo, _) async => todo,
                 onAddSubTodo: (_) async {},
+                onOpenSubTodo: (_, _) async {},
+                onDeleteSubTodo: (_, _) async => true,
                 onOpenTodo: (todo) async => todo,
               ),
             ),
@@ -1029,6 +1131,49 @@ void main() {
       expect(find.text('低 待办'), findsNothing);
     },
   );
+
+  testWidgets('今日任务面板把无提醒日期的未完成待办列为当日待办', (tester) async {
+    final now = DateTime(2026, 9, 13, 15, 30);
+    TodoData todo(String id, {DateTime? endDate}) => TodoData(
+      id: id,
+      title: id,
+      projectId: '',
+      projectTitle: '',
+      priority: ProjectPriority.p2,
+      done: false,
+      endDate: endDate,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: TodayTasksPanel(
+              todos: [
+                todo('undated'),
+                todo('done-undated', endDate: null).copyWith(done: true),
+                todo('today-reminder', endDate: DateTime(2026, 9, 13, 18)),
+                todo('overdue-reminder', endDate: DateTime(2026, 9, 11)),
+                todo('future', endDate: DateTime(2026, 9, 20)),
+              ],
+              now: now,
+              onToggleTodo: (item) async => item,
+              onOpenTodo: (item) async => item,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('逾期 1 项 · 今日提醒 1 项 · 当日待办 1 项'), findsOneWidget);
+    expect(find.text('当日待办 · 每日显示直到完成'), findsOneWidget);
+    // 无提醒日期的待办在今日任务里显示「当日待办」。
+    expect(find.text('undated'), findsOneWidget);
+    expect(find.text('当日待办'), findsOneWidget);
+    // 已完成与未来日期的待办不进入今日任务。
+    expect(find.text('done-undated'), findsNothing);
+    expect(find.text('future'), findsNothing);
+  });
 
   testWidgets('task and progress surfaces dispatch their actions', (
     tester,
@@ -1053,8 +1198,10 @@ void main() {
     var opened = false;
     var completed = false;
     var subTodoCompleted = false;
+    var subTodoDetailOpened = false;
     var deleted = false;
     var edited = false;
+    var subTodoAdded = false;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1072,7 +1219,13 @@ void main() {
                   subTodoCompleted = true;
                   return todo;
                 },
-                onAddSubTodo: (_) async {},
+                onAddSubTodo: (_) async {
+                  subTodoAdded = true;
+                },
+                onOpenSubTodo: (_, _) async {
+                  subTodoDetailOpened = true;
+                },
+                onDeleteSubTodo: (_, _) async => true,
                 onOpenTodo: (_) async {
                   opened = true;
                   return todo;
@@ -1088,6 +1241,13 @@ void main() {
                   deleted = true;
                   return true;
                 },
+                onAddSubTodo: (_) async {
+                  subTodoAdded = true;
+                },
+                onOpenSubTodo: (_, _) async {
+                  subTodoDetailOpened = true;
+                },
+                onDeleteSubTodo: (_, _) async => true,
               ),
               ProgressTimeline(
                 entries: [progress],
@@ -1105,11 +1265,20 @@ void main() {
     await tester.pump();
     await tester.tap(find.byIcon(Icons.check_box_outline_blank_rounded).first);
     await tester.pump();
-    // 子待办行可切换完成状态。
+    // 子待办：点击内容进入详情，点击行首圆圈切换完成状态。
     await tester.tap(find.text('可操作子待办').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.circle_outlined).first);
     await tester.pump();
-    // 待办页（TodoTile）提供删除入口。
+    // 待办页（TodoTile）提供删除入口与行内快捷添加子待办。
     await tester.tap(find.byTooltip('删除待办'));
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('添加子待办'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('添加子待办').first);
     await tester.pump();
     await tester.scrollUntilVisible(
       find.byTooltip('编辑进度'),
@@ -1122,6 +1291,8 @@ void main() {
     expect(opened, isTrue);
     expect(completed, isTrue);
     expect(subTodoCompleted, isTrue);
+    expect(subTodoDetailOpened, isTrue);
+    expect(subTodoAdded, isTrue);
     expect(deleted, isTrue);
     expect(edited, isTrue);
   });

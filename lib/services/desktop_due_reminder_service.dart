@@ -1,4 +1,4 @@
-// 桌面端（Windows / macOS / Linux）到期/截止提醒服务（local_notifier 系统通知实现）。
+// 桌面端（Windows / macOS / Linux）到期/提醒提醒服务（local_notifier 系统通知实现）。
 //
 // 语义与移动端 LocalDueReminderService 对齐：立即通知 + 预约通知 +
 // 已提醒去重（shared_preferences）。预约通知用进程内 Timer 承载——

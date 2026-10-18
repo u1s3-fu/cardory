@@ -1,7 +1,7 @@
 // CalendarEntry 实体标识测试：
 // - 日历页把任务 endDate 转 CalendarEntry 时携带 entityType/entityId；
 // - 周/日视图点击任务条目时按 entityId 回查（而非按 endDate 位置反查），
-//   两个任务截止时刻相同时点击第二个条目必须打开第二个任务。
+//   两个任务提醒时刻相同时点击第二个条目必须打开第二个任务。
 
 import 'package:cardory/domain/cardory_models.dart';
 import 'package:cardory/presentation/pages/calendar_page.dart';
@@ -48,8 +48,8 @@ Future<void> _pumpCalendarPage(
 }
 
 void main() {
-  testWidgets('周/日视图：两个任务截止时刻相同，点击第二个条目打开第二个任务', (tester) async {
-    // 同一天同一时刻截止的两个任务（旧实现按 endDate 反查时必然错开成第一个）。
+  testWidgets('周/日视图：两个任务提醒时刻相同，点击第二个条目打开第二个任务', (tester) async {
+    // 同一天同一时刻提醒的两个任务（旧实现按 endDate 反查时必然错开成第一个）。
     final due = DateTime(2026, 9, 7, 10, 0);
     final todos = [_todo('todo-1', '任务一', due), _todo('todo-2', '任务二', due)];
     final openedIds = <String>[];
@@ -81,17 +81,17 @@ void main() {
 
   testWidgets('日历页把任务 endDate 转成 CalendarEntry 时携带实体标识', (tester) async {
     final todos = [
-      _todo('todo-a', '有截止任务', DateTime(2026, 9, 7, 10, 0)),
-      // 无截止任务：copyWith 不能置空 endDate，直接构造。
+      _todo('todo-a', '有提醒任务', DateTime(2026, 9, 7, 10, 0)),
+      // 无提醒任务：copyWith 不能置空 endDate，直接构造。
       TodoData(
         id: 'todo-b',
-        title: '无截止任务',
+        title: '无提醒任务',
         projectId: 'project-1',
         projectTitle: '项目',
         priority: ProjectPriority.p2,
         done: false,
       ),
-      _todo('todo-c', '另一条截止', DateTime(2026, 9, 8, 12, 0)),
+      _todo('todo-c', '另一条提醒', DateTime(2026, 9, 8, 12, 0)),
     ];
 
     // 通过日历页暴露的任务条目构建函数验证（页面内部同样走该函数）。

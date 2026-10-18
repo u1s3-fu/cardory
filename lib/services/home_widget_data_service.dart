@@ -85,7 +85,7 @@ class HomeWidgetDataService implements WidgetDataService {
     final pendingCount = data.todos.where((t) => !t.done).length;
     final totalCount = data.todos.length;
 
-    // 逾期与今日截止汇总（未完成任务按本地日期键比较）。
+    // 逾期与今日提醒汇总（未完成任务按本地日期键比较）。
     var overdueCount = 0;
     var dueTodayCount = 0;
     for (final t in data.todos) {

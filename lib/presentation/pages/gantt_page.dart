@@ -31,7 +31,7 @@ class GanttPage extends StatefulWidget {
   final List<ProjectData> projects;
   final List<TodoData> todos;
 
-  /// 打开待办编辑对话框（排期调整入口：开始/截止日期）。
+  /// 打开待办编辑对话框（排期调整入口：开始/提醒日期）。
   final Future<TodoData?> Function(TodoData todo) onEditTodo;
 
   /// 依赖写入口：缺省时直接写行级存储；由工作台注入控制器包装时，

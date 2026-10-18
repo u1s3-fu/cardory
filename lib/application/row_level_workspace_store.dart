@@ -42,6 +42,12 @@ abstract interface class RowLevelWorkspaceStore {
   Future<void> addSubTodo(TodoData todo, SubTodoData subTodo);
   Future<void> setSubTodoDone(String subTodoId, {required bool done});
 
+  /// 更新子待办内容 / 提醒时间 / 完成状态（行级写，进入同步通道）。
+  Future<void> updateSubTodo(SubTodoData subTodo);
+
+  /// 删除子待办（软删除，进入同步通道）。
+  Future<void> deleteSubTodo(String subTodoId);
+
   // 资产与标签。
 
   Future<void> addAsset(AssetData asset);

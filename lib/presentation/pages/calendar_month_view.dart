@@ -8,7 +8,7 @@ import '../cardory_theme.dart';
 import '../model_colors.dart';
 import 'calendar_entry.dart';
 
-/// 月视图：月份网格，每日截止任务按优先级着色标记，资产到期以中性图标标记。
+/// 月视图：月份网格，每日提醒任务按优先级着色标记，资产到期以中性图标标记。
 class MonthView extends StatelessWidget {
   const MonthView({
     super.key,

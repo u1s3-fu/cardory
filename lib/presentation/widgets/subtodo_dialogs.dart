@@ -123,6 +123,152 @@ class _QuickAddSubTodoDialogState extends State<QuickAddSubTodoDialog> {
   );
 }
 
+/// 子待办详情对话框：查看 / 编辑内容、提醒时间、添加时间与完成状态。
+///
+/// 保存时返回修改后的 [SubTodoData]；取消或未修改返回 null。
+/// 添加时间只读展示（列表有提醒时间时会隐藏，详情里仍可查看）。
+class SubTodoDetailDialog extends StatefulWidget {
+  const SubTodoDetailDialog({super.key, required this.subTodo});
+
+  final SubTodoData subTodo;
+
+  @override
+  State<SubTodoDetailDialog> createState() => _SubTodoDetailDialogState();
+}
+
+class _SubTodoDetailDialogState extends State<SubTodoDetailDialog> {
+  late final TextEditingController _content = TextEditingController(
+    text: widget.subTodo.content,
+  );
+  late DateTime? _reminderAt = widget.subTodo.dueAt;
+  late bool _done = widget.subTodo.done;
+  String? _error;
+
+  Future<void> _pickReminderAt() async {
+    final selected = await _showReminderDateTimePicker(
+      context,
+      _reminderAt ?? DateTime.now(),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _reminderAt = selected);
+  }
+
+  void _submit() {
+    final content = _content.text.trim();
+    if (content.isEmpty) {
+      setState(() => _error = '请输入子待办内容。');
+      return;
+    }
+    Navigator.pop(
+      context,
+      widget.subTodo.copyWith(
+        content: content,
+        done: _done,
+        clearDueAt: _reminderAt == null,
+        dueAt: _reminderAt,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _content.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('子待办详情'),
+    content: SizedBox(
+      width: 480,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            key: const Key('subtodo-detail-content'),
+            controller: _content,
+            autofocus: true,
+            keyboardType: TextInputType.multiline,
+            textInputAction: TextInputAction.newline,
+            minLines: 3,
+            maxLines: 8,
+            decoration: InputDecoration(
+              labelText: '内容 *',
+              alignLabelWithHint: true,
+              errorText: _error,
+            ),
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: const Key('subtodo-detail-reminder-time'),
+            onPressed: _pickReminderAt,
+            icon: Icon(
+              _reminderAt == null
+                  ? Icons.alarm_add_outlined
+                  : Icons.edit_calendar_outlined,
+            ),
+            label: Text(
+              _reminderAt == null
+                  ? '设置提醒时间'
+                  : '提醒 ${formatDateTime(_reminderAt!)}',
+            ),
+          ),
+          if (_reminderAt != null) ...[
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: () => setState(() => _reminderAt = null),
+              icon: const Icon(Icons.alarm_off_outlined, size: 18),
+              label: const Text('清除提醒时间'),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(
+                Icons.schedule_rounded,
+                size: 18,
+                color: CardoryColors.gray500,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  widget.subTodo.createdAt == null
+                      ? '添加时间未记录'
+                      : '添加于 ${formatDateTime(widget.subTodo.createdAt!)}',
+                  style: TextStyle(color: CardoryColors.gray600, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('已完成'),
+            value: _done,
+            onChanged: (value) => setState(() => _done = value),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('取消'),
+      ),
+      FilledButton.icon(
+        key: const Key('subtodo-detail-save'),
+        onPressed: _submit,
+        icon: const Icon(Icons.check_rounded),
+        label: const Text('保存'),
+      ),
+    ],
+  );
+}
+
 /// 子待办管理对话框：新增 / 编辑 / 删除 / 完成子待办，返回修改后的列表。
 class SubTodoManagerDialog extends StatefulWidget {
   const SubTodoManagerDialog({

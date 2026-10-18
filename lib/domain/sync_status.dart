@@ -30,7 +30,7 @@ class SyncConflictItem {
   final String title;
   final SyncConflictSide side;
 
-  /// 冲突明细说明（如「差异字段：标题、截止日期」），可为空。
+  /// 冲突明细说明（如「差异字段：标题、提醒日期」），可为空。
   final String? detail;
 
   Map<String, dynamic> toJson() => {
@@ -47,7 +47,7 @@ String syncFieldLabel(String key) => switch (key) {
   'title' || 'name' => '标题',
   'description' || 'notes' || 'note' => '备注',
   'startAt' || 'startDate' => '开始日期',
-  'dueAt' || 'endDate' => '截止日期',
+  'dueAt' || 'endDate' => '提醒日期',
   'priority' => '优先级',
   'status' => '状态',
   'progress' => '进度',

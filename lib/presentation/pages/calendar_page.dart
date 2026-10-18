@@ -1,6 +1,6 @@
 // 日历页：月视图 / 周视图 / 日视图 + 日期范围筛选 + 系统日历集成。
 //
-// - 月视图：月份网格，每日截止任务按优先级着色标记；
+// - 月视图：月份网格，每日提醒任务按优先级着色标记；
 // - 周视图：7 列 × 24 小时时间网格，任务与系统日程按时间落位；
 // - 日视图：单列 24 小时网格；
 // - 系统日历：移动端读写系统日历（需授权），桌面端以 .ics 文件落地
@@ -149,7 +149,7 @@ class _CalendarPageState extends State<CalendarPage> {
     _loadSystemEvents();
   }
 
-  /// 应用内任务 → 日历条目（截止时刻；0 点视为全天）。
+  /// 应用内任务 → 日历条目（提醒时刻；0 点视为全天）。
   List<CalendarEntry> get _taskEntries =>
       CalendarPage.buildTaskEntries(widget.todos);
 
@@ -319,7 +319,7 @@ class _CalendarPageState extends State<CalendarPage> {
       (cache[localDayKey(day)] ??= []).add(entry);
     }
 
-    // 任务与资产条目都落在单一截止日。
+    // 任务与资产条目都落在单一提醒日。
     for (final entry in CalendarPage.buildTaskEntries(widget.todos)) {
       add(entry.start, entry);
     }
@@ -456,9 +456,9 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
             now: widget.now,
             emptyLabel: switch (_range) {
-              CalendarRange.selectedDay => '该日没有截止任务',
-              CalendarRange.week => '本周没有截止任务',
-              CalendarRange.month => '本月没有截止任务',
+              CalendarRange.selectedDay => '该日没有提醒任务',
+              CalendarRange.week => '本周没有提醒任务',
+              CalendarRange.month => '本月没有提醒任务',
             },
             onToggleTodo: widget.onToggleTodo,
             onOpenTodo: widget.onOpenTodo,

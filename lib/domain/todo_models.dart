@@ -58,7 +58,7 @@ class TodoData {
       return '${formatDate(startDate!)} 至 ${formatDate(endDate!)}';
     }
     if (startDate != null) return '开始 ${formatDate(startDate!)}';
-    return '截止 ${formatDate(endDate!)}';
+    return '提醒 ${formatDate(endDate!)}';
   }
 
   factory TodoData.fromJson(Map<String, dynamic> json) => TodoData(

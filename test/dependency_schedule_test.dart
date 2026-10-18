@@ -93,7 +93,7 @@ void main() {
     expect(updates.single.updated.endDate, DateTime(2026, 9, 6));
   });
 
-  test('只有截止日的后继：推迟开始但截止日不早于新开始', () {
+  test('只有提醒日的后继：推迟开始但提醒日不早于新开始', () {
     final updates = propagateDependencySchedule(
       todos: [
         _todo('a', start: DateTime(2026, 9, 1), end: DateTime(2026, 9, 10)),

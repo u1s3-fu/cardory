@@ -422,6 +422,25 @@ class DriftRowLevelWorkspaceStore
   Future<void> setSubTodoDone(String subTodoId, {required bool done}) =>
       _tasks.setDone(subTodoId, done: done);
 
+  @override
+  Future<void> updateSubTodo(SubTodoData subTodo) async {
+    final row = await _taskRow(subTodo.id);
+    if (row == null) throw StateError('子待办不存在：${subTodo.id}');
+    final done = subTodo.done;
+    await _tasks.update(
+      row.copyWith(
+        title: subTodo.content,
+        dueAt: Value(_millis(subTodo.dueAt)),
+        status: done ? 'done' : 'todo',
+        completedAt: Value(done ? (row.completedAt ?? _now) : null),
+      ),
+      changedFields: const {'title', 'dueAt', 'status', 'completedAt'},
+    );
+  }
+
+  @override
+  Future<void> deleteSubTodo(String subTodoId) => _tasks.softDelete(subTodoId);
+
   Future<void> _createSubTodo(
     String parentTaskId,
     String? projectId,

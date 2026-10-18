@@ -6,7 +6,7 @@ import '../cardory_theme.dart';
 import 'badges.dart';
 import 'section_title.dart';
 
-/// 今日任务面板：逾期（红色标识）与今日截止两组，按优先级排序。
+/// 今日任务面板：逾期（红色标识）与今日提醒两组，按优先级排序。
 class TodayTasksPanel extends StatelessWidget {
   const TodayTasksPanel({
     super.key,
@@ -14,6 +14,7 @@ class TodayTasksPanel extends StatelessWidget {
     required this.now,
     required this.onToggleTodo,
     required this.onOpenTodo,
+    this.dragHandle,
     this.blockedIds = const <String>{},
   });
 
@@ -21,6 +22,9 @@ class TodayTasksPanel extends StatelessWidget {
 
   /// 被未完成前置依赖阻塞的任务 id（今日面板同步呈现甘特依赖语义）。
   final Set<String> blockedIds;
+
+  /// 首页面板拖拽手柄（仅首页渲染时传入）。
+  final Widget? dragHandle;
 
   /// 当前时间（测试可注入固定值）。
   final DateTime now;
@@ -38,10 +42,12 @@ class TodayTasksPanel extends StatelessWidget {
         children: [
           SectionTitle(
             title: '今日任务',
+            trailing: dragHandle,
             subtitle: aggregate.isEmpty
                 ? '今天没有待办，尽情安排其他事情'
-                : '逾期 ${aggregate.overdue.length} 项 · 今日截止 '
-                      '${aggregate.dueToday.length} 项',
+                : '逾期 ${aggregate.overdue.length} 项 · 今日提醒 '
+                      '${aggregate.dueToday.length} 项 · 当日待办 '
+                      '${aggregate.undated.length} 项',
           ),
           const SizedBox(height: 16),
           if (aggregate.isEmpty)
@@ -54,7 +60,7 @@ class TodayTasksPanel extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '暂无逾期与今日截止的任务',
+                  '暂无逾期、今日提醒与当日待办',
                   style: TextStyle(color: CardoryColors.gray600, fontSize: 14),
                 ),
               ],
@@ -78,6 +84,28 @@ class TodayTasksPanel extends StatelessWidget {
                 onToggleTodo: onToggleTodo,
                 onOpenTodo: onOpenTodo,
               ),
+            if (aggregate.undated.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(
+                '当日待办 · 每日显示直到完成',
+                style: TextStyle(
+                  color: CardoryColors.gray600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              for (final todo in aggregate.undated)
+                _TodayTile(
+                  todo: todo,
+                  now: now,
+                  overdue: false,
+                  undated: true,
+                  blocked: blockedIds.contains(todo.id),
+                  onToggleTodo: onToggleTodo,
+                  onOpenTodo: onOpenTodo,
+                ),
+            ],
           ],
         ],
       ),
@@ -92,12 +120,16 @@ class _TodayTile extends StatelessWidget {
     required this.overdue,
     required this.onToggleTodo,
     required this.onOpenTodo,
+    this.undated = false,
     this.blocked = false,
   });
 
   final TodoData todo;
   final DateTime now;
   final bool overdue;
+
+  /// 无提醒日期的当日待办：未完成时每日都显示。
+  final bool undated;
   final Future<TodoData> Function(TodoData todo) onToggleTodo;
   final Future<TodoData?> Function(TodoData todo) onOpenTodo;
 
@@ -106,11 +138,18 @@ class _TodayTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final due = todo.endDate!;
-    final dueLabel = overdue
-        ? '逾期至 ${formatDate(due)}'
-        : '今日 ${due.hour == 0 && due.minute == 0 ? '' : ' ${due.hour.toString().padLeft(2, '0')}:${due.minute.toString().padLeft(2, '0')}'}'
-              .trim();
+    final due = todo.endDate;
+    final String dueLabel;
+    if (overdue) {
+      dueLabel = '逾期至 ${formatDate(due!)}';
+    } else if (undated || due == null) {
+      dueLabel = '当日待办';
+    } else {
+      final time = due.hour == 0 && due.minute == 0
+          ? ''
+          : ' ${due.hour.toString().padLeft(2, '0')}:${due.minute.toString().padLeft(2, '0')}';
+      dueLabel = '今日 $time'.trim();
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(

@@ -347,7 +347,7 @@ class _GanttBar extends StatelessWidget {
                     left: left,
                     top: (height - 10) / 2,
                     child: Tooltip(
-                      message: '$label（仅截止 ${formatDate(start!)}）',
+                      message: '$label（仅提醒 ${formatDate(start!)}）',
                       child: Container(
                         width: 10,
                         height: 10,

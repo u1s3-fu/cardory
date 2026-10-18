@@ -15,6 +15,9 @@ class TodoPanel extends StatelessWidget {
     required this.onToggleSubTodo,
     required this.onOpenTodo,
     required this.onDeleteTodo,
+    required this.onAddSubTodo,
+    required this.onOpenSubTodo,
+    required this.onDeleteSubTodo,
     this.blockedIds = const <String>{},
   });
 
@@ -25,6 +28,16 @@ class TodoPanel extends StatelessWidget {
   onToggleSubTodo;
   final Future<void> Function(TodoData todo) onOpenTodo;
   final Future<bool> Function(TodoData todo) onDeleteTodo;
+
+  /// 快捷添加子待办（待办行内入口与右键菜单共用）。
+  final Future<void> Function(TodoData todo) onAddSubTodo;
+
+  /// 打开子待办详情弹窗。
+  final Future<void> Function(TodoData todo, SubTodoData subTodo) onOpenSubTodo;
+
+  /// 删除子待办。
+  final Future<bool> Function(TodoData todo, SubTodoData subTodo)
+  onDeleteSubTodo;
 
   /// 被未完成前置依赖阻塞的任务 id（甘特依赖的待办语义呈现）。
   final Set<String> blockedIds;
@@ -69,6 +82,9 @@ class TodoPanel extends StatelessWidget {
                   onToggleSubTodo: onToggleSubTodo,
                   onOpenTodo: onOpenTodo,
                   onDeleteTodo: onDeleteTodo,
+                  onAddSubTodo: onAddSubTodo,
+                  onOpenSubTodo: onOpenSubTodo,
+                  onDeleteSubTodo: onDeleteSubTodo,
                   blocked: blockedIds.contains(todo.id),
                 ),
               );
@@ -88,6 +104,9 @@ class TodoTile extends StatelessWidget {
     required this.onToggleSubTodo,
     required this.onOpenTodo,
     required this.onDeleteTodo,
+    required this.onAddSubTodo,
+    required this.onOpenSubTodo,
+    required this.onDeleteSubTodo,
     this.blocked = false,
   });
 
@@ -97,14 +116,89 @@ class TodoTile extends StatelessWidget {
   onToggleSubTodo;
   final Future<void> Function(TodoData todo) onOpenTodo;
   final Future<bool> Function(TodoData todo) onDeleteTodo;
+  final Future<void> Function(TodoData todo) onAddSubTodo;
+  final Future<void> Function(TodoData todo, SubTodoData subTodo) onOpenSubTodo;
+  final Future<bool> Function(TodoData todo, SubTodoData subTodo)
+  onDeleteSubTodo;
 
   /// 前置任务未完成，任务暂不可开始。
   final bool blocked;
 
+  int get _doneCount => todo.subTodos.where((item) => item.done).length;
+
+  /// 待办快捷菜单：桌面端右键 / 移动端长按唤出。
+  Future<void> _showTodoMenu(
+    BuildContext context,
+    Offset globalPosition,
+  ) async {
+    final selection = await showContextMenuAt<String>(context, globalPosition, [
+      PopupMenuItem(
+        value: 'open',
+        child: ListTile(
+          leading: const Icon(Icons.open_in_new_rounded, size: 20),
+          title: const Text('编辑详情'),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+      PopupMenuItem(
+        value: 'toggle',
+        child: ListTile(
+          leading: Icon(
+            todo.done
+                ? Icons.radio_button_unchecked_rounded
+                : Icons.check_circle_outline_rounded,
+            size: 20,
+          ),
+          title: Text(todo.done ? '标记未完成' : '标记完成'),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+      PopupMenuItem(
+        value: 'add-sub',
+        child: const ListTile(
+          leading: Icon(Icons.playlist_add_rounded, size: 20),
+          title: Text('添加子待办'),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+      PopupMenuItem(
+        value: 'delete',
+        child: ListTile(
+          leading: Icon(
+            Icons.delete_outline_rounded,
+            size: 20,
+            color: cardoryEnsureWhiteContrast(CardoryColors.error),
+          ),
+          title: Text(
+            '删除',
+            style: TextStyle(
+              color: cardoryEnsureWhiteContrast(CardoryColors.error),
+            ),
+          ),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+    ]);
+    switch (selection) {
+      case 'open':
+        await onOpenTodo(todo);
+      case 'toggle':
+        await onToggle(todo);
+      case 'add-sub':
+        await onAddSubTodo(todo);
+      case 'delete':
+        await onDeleteTodo(todo);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
-    final doneCount = todo.subTodos.where((item) => item.done).length;
-    return Material(
+  Widget build(BuildContext context) => GestureDetector(
+    // 桌面端右键 / 移动端长按：待办快捷菜单。
+    onSecondaryTapDown: (details) =>
+        _showTodoMenu(context, details.globalPosition),
+    onLongPressStart: (details) =>
+        _showTodoMenu(context, details.globalPosition),
+    child: Material(
       color: todo.done
           ? CardoryColors.success.withValues(alpha: 0.055)
           : CardoryColors.white,
@@ -357,7 +451,7 @@ class TodoTile extends StatelessWidget {
             if (todo.subTodos.isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
-                '子待办 $doneCount/${todo.subTodos.length}',
+                '子待办 $_doneCount/${todo.subTodos.length}',
                 style: TextStyle(
                   color: CardoryColors.gray600,
                   fontSize: 13,
@@ -370,90 +464,220 @@ class TodoTile extends StatelessWidget {
                   todo: todo,
                   subTodo: subTodo,
                   onToggle: onToggleSubTodo,
+                  onOpenDetail: onOpenSubTodo,
+                  onDelete: onDeleteSubTodo,
                 ),
                 if (subTodo != todo.subTodos.last) const SizedBox(height: 4),
               ],
             ],
+            _SubTodoQuickAddRow(onTap: () => onAddSubTodo(todo)),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
-/// 子待办条目：支持勾选与创建/提醒时间展示。
+/// 在指针位置弹出快捷菜单（桌面端右键 / 移动端长按共用）。
+Future<T?> showContextMenuAt<T>(
+  BuildContext context,
+  Offset globalPosition,
+  List<PopupMenuEntry<T>> items,
+) {
+  final overlay = Offset.zero & MediaQuery.sizeOf(context);
+  return showMenu(
+    context: context,
+    position: RelativeRect.fromRect(
+      Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
+      overlay,
+    ),
+    items: items,
+  );
+}
+
+/// 子待办展开区底部的快捷添加入口。
+class _SubTodoQuickAddRow extends StatelessWidget {
+  const _SubTodoQuickAddRow({required this.onTap});
+
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    borderRadius: BorderRadius.circular(10),
+    hoverColor: CardoryColors.primarySoft.withValues(alpha: 0.72),
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.only(left: 32, top: 8, bottom: 2),
+      child: Row(
+        children: [
+          Icon(Icons.add_rounded, size: 16, color: CardoryColors.gray400),
+          const SizedBox(width: 8),
+          Text(
+            '添加子待办',
+            style: TextStyle(
+              color: CardoryColors.gray500,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// 子待办条目：点击内容进入详情，行首圆圈切换完成，右键/长按出菜单。
 class SubTodoTile extends StatelessWidget {
   const SubTodoTile({
     super.key,
     required this.todo,
     required this.subTodo,
     required this.onToggle,
+    required this.onOpenDetail,
+    required this.onDelete,
   });
 
   final TodoData todo;
   final SubTodoData subTodo;
+
+  /// 切换完成 / 未完成。
   final Future<void> Function(TodoData todo, SubTodoData subTodo) onToggle;
 
+  /// 打开子待办详情弹窗。
+  final Future<void> Function(TodoData todo, SubTodoData subTodo) onOpenDetail;
+
+  /// 删除子待办。
+  final Future<bool> Function(TodoData todo, SubTodoData subTodo) onDelete;
+
+  /// 子待办快捷菜单：桌面端右键 / 移动端长按唤出。
+  Future<void> _showSubTodoMenu(
+    BuildContext context,
+    Offset globalPosition,
+  ) async {
+    final selection = await showContextMenuAt<String>(context, globalPosition, [
+      PopupMenuItem(
+        value: 'detail',
+        child: const ListTile(
+          leading: Icon(Icons.visibility_outlined, size: 20),
+          title: Text('查看详情'),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+      PopupMenuItem(
+        value: 'toggle',
+        child: ListTile(
+          leading: Icon(
+            subTodo.done
+                ? Icons.radio_button_unchecked_rounded
+                : Icons.check_circle_outline_rounded,
+            size: 20,
+          ),
+          title: Text(subTodo.done ? '标记未完成' : '标记完成'),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+      PopupMenuItem(
+        value: 'delete',
+        child: ListTile(
+          leading: Icon(
+            Icons.delete_outline_rounded,
+            size: 20,
+            color: cardoryEnsureWhiteContrast(CardoryColors.error),
+          ),
+          title: Text(
+            '删除',
+            style: TextStyle(
+              color: cardoryEnsureWhiteContrast(CardoryColors.error),
+            ),
+          ),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+    ]);
+    switch (selection) {
+      case 'detail':
+        await onOpenDetail(todo, subTodo);
+      case 'toggle':
+        await onToggle(todo, subTodo);
+      case 'delete':
+        await onDelete(todo, subTodo);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(10),
-    hoverColor: CardoryColors.primarySoft.withValues(alpha: 0.72),
-    onTap: () => onToggle(todo, subTodo),
+  Widget build(BuildContext context) => GestureDetector(
+    // 桌面端右键 / 移动端长按：子待办快捷菜单。
+    onSecondaryTapDown: (details) =>
+        _showSubTodoMenu(context, details.globalPosition),
+    onLongPressStart: (details) =>
+        _showSubTodoMenu(context, details.globalPosition),
     child: Padding(
       padding: const EdgeInsets.only(left: 32, top: 5, bottom: 5),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 1),
-            child: Icon(
-              subTodo.done ? Icons.check_circle_rounded : Icons.circle_outlined,
-              size: 16,
-              color: subTodo.done
-                  ? CardoryColors.success
-                  : CardoryColors.gray300,
+          // 行首圆圈：切换完成态。
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => onToggle(todo, subTodo),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Icon(
+                subTodo.done
+                    ? Icons.check_circle_rounded
+                    : Icons.circle_outlined,
+                size: 16,
+                color: subTodo.done
+                    ? CardoryColors.success
+                    : CardoryColors.gray300,
+              ),
             ),
           ),
           const SizedBox(width: 8),
+          // 内容区：点击进入详情。
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  subTodo.content,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: subTodo.done
-                        ? CardoryColors.gray600
-                        : CardoryColors.gray700,
-                    decoration: subTodo.done
-                        ? TextDecoration.lineThrough
-                        : null,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => onOpenDetail(todo, subTodo),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    subTodo.content,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: subTodo.done
+                          ? CardoryColors.gray600
+                          : CardoryColors.gray700,
+                      decoration: subTodo.done
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
                   ),
-                ),
-                if (subTodo.createdAt != null || subTodo.dueAt != null) ...[
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      if (subTodo.createdAt != null)
-                        _SubTodoTimeLabel(
-                          icon: Icons.add_circle_outline_rounded,
-                          label: '添加',
-                          value: subTodo.createdAt!,
-                        ),
-                      if (subTodo.dueAt != null)
-                        _SubTodoTimeLabel(
-                          icon: Icons.alarm_rounded,
-                          label: '提醒',
-                          value: subTodo.dueAt!,
-                          emphasized: true,
-                        ),
-                    ],
-                  ),
+                  // 有提醒时间时列表不再展示「添加时间」，详情弹窗内仍显示。
+                  if (subTodo.createdAt != null || subTodo.dueAt != null) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        if (subTodo.createdAt != null && subTodo.dueAt == null)
+                          _SubTodoTimeLabel(
+                            label: '添加',
+                            value: subTodo.createdAt!,
+                          ),
+                        if (subTodo.dueAt != null)
+                          _SubTodoTimeLabel(
+                            icon: Icons.alarm_rounded,
+                            label: '提醒',
+                            value: subTodo.dueAt!,
+                            emphasized: true,
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -464,13 +688,13 @@ class SubTodoTile extends StatelessWidget {
 
 class _SubTodoTimeLabel extends StatelessWidget {
   const _SubTodoTimeLabel({
-    required this.icon,
     required this.label,
     required this.value,
+    this.icon,
     this.emphasized = false,
   });
 
-  final IconData icon;
+  final IconData? icon;
   final String label;
   final DateTime value;
   final bool emphasized;
@@ -492,8 +716,8 @@ class _SubTodoTimeLabel extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: foreground),
-          const SizedBox(width: 4),
+          if (icon != null) Icon(icon, size: 13, color: foreground),
+          if (icon != null) const SizedBox(width: 4),
           Flexible(
             child: Text(
               '$label ${formatDateTime(value)}',

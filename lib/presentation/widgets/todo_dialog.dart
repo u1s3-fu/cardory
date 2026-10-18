@@ -94,7 +94,7 @@ class _TodoDialogState extends State<TodoDialog> {
           : () => setState(() => _startDate = null),
     );
     final endDateField = DateField(
-      label: '截止日期（可选）',
+      label: '提醒日期（可选）',
       value: _endDate,
       onTap: () => _pickDate(false),
       onClear: _endDate == null ? null : () => setState(() => _endDate = null),
@@ -177,7 +177,7 @@ class _TodoDialogState extends State<TodoDialog> {
                 initialValue: _repeat,
                 decoration: const InputDecoration(
                   labelText: '重复',
-                  helperText: '完成后自动生成下一次任务（按开始/截止日期平移）',
+                  helperText: '完成后自动生成下一次任务（按开始/提醒日期平移）',
                 ),
                 items: const [
                   DropdownMenuItem(value: null, child: Text('不重复')),
@@ -258,7 +258,7 @@ class _TodoDialogState extends State<TodoDialog> {
             if (_startDate != null &&
                 _endDate != null &&
                 _endDate!.isBefore(_startDate!)) {
-              setState(() => _error = '截止日期不能早于开始日期。');
+              setState(() => _error = '提醒日期不能早于开始日期。');
               return;
             }
             Navigator.pop(

@@ -2,7 +2,7 @@
 //
 // 规则：后继任务的最早开始 = max(自身开始, 所有前驱的结束日 + 1 天)；
 // 仅当后继当前开始早于该日才调整（不推迟已排的更晚日期）；后继未排期
-// 时自动设为该日；结束日随开始平移保持时长（原无开始日时保留截止日、
+// 时自动设为该日；结束日随开始平移保持时长（原无开始日时保留提醒日、
 // 不早于新开始；无结束日则设为开始日）。前驱无任何日期时不产生约束。
 // 结果为需要写回的任务变更对，由调用方经行级存储落库（自动进入同步通道）。
 
@@ -95,7 +95,7 @@ List<DependencyScheduleUpdate> propagateDependencySchedule({
       if (successor.endDate == null) {
         shiftedEnd = earliest;
       } else if (currentStart == null) {
-        // 原本只设了截止日：保留截止日（不早于新开始）。
+        // 原本只设了提醒日：保留提醒日（不早于新开始）。
         final existingEnd = localDayKey(successor.endDate!);
         shiftedEnd = existingEnd.isBefore(earliest) ? earliest : existingEnd;
       } else {

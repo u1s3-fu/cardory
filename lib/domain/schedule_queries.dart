@@ -1,6 +1,6 @@
 // 今日任务聚合与日历日期范围工具。
 //
-// “某一天”一律以本地时区的日期分量（年/月/日）判定：任务截止日期可能以
+// “某一天”一律以本地时区的日期分量（年/月/日）判定：任务提醒日期可能以
 // UTC 时刻存储（数据库行）或本地时刻解析（JSON），统一 toLocal 后取日期键。
 
 import 'asset_template.dart';
@@ -12,17 +12,17 @@ DateTime localDayKey(DateTime value) {
   return DateTime(local.year, local.month, local.day);
 }
 
-/// 判断任务 [todo] 是否在 [day]（本地日期键）截止。
+/// 判断任务 [todo] 是否在 [day]（本地日期键）提醒。
 bool isDueOnDay(TodoData todo, DateTime day) =>
     todo.endDate != null && localDayKey(todo.endDate!) == day;
 
-/// 任务是否已逾期：未完成且截止日早于 [now] 所在日。
+/// 任务是否已逾期：未完成且提醒日早于 [now] 所在日。
 bool isOverdue(TodoData todo, DateTime now) =>
     !todo.done &&
     todo.endDate != null &&
     localDayKey(todo.endDate!).isBefore(localDayKey(now));
 
-/// 聚合优先级排序：p0 最前，其次截止时间早者在前，同截止按标题。
+/// 聚合优先级排序：p0 最前，其次提醒时间早者在前，同提醒按标题。
 int compareTodoForSchedule(TodoData a, TodoData b) {
   final byPriority = a.priority.index.compareTo(b.priority.index);
   if (byPriority != 0) return byPriority;
@@ -37,18 +37,32 @@ int compareTodoForSchedule(TodoData a, TodoData b) {
   return a.title.compareTo(b.title);
 }
 
-/// 今日任务聚合结果：逾期清单与今日截止清单（均已按 [compareTodoForSchedule] 排序）。
+/// 今日任务聚合结果：逾期清单、今日提醒清单与当日待办清单
+/// （均已按 [compareTodoForSchedule] 排序）。
 class TodayTaskAggregate {
-  const TodayTaskAggregate({required this.overdue, required this.dueToday});
+  const TodayTaskAggregate({
+    required this.overdue,
+    required this.dueToday,
+    required this.undated,
+  });
 
   final List<TodoData> overdue;
+
+  /// 提醒日期为今天的未完成待办。
   final List<TodoData> dueToday;
 
-  bool get isEmpty => overdue.isEmpty && dueToday.isEmpty;
-  int get totalCount => overdue.length + dueToday.length;
+  /// 无提醒日期的未完成待办：当日待办，未完成时每日都显示。
+  final List<TodoData> undated;
+
+  bool get isEmpty => overdue.isEmpty && dueToday.isEmpty && undated.isEmpty;
+  int get totalCount => overdue.length + dueToday.length + undated.length;
 }
 
-/// 把未完成任务聚合为「逾期」与「今日截止」两组。
+/// 把未完成任务聚合为「逾期」「今日提醒」与「当日待办」三组。
+///
+/// 待办只有提醒日期（endDate）、没有独立截止日：提醒日期早于今天的为
+/// 逾期、等于今天的为今日提醒；没有提醒日期的一律列为当日待办，未完成时
+/// 每日都出现在今日任务里（直到完成为止）。
 TodayTaskAggregate aggregateTodayTasks(
   List<TodoData> todos, {
   required DateTime now,
@@ -56,9 +70,13 @@ TodayTaskAggregate aggregateTodayTasks(
   final today = localDayKey(now);
   final overdue = <TodoData>[];
   final dueToday = <TodoData>[];
+  final undated = <TodoData>[];
   for (final todo in todos) {
     if (todo.done) continue;
-    if (isDueOnDay(todo, today)) {
+    if (todo.endDate == null) {
+      // 无提醒日期：当日待办，未完成时每日都显示。
+      undated.add(todo);
+    } else if (isDueOnDay(todo, today)) {
       dueToday.add(todo);
     } else if (isOverdue(todo, now)) {
       overdue.add(todo);
@@ -66,7 +84,12 @@ TodayTaskAggregate aggregateTodayTasks(
   }
   overdue.sort(compareTodoForSchedule);
   dueToday.sort(compareTodoForSchedule);
-  return TodayTaskAggregate(overdue: overdue, dueToday: dueToday);
+  undated.sort(compareTodoForSchedule);
+  return TodayTaskAggregate(
+    overdue: overdue,
+    dueToday: dueToday,
+    undated: undated,
+  );
 }
 
 /// 日历筛选范围：选中日 / 本周 / 本月。
@@ -95,7 +118,7 @@ enum CalendarRange { selectedDay, week, month }
   }
 }
 
-/// 任务是否截止于 [bounds] 区间内（含首尾日）。
+/// 任务是否提醒于 [bounds] 区间内（含首尾日）。
 bool isDueWithin(TodoData todo, (DateTime start, DateTime end) bounds) {
   final due = todo.endDate;
   if (due == null) return false;
@@ -227,9 +250,9 @@ Map<String, AssetNextDue> assetNextDueDates(
   return next;
 }
 
-/// 任务截止条目：未完成任务的截止日（本地日期键），复用资产到期提醒
+/// 任务提醒条目：未完成任务的提醒日（本地日期键），复用资产到期提醒
 /// 规划管道。AssetDueEntry 在此作通用到期条目使用：assetId=任务 id、
-/// fieldLabel='截止'、fieldKey='task-due'（去重键/通知 id 因此与资产
+/// fieldLabel='提醒'、fieldKey='task-due'（去重键/通知 id 因此与资产
 /// 条目天然隔离）。结果按 date 升序、同日按标题排序。
 List<AssetDueEntry> taskDueEntries(
   List<TodoData> todos, {
@@ -246,9 +269,9 @@ List<AssetDueEntry> taskDueEntries(
         assetId: todo.id,
         assetName: todo.title,
         date: day,
-        fieldLabel: '截止',
+        fieldLabel: '提醒',
         fieldKey: 'task-due',
-        title: '任务截止 · ${todo.title}',
+        title: '任务提醒 · ${todo.title}',
       ),
     );
   }

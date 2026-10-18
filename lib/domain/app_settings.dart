@@ -8,6 +8,34 @@ import 'cardory_enums.dart';
 
 enum SyncProviderType { none, directory, webdav, selfHosted, s3 }
 
+/// 首页可拖拽排序的面板（顺序持久化于本机设置）。
+enum HomePanel {
+  todayTasks,
+  kanban,
+  reminders;
+
+  /// 默认顺序：今日任务 / 项目看板 / 主要提醒。
+  static const List<HomePanel> defaultOrder = [
+    HomePanel.todayTasks,
+    HomePanel.kanban,
+    HomePanel.reminders,
+  ];
+
+  /// 把持久化的字符串列表规范化为完整顺序：过滤未知 id、去重、补齐缺失项。
+  static List<HomePanel> normalize(Iterable<String> stored) {
+    final byName = {for (final panel in HomePanel.values) panel.name: panel};
+    final result = <HomePanel>[];
+    for (final name in stored) {
+      final panel = byName[name];
+      if (panel != null && !result.contains(panel)) result.add(panel);
+    }
+    for (final panel in HomePanel.values) {
+      if (!result.contains(panel)) result.add(panel);
+    }
+    return result;
+  }
+}
+
 class AppSettings {
   const AppSettings({
     this.themeColorValue = 0xFF6B62DF,
@@ -22,6 +50,7 @@ class AppSettings {
     this.taskDueRemindersEnabled = true,
     this.autoProgressFromTasks = false,
     this.kanbanHideEmptyColumns = false,
+    this.homePanelOrder = HomePanel.defaultOrder,
     this.syncProvider = SyncProviderType.none,
     this.syncDirectoryPath = '',
     this.webDavUrl = '',
@@ -55,7 +84,7 @@ class AppSettings {
   /// 到期提醒提前天数窗口（1/3/7/14）。
   final int dueReminderLeadDays;
 
-  /// 任务截止系统通知开关（默认开；关闭后任务截止仅应用内展示）。
+  /// 任务提醒系统通知开关（默认开；关闭后任务提醒仅应用内展示）。
   final bool taskDueRemindersEnabled;
 
   /// 按任务完成率自动记录项目进度（默认关；开启后勾选任务自动追加进度记录）。
@@ -63,6 +92,9 @@ class AppSettings {
 
   /// 看板隐藏空阶段列（默认关；仅影响本机渲染）。
   final bool kanbanHideEmptyColumns;
+
+  /// 首页面板顺序（长按拖拽调整；默认今日任务 / 项目看板 / 主要提醒）。
+  final List<HomePanel> homePanelOrder;
   final SyncProviderType syncProvider;
   final String syncDirectoryPath;
   final String webDavUrl;
@@ -116,6 +148,11 @@ class AppSettings {
     taskDueRemindersEnabled: json['taskDueRemindersEnabled'] as bool? ?? true,
     autoProgressFromTasks: json['autoProgressFromTasks'] as bool? ?? false,
     kanbanHideEmptyColumns: json['kanbanHideEmptyColumns'] as bool? ?? false,
+    homePanelOrder: HomePanel.normalize(
+      ((json['homePanelOrder'] as List?) ?? const [])
+          .whereType<String>()
+          .toList(),
+    ),
     syncProvider:
         SyncProviderType.values
             .where((value) => value.name == json['syncProvider'])
@@ -160,6 +197,7 @@ class AppSettings {
     'taskDueRemindersEnabled': taskDueRemindersEnabled,
     'autoProgressFromTasks': autoProgressFromTasks,
     'kanbanHideEmptyColumns': kanbanHideEmptyColumns,
+    'homePanelOrder': homePanelOrder.map((panel) => panel.name).toList(),
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -198,6 +236,7 @@ class AppSettings {
     'taskDueRemindersEnabled': taskDueRemindersEnabled,
     'autoProgressFromTasks': autoProgressFromTasks,
     'kanbanHideEmptyColumns': kanbanHideEmptyColumns,
+    'homePanelOrder': homePanelOrder.map((panel) => panel.name).toList(),
     'syncProvider': syncProvider.name,
     'syncDirectoryPath': syncDirectoryPath,
     'webDavUrl': webDavUrl,
@@ -230,6 +269,7 @@ class AppSettings {
       taskDueRemindersEnabled: remote.taskDueRemindersEnabled,
       autoProgressFromTasks: remote.autoProgressFromTasks,
       kanbanHideEmptyColumns: remote.kanbanHideEmptyColumns,
+      homePanelOrder: remote.homePanelOrder,
       syncProvider: remote.syncProvider,
       syncDirectoryPath: remote.syncDirectoryPath,
       webDavUrl: remote.webDavUrl,
@@ -265,6 +305,7 @@ class AppSettings {
     bool? taskDueRemindersEnabled,
     bool? autoProgressFromTasks,
     bool? kanbanHideEmptyColumns,
+    List<HomePanel>? homePanelOrder,
     SyncProviderType? syncProvider,
     String? syncDirectoryPath,
     String? webDavUrl,
@@ -299,6 +340,9 @@ class AppSettings {
     taskDueRemindersEnabled:
         taskDueRemindersEnabled ?? this.taskDueRemindersEnabled,
     autoProgressFromTasks: autoProgressFromTasks ?? this.autoProgressFromTasks,
+    kanbanHideEmptyColumns:
+        kanbanHideEmptyColumns ?? this.kanbanHideEmptyColumns,
+    homePanelOrder: homePanelOrder ?? this.homePanelOrder,
     syncProvider: syncProvider ?? this.syncProvider,
     syncDirectoryPath: syncDirectoryPath ?? this.syncDirectoryPath,
     webDavUrl: webDavUrl ?? this.webDavUrl,
@@ -343,6 +387,7 @@ class AppSettings {
       other.s3Region == s3Region &&
       other.s3Bucket == s3Bucket &&
       other.s3Prefix == s3Prefix &&
+      _panelOrdersEqual(other.homePanelOrder, homePanelOrder) &&
       _stringListsEqual(
         other.pendingAttachmentDeletes,
         pendingAttachmentDeletes,
@@ -378,7 +423,18 @@ class AppSettings {
     configSyncHash,
     lastConfigUpdatedAt,
     Object.hashAll(pendingAttachmentDeletes),
+    Object.hashAll(homePanelOrder),
   ]);
+}
+
+bool _panelOrdersEqual(List<HomePanel> first, List<HomePanel> second) {
+  if (identical(first, second) || first.length != second.length) {
+    return identical(first, second);
+  }
+  for (var index = 0; index < first.length; index++) {
+    if (first[index] != second[index]) return false;
+  }
+  return true;
 }
 
 bool _stringListsEqual(List<String> first, List<String> second) {

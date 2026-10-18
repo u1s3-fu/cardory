@@ -1,4 +1,4 @@
-// P1 功能测试：任务截止提醒（复用到期提醒管道）、被阻塞集合、
+// P1 功能测试：任务提醒提醒（复用到期提醒管道）、被阻塞集合、
 // 任务完成率自动进度与全局搜索对话框。
 
 import 'package:cardory/application/workspace_controller.dart';
@@ -50,7 +50,7 @@ void main() {
   });
 
   group('taskDueEntries', () {
-    test('只取未完成且有截止日的任务，bounds 过滤生效', () {
+    test('只取未完成且有提醒日的任务，bounds 过滤生效', () {
       final today = localDayKey(DateTime.now());
       final entries = taskDueEntries(
         [
@@ -62,12 +62,12 @@ void main() {
         bounds: (today, today),
       );
       expect(entries.map((entry) => entry.assetId), ['t1']);
-      expect(entries.single.title, '任务截止 · 待办-t1');
+      expect(entries.single.title, '任务提醒 · 待办-t1');
       expect(entries.single.fieldKey, 'task-due');
     });
   });
 
-  group('任务截止系统通知', () {
+  group('任务提醒系统通知', () {
     late _MemoryRepository repository;
     late support.InMemoryRowLevelWorkspaceStore rowLevelStore;
     late _RecordingReminderService reminders;
@@ -76,7 +76,7 @@ void main() {
     TodoData todo(String id, {bool done = false, DateTime? endDate}) =>
         TodoData(
           id: id,
-          title: '截止任务-$id',
+          title: '提醒任务-$id',
           projectId: 'p1',
           projectTitle: '项目一',
           priority: ProjectPriority.p2,
@@ -130,26 +130,26 @@ void main() {
 
     tearDown(() => controller.dispose());
 
-    test('今日截止立即提醒、未来截止按日预约，标题为「任务截止 · 标题」', () async {
+    test('今日提醒立即提醒、未来提醒按日预约，标题为「任务提醒 · 标题」', () async {
       await controller.initialize(await repository.load());
       expect(
         reminders.notified.map((payload) => payload.title),
-        contains('任务截止 · 截止任务-t1'),
+        contains('任务提醒 · 提醒任务-t1'),
       );
       expect(
         reminders.scheduled.map((reminder) => reminder.payload.title),
-        contains('任务截止 · 截止任务-t2'),
+        contains('任务提醒 · 提醒任务-t2'),
       );
     });
 
-    test('关闭任务截止通知开关后不再提醒任务', () async {
+    test('关闭任务提醒通知开关后不再提醒任务', () async {
       repository.settings = repository.settings.copyWith(
         taskDueRemindersEnabled: false,
       );
       await controller.initialize(await repository.load());
       expect(
         reminders.notified.map((payload) => payload.title),
-        isNot(contains('任务截止 · 截止任务-t1')),
+        isNot(contains('任务提醒 · 提醒任务-t1')),
       );
     });
   });
@@ -441,6 +441,9 @@ void main() {
               onToggleSubTodo: (_, __) async {},
               onOpenTodo: (_) async {},
               onDeleteTodo: (_) async => true,
+              onAddSubTodo: (_) async {},
+              onOpenSubTodo: (_, __) async {},
+              onDeleteSubTodo: (_, __) async => true,
               blocked: true,
             ),
           ),

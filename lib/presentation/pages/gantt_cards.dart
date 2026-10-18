@@ -219,7 +219,7 @@ class DependenciesCard extends StatelessWidget {
   );
 }
 
-/// 项目健康度卡片：按逾期与临近截止任务评估，窄屏降级两行布局。
+/// 项目健康度卡片：按逾期与临近提醒任务评估，窄屏降级两行布局。
 class HealthCard extends StatelessWidget {
   const HealthCard({
     super.key,
@@ -248,7 +248,7 @@ class HealthCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle(title: '项目健康度', subtitle: '按逾期与临近截止任务评估'),
+        const SectionTitle(title: '项目健康度', subtitle: '按逾期与临近提醒任务评估'),
         const SizedBox(height: 12),
         if (projects.isEmpty)
           Text(

@@ -17,6 +17,7 @@ class KanbanBoard extends StatelessWidget {
     required this.onDeleteProject,
     required this.onReorderProject,
     this.hideEmptyColumns = false,
+    this.dragHandle,
   });
 
   final CardoryData data;
@@ -27,6 +28,9 @@ class KanbanBoard extends StatelessWidget {
 
   /// 为 true 时不渲染没有任何项目的阶段列（本机偏好）。
   final bool hideEmptyColumns;
+
+  /// 首页面板拖拽手柄（仅首页渲染时传入）。
+  final Widget? dragHandle;
 
   /// 拖拽落点回调：把 [project] 移动到 [stage] 列的 [insertIndex] 位置
   /// （插入到该列当前第 insertIndex 张卡之前，超过列尾则追加）。
@@ -41,7 +45,11 @@ class KanbanBoard extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const SectionTitle(title: '项目看板', subtitle: '点击项目进入详情页，拖拽卡片调整阶段与顺序'),
+      SectionTitle(
+        title: '项目看板',
+        trailing: dragHandle,
+        subtitle: '点击项目进入详情页，拖拽卡片调整阶段与顺序',
+      ),
       const SizedBox(height: 16),
       LayoutBuilder(
         builder: (context, constraints) {

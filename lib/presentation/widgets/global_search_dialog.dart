@@ -132,7 +132,7 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
           kind: SearchHitKind.milestone,
           label: milestone.title,
           entity: milestone,
-          detail: '截止 ${formatDate(milestone.dueAt)}',
+          detail: '提醒 ${formatDate(milestone.dueAt)}',
         ),
     ];
   }

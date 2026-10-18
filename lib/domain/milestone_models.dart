@@ -17,7 +17,7 @@ class MilestoneData {
   final String title;
   final String note;
 
-  /// 截止日期（本地时间）。
+  /// 提醒日期（本地时间）。
   final DateTime dueAt;
   final bool completed;
   final DateTime? completedAt;

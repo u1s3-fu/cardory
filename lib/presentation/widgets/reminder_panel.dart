@@ -16,7 +16,10 @@ class ReminderPanel extends StatelessWidget {
     required this.onToggleTodo,
     required this.onToggleSubTodo,
     required this.onAddSubTodo,
+    required this.onOpenSubTodo,
+    required this.onDeleteSubTodo,
     required this.onOpenTodo,
+    this.dragHandle,
   });
 
   final List<TodoData> todos;
@@ -25,7 +28,17 @@ class ReminderPanel extends StatelessWidget {
   final Future<TodoData> Function(TodoData todo, SubTodoData subTodo)
   onToggleSubTodo;
   final Future<void> Function(TodoData todo) onAddSubTodo;
+
+  /// 打开子待办详情弹窗。
+  final Future<void> Function(TodoData todo, SubTodoData subTodo) onOpenSubTodo;
+
+  /// 删除子待办。
+  final Future<bool> Function(TodoData todo, SubTodoData subTodo)
+  onDeleteSubTodo;
   final Future<TodoData?> Function(TodoData todo) onOpenTodo;
+
+  /// 首页面板拖拽手柄（仅首页渲染时传入）。
+  final Widget? dragHandle;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +57,7 @@ class ReminderPanel extends StatelessWidget {
         children: [
           SectionTitle(
             title: '主要提醒',
+            trailing: dragHandle,
             subtitle:
                 '${reminderPriorityRangeLabel(priorityThreshold)} · 未完成待办',
           ),
@@ -162,6 +176,8 @@ class ReminderPanel extends StatelessWidget {
                               onToggle: (todo, subTodo) async {
                                 await onToggleSubTodo(todo, subTodo);
                               },
+                              onOpenDetail: onOpenSubTodo,
+                              onDelete: onDeleteSubTodo,
                             ),
                         ],
                       ],

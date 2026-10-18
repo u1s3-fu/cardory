@@ -124,6 +124,31 @@ class InMemoryRowLevelWorkspaceStore implements RowLevelWorkspaceStore {
   }
 
   @override
+  Future<void> updateSubTodo(SubTodoData subTodo) {
+    final todo = _read().todos.firstWhere(
+      (item) => item.subTodos.any((sub) => sub.id == subTodo.id),
+    );
+    final updated = todo.copyWith(
+      subTodos: [
+        for (final sub in todo.subTodos)
+          if (sub.id == subTodo.id) subTodo else sub,
+      ],
+    );
+    return _commit(_mutations.updateTodo(_read(), updated));
+  }
+
+  @override
+  Future<void> deleteSubTodo(String subTodoId) {
+    final todo = _read().todos.firstWhere(
+      (item) => item.subTodos.any((sub) => sub.id == subTodoId),
+    );
+    final updated = todo.copyWith(
+      subTodos: todo.subTodos.where((sub) => sub.id != subTodoId).toList(),
+    );
+    return _commit(_mutations.updateTodo(_read(), updated));
+  }
+
+  @override
   Future<void> addAsset(AssetData asset) =>
       _commit(_read().copyWith(assets: [..._read().assets, asset]));
 

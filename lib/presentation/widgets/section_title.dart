@@ -3,10 +3,18 @@ import 'package:flutter/material.dart';
 import '../cardory_theme.dart';
 
 class SectionTitle extends StatelessWidget {
-  const SectionTitle({super.key, required this.title, required this.subtitle});
+  const SectionTitle({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+  });
 
   final String title;
   final String subtitle;
+
+  /// 标题行尾部组件（如首页面板的拖拽手柄）。
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -38,6 +46,7 @@ class SectionTitle extends StatelessWidget {
               ),
             ),
           ),
+          if (trailing != null) ...[const SizedBox(width: 10), trailing!],
         ],
       ),
       const SizedBox(height: 5),

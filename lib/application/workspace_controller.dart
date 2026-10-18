@@ -496,6 +496,29 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     await _afterWrite();
   }
 
+  /// 更新子待办（内容 / 提醒时间 / 完成状态），返回更新后的待办。
+  Future<TodoData> updateSubTodo(TodoData todo, SubTodoData subTodo) async {
+    final updated = todo.copyWith(
+      subTodos: [
+        for (final item in todo.subTodos)
+          item.id == subTodo.id ? subTodo : item,
+      ],
+    );
+    await _rowLevel.updateSubTodo(subTodo);
+    await _afterWrite();
+    return updated;
+  }
+
+  /// 删除子待办，返回更新后的待办。
+  Future<TodoData> deleteSubTodo(TodoData todo, SubTodoData subTodo) async {
+    final updated = todo.copyWith(
+      subTodos: todo.subTodos.where((item) => item.id != subTodo.id).toList(),
+    );
+    await _rowLevel.deleteSubTodo(subTodo.id);
+    await _afterWrite();
+    return updated;
+  }
+
   // ---- 资产与标签 ----
 
   Future<AssetData> addAsset(AssetData asset) async {
@@ -602,7 +625,7 @@ class WorkspaceController implements WorkspaceObservable, Listenable {
     });
   }
 
-  /// 扫描资产到期与任务截止并驱动系统通知（解锁加载、数据写入、设置变更
+  /// 扫描资产到期与任务提醒并驱动系统通知（解锁加载、数据写入、设置变更
   /// 后调用）。两类条目共用提醒规划管道（见 taskDueEntries），去重键与
   /// 通知 id 按实体 id 天然隔离。
   ///

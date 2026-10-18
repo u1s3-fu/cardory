@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -32,6 +33,7 @@ import '../widgets/asset_detail_dialog.dart';
 import '../widgets/confirm_dialogs.dart';
 import '../widgets/global_search_dialog.dart';
 import '../widgets/hero_header.dart';
+import '../widgets/home_panel_order.dart';
 import '../widgets/kanban_board.dart';
 import '../widgets/overview.dart';
 import '../widgets/project_dialog.dart';
@@ -495,6 +497,14 @@ class _HomePageState extends State<HomePage> {
     context.go('$projectsRoutePath/${project.id}');
   }
 
+  /// 首页面板拖拽排序：落定后持久化到本机设置（控制器通知监听者刷新界面）。
+  Future<void> _reorderHomePanels(List<HomePanel> order) async {
+    if (listEquals(_settings.homePanelOrder, order)) return;
+    await _perform(() => _controller.applySettings(
+          _settings.copyWith(homePanelOrder: order),
+        ));
+  }
+
   /// 看板拖拽排序：把 [project] 移动到 [stage] 列的 [insertIndex] 位置。
   Future<void> _reorderKanban(
     ProjectData project,
@@ -604,6 +614,27 @@ class _HomePageState extends State<HomePage> {
     );
     if (subTodo == null) return;
     await _perform(() => _controller.addSubTodo(todo, subTodo));
+  }
+
+  /// 打开子待办详情：内容 / 提醒时间 / 添加时间 / 完成状态。
+  Future<void> _openSubTodoDetail(TodoData todo, SubTodoData subTodo) async {
+    final updated = await showDialog<SubTodoData>(
+      context: context,
+      builder: (_) => SubTodoDetailDialog(subTodo: subTodo),
+    );
+    if (updated == null) return;
+    await _perform(() => _controller.updateSubTodo(todo, updated));
+  }
+
+  Future<bool> _deleteSubTodo(TodoData todo, SubTodoData subTodo) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: '删除子待办',
+      content: '确定删除“${subTodo.content}”吗？',
+      confirmLabel: '删除',
+    );
+    if (confirmed != true) return false;
+    return _perform(() => _controller.deleteSubTodo(todo, subTodo));
   }
 
   // ---- 资产 ----
@@ -936,22 +967,17 @@ class _HomeSectionContent extends StatelessWidget {
   final _HomePageState state;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      HeroHeader(onAddProject: state._addProject, onAddTodo: state._addTodo),
-      const SizedBox(height: 22),
-      Overview(data: state._data),
-      const SizedBox(height: 22),
-      TodayTasksPanel(
+  Widget build(BuildContext context) {
+    final panels = <HomePanel, Widget>{
+      HomePanel.todayTasks: TodayTasksPanel(
         todos: state._data.todos,
         now: DateTime.now(),
         onToggleTodo: state._toggleTodo,
         onOpenTodo: state._openTodo,
         blockedIds: state._controller.blockedTodoIds,
+        dragHandle: const HomePanelDragHandle(panel: HomePanel.todayTasks),
       ),
-      const SizedBox(height: 22),
-      KanbanBoard(
+      HomePanel.kanban: KanbanBoard(
         data: state._data,
         hideEmptyColumns: state._settings.kanbanHideEmptyColumns,
         onAddProject: state._addProject,
@@ -959,18 +985,36 @@ class _HomeSectionContent extends StatelessWidget {
         onEditProject: state._editProject,
         onDeleteProject: state._deleteProject,
         onReorderProject: state._reorderKanban,
+        dragHandle: const HomePanelDragHandle(panel: HomePanel.kanban),
       ),
-      const SizedBox(height: 22),
-      ReminderPanel(
+      HomePanel.reminders: ReminderPanel(
         todos: state._data.todos,
         priorityThreshold: state._settings.homeReminderPriorityThreshold,
         onToggleTodo: state._toggleTodo,
         onToggleSubTodo: state._toggleSubTodo,
         onAddSubTodo: state._quickAddSubTodo,
+        onOpenSubTodo: state._openSubTodoDetail,
+        onDeleteSubTodo: state._deleteSubTodo,
         onOpenTodo: state._openTodo,
+        dragHandle: const HomePanelDragHandle(panel: HomePanel.reminders),
       ),
-    ],
-  );
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        HeroHeader(onAddProject: state._addProject, onAddTodo: state._addTodo),
+        const SizedBox(height: 22),
+        Overview(data: state._data),
+        const SizedBox(height: 22),
+        // 面板顺序来自本机设置（长按卡片拖拽调整，落定即持久化）。
+        HomePanelOrderHost(
+          order: state._settings.homePanelOrder,
+          panels: panels,
+          onReorder: state._reorderHomePanels,
+        ),
+      ],
+    );
+  }
 }
 
 class _TodosSectionContent extends StatelessWidget {
@@ -986,6 +1030,9 @@ class _TodosSectionContent extends StatelessWidget {
     onToggleSubTodo: state._toggleSubTodo,
     onOpenTodo: state._openTodo,
     onDeleteTodo: state._deleteTodo,
+    onAddSubTodo: state._quickAddSubTodo,
+    onOpenSubTodo: state._openSubTodoDetail,
+    onDeleteSubTodo: state._deleteSubTodo,
     blockedIds: state._controller.blockedTodoIds,
   );
 }

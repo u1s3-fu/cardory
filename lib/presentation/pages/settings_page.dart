@@ -75,8 +75,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
   // 数据安全分区状态。
   bool _exportingBackup = false;
 
-  /// 到期/截止系统通知的副标题（全平台均已接入系统通知）。
-  static const String _dueReminderSubtitle = '到期日/截止日提醒进入系统通知（应用内日历与今日面板始终展示）';
+  /// 到期/提醒系统通知的副标题（全平台均已接入系统通知）。
+  static const String _dueReminderSubtitle = '资产到期/任务提醒进入系统通知（应用内日历与今日面板始终展示）';
 
   // 本地数据分区状态。
   late final TextEditingController _localDataPath = TextEditingController(
@@ -235,7 +235,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         SwitchListTile.adaptive(
           key: const Key('task-due-reminders-enabled'),
           contentPadding: EdgeInsets.zero,
-          title: const Text('任务截止系统通知'),
+          title: const Text('任务提醒系统通知'),
           subtitle: Text(_dueReminderSubtitle),
           value: _taskDueRemindersEnabled,
           onChanged: (value) =>

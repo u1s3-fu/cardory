@@ -1,4 +1,4 @@
-// 日历选中日条目清单 + 范围筛选 + 截止任务清单（月视图底部区域）。
+// 日历选中日条目清单 + 范围筛选 + 提醒任务清单（月视图底部区域）。
 
 import 'package:flutter/material.dart';
 
@@ -110,7 +110,7 @@ class DayEntryList extends StatelessWidget {
   );
 }
 
-/// 截止任务范围筛选（当天/本周/本月）。
+/// 提醒任务范围筛选（当天/本周/本月）。
 class RangeSelector extends StatelessWidget {
   const RangeSelector({
     super.key,
@@ -142,7 +142,7 @@ class RangeSelector extends StatelessWidget {
   }
 }
 
-/// 截止任务清单（月视图底部）。
+/// 提醒任务清单（月视图底部）。
 class TaskList extends StatelessWidget {
   const TaskList({
     super.key,
@@ -169,7 +169,7 @@ class TaskList extends StatelessWidget {
         Row(
           children: [
             Text(
-              '截止任务',
+              '提醒任务',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,

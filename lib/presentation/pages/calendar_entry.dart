@@ -1,11 +1,11 @@
-// 日历条目公共类型：视图模式与统一条目模型（任务截止 / 资产到期 / 系统日程）。
+// 日历条目公共类型：视图模式与统一条目模型（任务提醒 / 资产到期 / 系统日程）。
 
 import '../../domain/cardory_models.dart';
 import '../../domain/schedule_queries.dart';
 
 enum CalendarViewMode { month, week, day }
 
-/// 统一的日历条目：任务截止（endDate）或系统日程。
+/// 统一的日历条目：任务提醒（endDate）或系统日程。
 class CalendarEntry {
   const CalendarEntry({
     required this.title,
