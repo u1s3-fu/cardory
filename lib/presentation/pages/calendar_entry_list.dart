@@ -101,10 +101,7 @@ class DayEntryList extends StatelessWidget {
                   entry.isAllDay
                       ? '全天'
                       : '${entry.start.hour.toString().padLeft(2, '0')}:${entry.start.minute.toString().padLeft(2, '0')}',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: CardoryColors.gray500,
-                  ),
+                  style: TextStyle(fontSize: 12, color: CardoryColors.gray500),
                 ),
               ),
             ),
@@ -239,7 +236,7 @@ class TaskList extends StatelessWidget {
                       Text(
                         formatDate(todo.endDate!),
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 12,
                           color: isOverdue(todo, now)
                               ? CardoryColors.error
                               : CardoryColors.gray500,

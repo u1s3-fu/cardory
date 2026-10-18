@@ -321,7 +321,7 @@ class _AssetDialogState extends State<AssetDialog> {
               padding: EdgeInsets.only(top: 6),
               child: Text(
                 '账号与密码仅保存在本机保险库中，不会随云同步上传到其他设备。',
-                style: TextStyle(fontSize: 11.5, height: 1.45),
+                style: TextStyle(fontSize: 12, height: 1.45),
               ),
             ),
             const SizedBox(height: 12),

@@ -165,8 +165,8 @@ class TodoTile extends StatelessWidget {
                                 style: TextStyle(
                                   color: todo.done
                                       ? CardoryColors.gray400
-                                      : CardoryColors.gray800,
-                                  fontSize: 14,
+                                      : CardoryColors.gray900,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   decoration: todo.done
                                       ? TextDecoration.lineThrough
@@ -206,7 +206,7 @@ class TodoTile extends StatelessWidget {
                                           color: cardoryEnsureWhiteContrast(
                                             CardoryColors.warning,
                                           ),
-                                          fontSize: 11,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w700,
                                           height: 1.3,
                                         ),
@@ -235,7 +235,7 @@ class TodoTile extends StatelessWidget {
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.primary,
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                     height: 1.3,
                                   ),
@@ -261,7 +261,7 @@ class TodoTile extends StatelessWidget {
                                     color: cardoryEnsureWhiteContrast(
                                       CardoryColors.success,
                                     ),
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                     height: 1.3,
                                   ),
@@ -277,8 +277,8 @@ class TodoTile extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: CardoryColors.gray500,
-                              fontSize: 12.5,
+                              color: CardoryColors.gray600,
+                              fontSize: 13,
                               height: 1.5,
                             ),
                           ),
@@ -289,8 +289,8 @@ class TodoTile extends StatelessWidget {
                               child: Text(
                                 '${todo.projectTitle} · ${todo.dateRangeText}',
                                 style: TextStyle(
-                                  color: CardoryColors.gray500,
-                                  fontSize: 12,
+                                  color: CardoryColors.gray600,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
@@ -329,7 +329,7 @@ class TodoTile extends StatelessWidget {
                                     tag,
                                     style: TextStyle(
                                       color: CardoryColors.gray600,
-                                      fontSize: 11,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ),
@@ -359,8 +359,8 @@ class TodoTile extends StatelessWidget {
               Text(
                 '子待办 $doneCount/${todo.subTodos.length}',
                 style: TextStyle(
-                  color: CardoryColors.gray500,
-                  fontSize: 11.5,
+                  color: CardoryColors.gray600,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -422,10 +422,10 @@ class SubTodoTile extends StatelessWidget {
                 Text(
                   subTodo.content,
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 13,
                     color: subTodo.done
                         ? CardoryColors.gray400
-                        : CardoryColors.gray600,
+                        : CardoryColors.gray700,
                     decoration: subTodo.done
                         ? TextDecoration.lineThrough
                         : null,
@@ -500,7 +500,7 @@ class _SubTodoTimeLabel extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: foreground,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
               ),
             ),

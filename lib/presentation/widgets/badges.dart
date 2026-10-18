@@ -23,7 +23,7 @@ class _BadgeContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     final ink = cardoryEnsureWhiteContrast(color);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
         color: onDark
             ? ink.withValues(alpha: 0.95)
@@ -34,7 +34,8 @@ class _BadgeContainer extends StatelessWidget {
         label,
         style: TextStyle(
           color: onDark ? CardoryColors.white : ink,
-          fontSize: 11.5,
+          // 11.5px 的中文标签偏挤，提到 12 是中文可读的下限。
+          fontSize: 12,
           height: 1.3,
           fontWeight: FontWeight.w700,
         ),
@@ -92,7 +93,7 @@ class CountPill extends StatelessWidget {
         '$count',
         style: TextStyle(
           color: CardoryColors.gray600,
-          fontSize: 11.5,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -131,7 +132,7 @@ class EmptyCard extends StatelessWidget {
         Text(
           text,
           textAlign: TextAlign.center,
-          style: TextStyle(color: CardoryColors.gray500, fontSize: 12.5),
+          style: TextStyle(color: CardoryColors.gray600, fontSize: 13),
         ),
         if (onAction != null && actionLabel != null) ...[
           const SizedBox(height: 8),

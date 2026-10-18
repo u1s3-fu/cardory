@@ -89,7 +89,7 @@ class TimeGridView extends StatelessWidget {
                               child: Text(
                                 '$hour:00',
                                 style: TextStyle(
-                                  fontSize: 10.5,
+                                  fontSize: 12,
                                   color: CardoryColors.gray400,
                                 ),
                               ),
@@ -355,7 +355,7 @@ class _EntryChip extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: 12,
                     decoration: entry.isDone
                         ? TextDecoration.lineThrough
                         : null,

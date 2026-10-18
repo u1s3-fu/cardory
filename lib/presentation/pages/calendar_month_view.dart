@@ -150,7 +150,7 @@ class _LegendDot extends StatelessWidget {
         decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
       const SizedBox(width: 4),
-      Text(label, style: TextStyle(fontSize: 11, color: CardoryColors.gray500)),
+      Text(label, style: TextStyle(fontSize: 12, color: CardoryColors.gray500)),
     ],
   );
 }
@@ -171,7 +171,7 @@ class _LegendAsset extends StatelessWidget {
         color: CardoryColors.gray500,
       ),
       const SizedBox(width: 4),
-      Text(label, style: TextStyle(fontSize: 11, color: CardoryColors.gray500)),
+      Text(label, style: TextStyle(fontSize: 12, color: CardoryColors.gray500)),
     ],
   );
 }

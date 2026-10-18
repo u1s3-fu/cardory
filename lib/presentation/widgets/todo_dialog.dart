@@ -99,7 +99,8 @@ class _TodoDialogState extends State<TodoDialog> {
       onTap: () => _pickDate(false),
       onClear: _endDate == null ? null : () => setState(() => _endDate = null),
     );
-    final useVerticalDateLayout = MediaQuery.sizeOf(context).width < 600;
+    final useVerticalDateLayout =
+        MediaQuery.sizeOf(context).width < CardoryBreakpoints.tight;
     return AlertDialog(
       title: Text(widget.todo == null ? '新建待办' : '待办详情 / 编辑'),
       content: ConstrainedBox(

@@ -331,7 +331,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                               child: Text(
                                 '检测到旧版本数据文件（.cardory）。本版本使用新的加密数据库格式，'
                                 '不会读取或覆盖旧文件，也不提供自动迁移；确认无用后请自行删除。',
-                                style: TextStyle(fontSize: 12.5, height: 1.45),
+                                style: TextStyle(fontSize: 13, height: 1.45),
                               ),
                             ),
                           ],
@@ -378,7 +378,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                               child: Text(
                                 '密码是解锁数据的唯一凭据：没有恢复码、无法重置。'
                                 '忘记密码将永久丢失全部数据，任何人都无法找回。',
-                                style: TextStyle(fontSize: 12.5, height: 1.45),
+                                style: TextStyle(fontSize: 13, height: 1.45),
                               ),
                             ),
                           ],

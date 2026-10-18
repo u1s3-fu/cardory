@@ -339,7 +339,7 @@ class _SubTodoManagerDialogState extends State<SubTodoManagerDialog> {
                                               '未设置',
                                               style: TextStyle(
                                                 color: CardoryColors.gray500,
-                                                fontSize: 11.5,
+                                                fontSize: 12,
                                               ),
                                             )
                                           else
@@ -358,7 +358,7 @@ class _SubTodoManagerDialogState extends State<SubTodoManagerDialog> {
                                                     color: Theme.of(
                                                       context,
                                                     ).colorScheme.primary,
-                                                    fontSize: 11.5,
+                                                    fontSize: 12,
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                 ),

@@ -207,7 +207,7 @@ class _TimelineHeader extends StatelessWidget {
                     child: Text(
                       label,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: CardoryColors.gray500,
                       ),
@@ -296,9 +296,7 @@ class _GanttBar extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: (labelStyle ?? const TextStyle()).copyWith(
-                  fontSize: 12.5,
-                ),
+                style: (labelStyle ?? const TextStyle()).copyWith(fontSize: 13),
               ),
             ),
           ),
@@ -369,7 +367,7 @@ class _GanttBar extends StatelessWidget {
                       child: Text(
                         '◆',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 12,
                           color: marker.color,
                           height: 1,
                         ),

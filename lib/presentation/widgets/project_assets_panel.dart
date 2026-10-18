@@ -364,7 +364,7 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
                         '标签：${tagNames.join('、')}',
                         style: TextStyle(
                           color: CardoryColors.gray600,
-                          fontSize: 11,
+                          fontSize: 12,
                         ),
                       ),
                     ],

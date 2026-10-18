@@ -57,11 +57,11 @@ class KanbanBoard extends StatelessWidget {
               if (!hideEmptyColumns || projectsByStage[stage]!.isNotEmpty)
                 stage,
           ];
-          var columnCount = constraints.maxWidth >= 960
-              ? 4
-              : constraints.maxWidth >= 560
-              ? 2
-              : 1;
+          var columnCount = cardoryColumns(
+            constraints.maxWidth,
+            minColumnWidth: 240,
+            max: 4,
+          );
           // 隐藏空列后可见列数可能少于宽度档位，避免列被压得过窄。
           if (visibleStages.length < columnCount) {
             columnCount = visibleStages.length;
@@ -126,12 +126,7 @@ class KanbanColumn extends StatelessWidget {
     width: width,
     child: Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        // 扁平化减重：中性白底，去除阶段彩色底、彩色边框与阴影。
-        color: CardoryColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CardoryColors.gray100),
-      ),
+      decoration: cardoryRecessed(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -157,7 +152,7 @@ class KanbanColumn extends StatelessWidget {
                     stage.label,
                     style: TextStyle(
                       color: CardoryColors.gray800,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -320,8 +315,8 @@ class _ProjectCardState extends State<ProjectCard> {
                           project.title,
                           style: TextStyle(
                             color: CardoryColors.gray900,
-                            fontSize: 14.5,
-                            letterSpacing: -0.1,
+                            fontSize: 15,
+                            letterSpacing: -0.2,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -363,8 +358,8 @@ class _ProjectCardState extends State<ProjectCard> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: CardoryColors.gray500,
-                    fontSize: 12.5,
+                    color: CardoryColors.gray600,
+                    fontSize: 13,
                     height: 1.5,
                   ),
                 ),

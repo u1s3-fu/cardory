@@ -765,8 +765,8 @@ class _HomePageState extends State<HomePage> {
       );
     }
     final width = MediaQuery.sizeOf(context).width;
-    final compact = width < 720;
-    final medium = width >= 720 && width < 1100;
+    final compact = CardoryBreakpoints.isCompact(width);
+    final medium = !compact && width < CardoryBreakpoints.medium;
     final section = _currentSection;
     final expandedSidebar = !medium && _sidebarExpanded;
     final currentPath = GoRouterState.of(context).uri.path;
@@ -910,7 +910,7 @@ class _SectionScrollArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final compact = width < 720;
+    final compact = CardoryBreakpoints.isCompact(width);
     return SingleChildScrollView(
       key: const Key('main-scroll-view'),
       padding: EdgeInsets.fromLTRB(

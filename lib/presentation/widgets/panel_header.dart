@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../cardory_breakpoints.dart';
 import 'section_title.dart';
 
 /// 面板头部：宽屏单行（标题 + 次要操作 + 主操作），
@@ -35,7 +36,7 @@ class PanelHeader extends StatelessWidget {
           primaryAction,
         ],
       );
-      if (constraints.maxWidth < 560) {
+      if (constraints.maxWidth < CardoryBreakpoints.tight) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -55,7 +55,7 @@ class TodayTasksPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   '暂无逾期与今日截止的任务',
-                  style: TextStyle(color: CardoryColors.gray500, fontSize: 13),
+                  style: TextStyle(color: CardoryColors.gray600, fontSize: 14),
                 ),
               ],
             )
@@ -137,7 +137,7 @@ class _TodayTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 13.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: todo.done
                             ? CardoryColors.gray400
@@ -182,13 +182,13 @@ class _TodayTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 11.5,
+                              fontSize: 13,
                               color: overdue
                                   ? cardoryEnsureWhiteContrast(
                                       CardoryColors.error,
                                       minRatio: 3,
                                     )
-                                  : CardoryColors.gray500,
+                                  : CardoryColors.gray600,
                               fontWeight: overdue
                                   ? FontWeight.w700
                                   : FontWeight.w500,
@@ -209,8 +209,8 @@ class _TodayTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 11.5,
-                        color: CardoryColors.gray400,
+                        fontSize: 13,
+                        color: CardoryColors.gray500,
                       ),
                     ),
                   ),

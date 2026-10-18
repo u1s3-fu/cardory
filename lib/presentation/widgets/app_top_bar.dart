@@ -32,7 +32,8 @@ class AppTopBar extends StatelessWidget {
         right: compact ? 16 : 24,
       ),
       decoration: BoxDecoration(
-        color: CardoryColors.white.withValues(alpha: 0.85),
+        // 与侧栏同理：顶栏不是浮层，半透明白叠在灰底上只会发脏。
+        color: CardoryColors.white,
         border: Border(bottom: BorderSide(color: CardoryColors.gray200)),
         // 扁平化：不使用阴影。
       ),
@@ -60,7 +61,7 @@ class AppTopBar extends StatelessWidget {
               title,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: 14,
                 color: compact ? CardoryColors.gray900 : CardoryColors.gray500,
                 fontWeight: FontWeight.w600,
               ),

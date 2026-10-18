@@ -298,7 +298,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         const Text(
           '备份为单个加密文件（.cardorybackup）：整库快照由保险库密码加密，'
           '附件以各自的密文原样打包。请妥善保管密码——忘记备份密码将无法恢复。',
-          style: TextStyle(fontSize: 12.5, height: 1.45),
+          style: TextStyle(fontSize: 13, height: 1.45),
         ),
         const SizedBox(height: 12),
         if (widget.onExportBackup != null)

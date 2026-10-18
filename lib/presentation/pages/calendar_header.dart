@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../cardory_breakpoints.dart';
 import 'calendar_entry.dart';
 
 /// 日历页头。窄屏（< 560）降级为两行布局（第一行标题 + 翻页箭头、
@@ -67,7 +68,7 @@ class CalendarHeader extends StatelessWidget {
     // 第一行「标题 + 翻页箭头」，第二行「视图切换 + 回到今天」。
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 560) {
+        if (constraints.maxWidth < CardoryBreakpoints.tight) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

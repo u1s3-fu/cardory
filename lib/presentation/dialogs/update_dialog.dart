@@ -175,7 +175,7 @@ class _VersionChip extends StatelessWidget {
     child: Text(
       '$label $value',
       style: TextStyle(
-        fontSize: 12.5,
+        fontSize: 13,
         fontWeight: FontWeight.w600,
         color: highlight ? CardoryColors.primary : CardoryColors.gray700,
       ),

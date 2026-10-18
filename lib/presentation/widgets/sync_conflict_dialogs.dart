@@ -95,7 +95,7 @@ Future<SyncConflictChoice?> showSyncConflictDialog(
             const SizedBox(height: 10),
             const Text(
               '各选项的影响',
-              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             _ConsequenceRow(text: '保留本地：把本地全部数据推送到云端并覆盖云端记录。'),
@@ -217,7 +217,7 @@ Future<SyncConflictChoice?> showUndecryptableRemoteDialog(
             const SizedBox(height: 10),
             const Text(
               '各选项的影响',
-              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             const _ConsequenceRow(
@@ -383,7 +383,7 @@ class _ConsequenceRow extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(fontSize: 12.5, color: color, height: 1.4),
+              style: TextStyle(fontSize: 13, color: color, height: 1.4),
             ),
           ),
         ],

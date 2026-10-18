@@ -90,7 +90,7 @@ class MilestonesCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 13.5,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: milestone.completed
                                     ? CardoryColors.gray400
@@ -103,7 +103,7 @@ class MilestonesCard extends StatelessWidget {
                             Text(
                               '${_projectTitle(milestone.projectId)} · ${formatDate(milestone.dueAt)}',
                               style: TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 12,
                                 color: CardoryColors.gray500,
                               ),
                             ),
@@ -119,7 +119,7 @@ class MilestonesCard extends StatelessWidget {
                       child: Text(
                         '已逾期',
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: CardoryColors.error,
                         ),
@@ -234,9 +234,11 @@ class HealthCard extends StatelessWidget {
   final List<MilestoneData> milestones;
   final DateTime now;
 
-  static final _healthLabels = {
-    _Health.good: ('良好', Color(0xFF44B88A)),
-    _Health.atRisk: ('风险', Color(0xFFF2A354)),
+  // 用实例 getter 而非 static final：static final 惰性初始化一次后永久缓存，
+  // 换主题或切暗色时语义色不会跟着更新。色值统一取 CardoryColors 派生。
+  Map<_Health, (String, Color)> get _healthLabels => {
+    _Health.good: ('良好', CardoryColors.success),
+    _Health.atRisk: ('风险', CardoryColors.warning),
     _Health.lagging: ('滞后', CardoryColors.error),
     _Health.none: ('无任务', CardoryColors.gray400),
   };
@@ -258,7 +260,7 @@ class HealthCard extends StatelessWidget {
           // 第一行项目名 + 健康度徽标，第二行进度 / 待办 / 里程碑明细。
           LayoutBuilder(
             builder: (context, constraints) {
-              final compact = constraints.maxWidth < 640;
+              final compact = constraints.maxWidth < CardoryBreakpoints.tight;
               return Column(
                 children: [
                   for (final project in projects)
@@ -385,7 +387,7 @@ class _WideHealthRow extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 13.5,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             color: CardoryColors.gray900,
           ),
@@ -395,21 +397,21 @@ class _WideHealthRow extends StatelessWidget {
         flex: 2,
         child: Text(
           progressText,
-          style: TextStyle(fontSize: 12.5, color: CardoryColors.gray600),
+          style: TextStyle(fontSize: 13, color: CardoryColors.gray600),
         ),
       ),
       Expanded(
         flex: 2,
         child: Text(
           taskText,
-          style: TextStyle(fontSize: 12.5, color: CardoryColors.gray600),
+          style: TextStyle(fontSize: 13, color: CardoryColors.gray600),
         ),
       ),
       Expanded(
         flex: 2,
         child: Text(
           milestoneText,
-          style: TextStyle(fontSize: 12.5, color: CardoryColors.gray600),
+          style: TextStyle(fontSize: 13, color: CardoryColors.gray600),
         ),
       ),
       Expanded(flex: 2, child: badge),
@@ -445,7 +447,7 @@ class _NarrowHealthRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: CardoryColors.gray900,
               ),

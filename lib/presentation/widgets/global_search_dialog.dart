@@ -230,7 +230,7 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
                         hit.kindLabel,
                         style: TextStyle(
                           color: CardoryColors.gray500,
-                          fontSize: 11.5,
+                          fontSize: 12,
                         ),
                       ),
                       onTap: () => _open(hit),

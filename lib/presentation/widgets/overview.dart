@@ -42,11 +42,12 @@ class Overview extends StatelessWidget {
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1000
-            ? 4
-            : constraints.maxWidth >= 520
-            ? 2
-            : 1;
+        // 按最小列宽连续推导，避免 519px 一列 / 520px 两列的跳变。
+        final columns = cardoryColumns(
+          constraints.maxWidth,
+          minColumnWidth: 250,
+          max: 4,
+        );
         const spacing = 12.0;
         final width =
             (constraints.maxWidth - spacing * (columns - 1)) / columns;
@@ -82,29 +83,42 @@ class OverviewCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 扁平化减重：统一灰色小图标，去除彩色图标块。
+        // 极浅重点色底 + 主题色图标：既保留扁平克制的底色，
+        // 又让四张统计卡有一个可扫读的焦点（此前图标全灰，整排糊成一片）。
         Row(
           children: [
-            Icon(icon, size: 16, color: CardoryColors.gray400),
-            const SizedBox(width: 8),
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: CardoryColors.primarySoft,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(
+                icon,
+                size: 16,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
             Text(
               label,
               style: TextStyle(
-                color: CardoryColors.gray500,
-                fontSize: 12.5,
+                color: CardoryColors.gray600,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         Text(
           value,
           style: TextStyle(
             color: CardoryColors.gray900,
-            fontSize: 28,
+            fontSize: 32,
             height: 1,
-            letterSpacing: -0.8,
+            letterSpacing: -1.2,
             fontWeight: FontWeight.w700,
           ),
         ),

@@ -37,7 +37,8 @@ class Sidebar extends StatelessWidget {
     height: double.infinity,
     padding: EdgeInsets.fromLTRB(10, expanded ? 12 : 6, 10, 12),
     decoration: BoxDecoration(
-      color: CardoryColors.white.withValues(alpha: 0.72),
+      // 半透明白叠在灰底上会让侧栏发脏；此处不是浮层，直接用实色。
+      color: CardoryColors.white,
       border: Border(right: BorderSide(color: CardoryColors.gray200)),
     ),
     child: Column(
@@ -167,14 +168,17 @@ class _SidebarItemState extends State<SidebarItem>
     message: widget.expanded ? '' : widget.label,
     child: InkWell(
       borderRadius: BorderRadius.circular(12),
-      hoverColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      splashColor: Colors.transparent,
+      // 此前三个反馈通道全部设为 transparent，8 个主导航项在鼠标
+      // 悬停/按下时毫无反应，用户无法确认「这项能不能点」。
+      hoverColor: CardoryColors.gray100,
+      highlightColor: CardoryColors.gray200.withValues(alpha: 0.6),
+      splashColor: CardoryColors.primarySoft,
       onTap: widget.onTap,
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          // 水平内边距 12 使折叠态触控宽度达到 44（侧栏 64 - 左右各 10）。
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             color: _background.value,
             borderRadius: BorderRadius.circular(12),
@@ -205,7 +209,7 @@ class _SidebarItemState extends State<SidebarItem>
                       softWrap: false,
                       overflow: TextOverflow.clip,
                       style: TextStyle(
-                        fontSize: 13.5,
+                        fontSize: 14,
                         color: widget.selected
                             ? CardoryColors.gray900
                             : CardoryColors.gray600,

@@ -127,7 +127,7 @@ class _RecycleBinDialogState extends State<RecycleBinDialog> {
             Text(
               '已删除的条目保留 $_retentionDays 天，之后自动永久清除。'
               '附件文件在删除时已一并移除，不在恢复范围内。',
-              style: TextStyle(color: CardoryColors.gray500, fontSize: 12.5),
+              style: TextStyle(color: CardoryColors.gray500, fontSize: 13),
             ),
             const SizedBox(height: 12),
             if (_error != null)

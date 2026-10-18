@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'cardory_motion.dart';
 import 'cardory_palette.dart';
 
+export 'cardory_breakpoints.dart';
 export 'cardory_motion.dart';
 export 'cardory_palette.dart';
 
@@ -18,6 +19,25 @@ export 'cardory_palette.dart';
 /// 所有可点击控件统一使用的鼠标光标（桌面端 hover 反馈）。
 const WidgetStateProperty<MouseCursor> _cardoryClickCursor =
     WidgetStatePropertyAll(SystemMouseCursors.click);
+
+/// 圆角阶梯。
+///
+/// 此前全库散落 4 / 5 / 6 / 8 / 10 / 12 / 14 / 16 / 999 共 9 种圆角，
+/// 同层级元素圆角不一致会让界面显得拼凑。收敛为四级：
+/// 内嵌微件 sm → 控件 md → 卡片 lg → 面板 xl。
+abstract final class CardoryRadius {
+  /// 标签、色点、进度条等内嵌微件。
+  static const double sm = 8;
+
+  /// 按钮、输入框等控件。
+  static const double md = 12;
+
+  /// 标准卡片。
+  static const double lg = 14;
+
+  /// 大面板、看板列、对话框。
+  static const double xl = 16;
+}
 
 /// 构建 Cardory 全局主题。
 ///
@@ -64,55 +84,57 @@ ThemeData buildCardoryTheme(
   final textThemeBase = brightness == Brightness.light
       ? Typography.material2021().black
       : Typography.material2021().white;
+  // 字阶：相邻级别至少差 2px，避免 11/12/12.5/13/13.5 挤在一起无法区分。
+  // 正文 14 / 次要 14 / 辅助 13 / 微标签 12 —— 四级明度与字号同步拉开。
   final textTheme = textThemeBase
       .apply(
-        bodyColor: CardoryColors.gray700,
+        bodyColor: CardoryColors.gray800,
         displayColor: CardoryColors.gray900,
         fontFamily: null,
       )
       .copyWith(
         headlineSmall: TextStyle(
-          fontSize: 24,
+          fontSize: 26,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.6,
+          color: CardoryColors.gray900,
+        ),
+        titleLarge: TextStyle(
+          fontSize: 20,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.4,
           color: CardoryColors.gray900,
         ),
-        titleLarge: TextStyle(
-          fontSize: 18,
+        titleMedium: TextStyle(
+          fontSize: 16,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.2,
           color: CardoryColors.gray900,
         ),
-        titleMedium: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.1,
-          color: CardoryColors.gray900,
-        ),
         titleSmall: TextStyle(
-          fontSize: 13.5,
+          fontSize: 14,
           fontWeight: FontWeight.w600,
           color: CardoryColors.gray900,
         ),
         bodyLarge: TextStyle(
-          fontSize: 14.5,
+          fontSize: 15,
           height: 1.55,
-          color: CardoryColors.gray700,
+          color: CardoryColors.gray800,
         ),
         bodyMedium: TextStyle(
-          fontSize: 13.5,
+          fontSize: 14,
           height: 1.5,
-          color: CardoryColors.gray600,
+          color: CardoryColors.gray700,
         ),
         bodySmall: TextStyle(
-          fontSize: 12,
+          fontSize: 13,
           height: 1.45,
-          color: CardoryColors.gray500,
+          color: CardoryColors.gray600,
         ),
         labelLarge: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: CardoryColors.gray700,
+          color: CardoryColors.gray800,
         ),
         labelMedium: TextStyle(
           fontSize: 12,
@@ -138,7 +160,7 @@ ThemeData buildCardoryTheme(
       color: CardoryColors.white,
       shadowColor: Colors.black.withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(14)),
+        borderRadius: BorderRadius.all(Radius.circular(CardoryRadius.lg)),
         side: BorderSide(color: CardoryColors.gray200),
       ),
     ),
@@ -252,7 +274,7 @@ ThemeData buildCardoryTheme(
       backgroundColor: CardoryColors.white,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(16)),
+        borderRadius: BorderRadius.all(Radius.circular(CardoryRadius.xl)),
       ),
       titleTextStyle: TextStyle(
         fontSize: 17,
@@ -350,7 +372,7 @@ ThemeData buildCardoryTheme(
         side: BorderSide(color: CardoryColors.gray200),
       ),
       labelTextStyle: WidgetStatePropertyAll(
-        TextStyle(fontSize: 13.5, color: CardoryColors.gray700),
+        TextStyle(fontSize: 14, color: CardoryColors.gray700),
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
@@ -413,7 +435,7 @@ ThemeData buildCardoryTheme(
               : Colors.transparent,
         ),
         textStyle: const WidgetStatePropertyAll(
-          TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
     ),
@@ -450,7 +472,7 @@ ThemeData buildCardoryTheme(
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: CardoryColors.gray900,
-      contentTextStyle: TextStyle(fontSize: 13.5, color: CardoryColors.white),
+      contentTextStyle: TextStyle(fontSize: 14, color: CardoryColors.white),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     ),
     tooltipTheme: TooltipThemeData(
@@ -482,10 +504,12 @@ ThemeData buildCardoryTheme(
       overlayShape: RoundSliderOverlayShape(overlayRadius: 14),
       thumbShape: RoundSliderThumbShape(enabledThumbRadius: 7),
     ),
+    // 进度条是「正在推进」的语义，用重点色而非中性深灰；
+    // 此前全界面唯一的靛紫只出现在徽章 10% 浅底上，等于没有重点色。
     progressIndicatorTheme: ProgressIndicatorThemeData(
-      color: CardoryColors.gray900,
-      linearTrackColor: CardoryColors.gray100,
-      circularTrackColor: CardoryColors.gray100,
+      color: primary,
+      linearTrackColor: CardoryColors.gray200,
+      circularTrackColor: CardoryColors.gray200,
     ),
     dividerTheme: DividerThemeData(
       color: CardoryColors.gray200,
@@ -506,12 +530,28 @@ OutlineInputBorder _inputBorder(Color color, {double width = 1}) =>
       borderSide: BorderSide(color: color, width: width),
     );
 
-/// 标准内容卡片：白底、14px 圆角、极浅边框（扁平化，不使用阴影）。
-BoxDecoration cardoryCard({Color? color, double radius = 14}) => BoxDecoration(
-  color: color ?? CardoryColors.white,
-  borderRadius: BorderRadius.circular(radius),
-  border: Border.all(color: CardoryColors.gray100),
-);
+/// 标准内容卡片：白底、14px 圆角、可见边框（扁平化，不使用阴影）。
+///
+/// 边框用 gray200 而非 gray100：gray100 与白底的对比度仅约 1.06:1，
+/// 卡片边界实际上不可见，白卡浮在灰底上时整片糊在一起。
+/// gray200 能勾出边界，同时保持发丝级的克制。
+BoxDecoration cardoryCard({Color? color, double radius = CardoryRadius.lg}) =>
+    BoxDecoration(
+      color: color ?? CardoryColors.white,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: CardoryColors.gray200),
+    );
+
+/// 嵌套「凹槽」容器：看板列等承载卡片的底板。
+///
+/// 卡片嵌套时若内外同色同边框会糊成一片（原实现里看板列与项目卡
+/// 都是白底 + 极浅边框）。凹槽用比页面更沉的底色，让内部的白卡浮起来。
+BoxDecoration cardoryRecessed({double radius = CardoryRadius.xl}) =>
+    BoxDecoration(
+      color: CardoryColors.gray100,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: CardoryColors.gray200),
+    );
 
 /// 品牌深色头图（项目详情页顶部）：纯色 + 极浅阴影（扁平化，不使用渐变）。
 BoxDecoration cardoryDarkHero({double radius = 18}) => BoxDecoration(

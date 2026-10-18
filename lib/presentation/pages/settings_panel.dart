@@ -86,7 +86,7 @@ class SettingsPanel extends StatelessWidget {
         Text(
           _syncStatusText(syncStatus, settings),
           style: TextStyle(
-            fontSize: 12.5,
+            fontSize: 13,
             color: syncStatus.phase == SyncPhase.failure
                 ? cardoryEnsureWhiteContrast(CardoryColors.error)
                 : syncStatus.phase == SyncPhase.conflict
@@ -184,7 +184,7 @@ class _SettingsCategory extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: CardoryColors.gray500,
-                      fontSize: 12.5,
+                      fontSize: 13,
                     ),
                   ),
                 ],

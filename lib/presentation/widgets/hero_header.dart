@@ -18,7 +18,9 @@ class HeroHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final compact = constraints.maxWidth < 760;
+      // 原阈值 760 与 Shell 的 720 不一致：窗口 730px 时分区已切成紧凑
+      // 内边距，头图却仍按宽松排版，同一屏出现两套相反判断。
+      final compact = CardoryBreakpoints.isCompact(constraints.maxWidth);
       final heading = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -26,19 +28,22 @@ class HeroHeader extends StatelessWidget {
             '把项目推进，落到今天',
             style: TextStyle(
               color: CardoryColors.gray900,
-              fontSize: compact ? 24 : 28,
-              height: 1.2,
-              letterSpacing: -0.5,
+              fontSize: compact ? 28 : 34,
+              height: 1.15,
+              letterSpacing: -1.0,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            '集中查看项目阶段、关键待办和最近进度。数据保存在你的本地保险库。',
-            style: TextStyle(
-              color: CardoryColors.gray500,
-              fontSize: 13.5,
-              height: 1.55,
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Text(
+              '集中查看项目阶段、关键待办和最近进度。数据保存在你的本地保险库。',
+              style: TextStyle(
+                color: CardoryColors.gray600,
+                fontSize: 15,
+                height: 1.6,
+              ),
             ),
           ),
         ],

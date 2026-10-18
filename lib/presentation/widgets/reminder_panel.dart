@@ -102,7 +102,7 @@ class ReminderPanel extends StatelessWidget {
                                   Text(
                                     todo.title,
                                     style: TextStyle(
-                                      fontSize: 13.5,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       color: todo.done
                                           ? CardoryColors.gray400

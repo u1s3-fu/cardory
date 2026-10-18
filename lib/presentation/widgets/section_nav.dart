@@ -129,7 +129,7 @@ class SectionNavigation extends StatelessWidget {
                         ? CardoryColors.primarySoft
                         : Colors.transparent,
                     textStyle: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: selected == item.$1
                           ? FontWeight.w700
                           : FontWeight.w500,

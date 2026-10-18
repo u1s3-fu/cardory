@@ -352,7 +352,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 1200;
+              final wide = constraints.maxWidth >= CardoryBreakpoints.medium;
               final progressPanel = Container(
                 padding: const EdgeInsets.all(18),
                 decoration: cardDecoration(),

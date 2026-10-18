@@ -15,6 +15,7 @@ import '../../application/time_tracking_store.dart';
 import '../../domain/cardory_models.dart';
 import '../../domain/schedule_queries.dart';
 import '../../domain/time_models.dart';
+import '../cardory_breakpoints.dart';
 import '../widgets/confirm_dialogs.dart';
 import 'time_cards.dart';
 import 'time_entry_dialog.dart';
@@ -348,7 +349,7 @@ class _TimePageState extends State<TimePage> {
       return const Center(child: CircularProgressIndicator());
     }
     final width = MediaQuery.sizeOf(context).width;
-    final wide = width >= 1100;
+    final wide = CardoryBreakpoints.isMedium(width);
     final pomodoroCard = PomodoroCard(
       key: const Key('pomodoro-card'),
       modes: _pomodoroModes,

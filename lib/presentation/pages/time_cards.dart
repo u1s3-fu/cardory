@@ -92,7 +92,7 @@ class PomodoroCard extends StatelessWidget {
                       child: Text(
                         '$label · ${seconds ~/ 60} 分钟',
                         style: TextStyle(
-                          fontSize: 13.5,
+                          fontSize: 14,
                           color: CardoryColors.gray700,
                         ),
                       ),
@@ -307,7 +307,7 @@ class StatsCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 13,
                           color: CardoryColors.gray700,
                         ),
                       ),
@@ -464,7 +464,7 @@ class EntriesCard extends StatelessWidget {
                         child: Text(
                           _sourceLabel(entry.source),
                           style: TextStyle(
-                            fontSize: 10.5,
+                            fontSize: 12,
                             color: CardoryColors.gray700,
                           ),
                         ),
@@ -489,7 +489,7 @@ class EntriesCard extends StatelessWidget {
                               Text(
                                 _projectTitle(entry.projectId),
                                 style: TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 12,
                                   color: CardoryColors.gray400,
                                 ),
                               ),
@@ -502,7 +502,7 @@ class EntriesCard extends StatelessWidget {
                             ? '计时中'
                             : formatDuration(entry.durationSeconds),
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: CardoryColors.gray600,
                         ),

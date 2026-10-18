@@ -49,11 +49,11 @@ class ProjectListPanel extends StatelessWidget {
         else
           LayoutBuilder(
             builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 1080
-                  ? 3
-                  : constraints.maxWidth >= 680
-                  ? 2
-                  : 1;
+              final columns = cardoryColumns(
+                constraints.maxWidth,
+                minColumnWidth: 340,
+                max: 3,
+              );
               final cardWidth =
                   (constraints.maxWidth - (columns - 1) * 14) / columns;
               return Wrap(

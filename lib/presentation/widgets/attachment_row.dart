@@ -134,7 +134,7 @@ class AttachmentRow extends StatelessWidget {
                           name,
                           style: TextStyle(
                             color: CardoryColors.primary,
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
                         ),

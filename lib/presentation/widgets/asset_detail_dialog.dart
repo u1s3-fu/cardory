@@ -113,7 +113,7 @@ class AssetDetailDialog extends StatelessWidget {
                 padding: EdgeInsets.only(top: 4),
                 child: Text(
                   '账号与密码仅保存在本机保险库中，不会随云同步上传到其他设备。',
-                  style: TextStyle(fontSize: 11.5, height: 1.45),
+                  style: TextStyle(fontSize: 12, height: 1.45),
                 ),
               ),
               _AssetDetailRow(label: '备注 / 用途', value: asset.note),
@@ -243,10 +243,7 @@ class _AssetActivityRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   formatDateTime(activity.timestamp),
-                  style: TextStyle(
-                    color: CardoryColors.gray500,
-                    fontSize: 11.5,
-                  ),
+                  style: TextStyle(color: CardoryColors.gray500, fontSize: 12),
                 ),
               ],
             ),
