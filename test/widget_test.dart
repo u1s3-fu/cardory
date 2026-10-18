@@ -84,7 +84,8 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
       ),
     );
     await pumpUiFrames(tester);
@@ -104,7 +105,8 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
       ),
     );
     await pumpUiFrames(tester);
@@ -303,7 +305,8 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
       ),
     );
     await pumpUiFrames(tester);
@@ -384,7 +387,8 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
       ),
     );
     await pumpUiFrames(tester);
@@ -541,7 +545,8 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
         rowLevelStoreBuilder: () => rowLevelStore,
       ),
     );
@@ -813,7 +818,8 @@ void main() {
         workspaceRepository: repository,
         syncRepository: repository,
         vaultCredentialStore: _MemoryVaultCredentialStore(),
-        credentialStore: _CredentialStore(null),        attachmentRepositoryFactory: attachmentRepositoryFactory,
+        credentialStore: _CredentialStore(null),
+        attachmentRepositoryFactory: attachmentRepositoryFactory,
         rowLevelStoreBuilder: () => rowLevelStore,
       ),
     );

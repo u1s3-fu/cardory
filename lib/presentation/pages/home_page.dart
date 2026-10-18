@@ -500,9 +500,10 @@ class _HomePageState extends State<HomePage> {
   /// 首页面板拖拽排序：落定后持久化到本机设置（控制器通知监听者刷新界面）。
   Future<void> _reorderHomePanels(List<HomePanel> order) async {
     if (listEquals(_settings.homePanelOrder, order)) return;
-    await _perform(() => _controller.applySettings(
-          _settings.copyWith(homePanelOrder: order),
-        ));
+    await _perform(
+      () =>
+          _controller.applySettings(_settings.copyWith(homePanelOrder: order)),
+    );
   }
 
   /// 看板拖拽排序：把 [project] 移动到 [stage] 列的 [insertIndex] 位置。
