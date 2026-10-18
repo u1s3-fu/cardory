@@ -60,8 +60,10 @@ final syncProviderFactoryProvider = Provider<SyncProviderFactory>(
   (ref) => defaultSyncProviderFactory(ref.watch(syncCredentialStoreProvider)),
 );
 
+/// 桌面小组件数据服务：仅 Android / iOS 具备 home_widget 插件实现，
+/// 桌面端分流到空实现（见 [createWidgetDataService]）。
 final widgetDataServiceProvider = Provider<WidgetDataService>(
-  (ref) => const HomeWidgetDataService(),
+  (ref) => createWidgetDataService(),
 );
 
 /// 到期提醒服务：移动端用系统通知，Windows 用 local_notifier 桌面通知，

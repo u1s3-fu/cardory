@@ -1,10 +1,24 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
 
 import '../domain/widget_data_service.dart';
 import '../domain/cardory_models.dart';
+
+/// 按平台选择小组件数据服务。
+///
+/// [home_widget] 插件只注册了 Android / iOS 两端实现；桌面端
+/// （Windows / macOS / Linux）没有小组件基础设施，调用任何方法都会抛
+/// `MissingPluginException`，因此分流到空实现——既避免启动噪音，也省掉
+/// 每次待办变更时的无效插件往返。
+WidgetDataService createWidgetDataService() {
+  if (Platform.isAndroid || Platform.isIOS) {
+    return const HomeWidgetDataService();
+  }
+  return const NullWidgetDataService();
+}
 
 /// 基于 [HomeWidget] 包的桌面小组件数据服务。
 ///

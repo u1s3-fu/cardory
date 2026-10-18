@@ -89,7 +89,7 @@ class CardoryApp extends StatefulWidget {
            vaultCredentialStore ?? SecureVaultCredentialStore(),
        // ignore: prefer_initializing_formals
        _providerFactory = providerFactory,
-       _widgetDataService = widgetDataService ?? const HomeWidgetDataService(),
+       _widgetDataService = widgetDataService ?? createWidgetDataService(),
        _dueReminderService =
            dueReminderService ?? const NullDueReminderService(),
        _attachmentRepositoryFactory =
