@@ -105,20 +105,25 @@ Future<void> pumpPage(
   List<AssetTemplate> templates = const [],
   AttachmentRepository? attachmentStore,
 }) async {
+  // 与真实 Shell 一致：页面挂在 SingleChildScrollView 下，只受宽度约束、
+  // 高度无界（页面自身 shrinkWrap + 不滚动，滚动交给壳层）。
+  // 曾用 SizedBox(width:900, height:700) 直泵，有界高度既掩盖了
+  // Expanded 无界高度缺陷，又会在字号上调后因自然高度超盒而误报溢出。
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: SizedBox(
-          width: 900,
-          height: 700,
-          child: AssetsLibraryPage(
-            projects: projects,
-            assets: assets,
-            assetTags: assetTags,
-            templates: templates,
-            attachmentStore: attachmentStore,
-            onOpenProject: (_) {},
-            onEditAsset: (_) async => null,
+        body: SingleChildScrollView(
+          child: SizedBox(
+            width: 900,
+            child: AssetsLibraryPage(
+              projects: projects,
+              assets: assets,
+              assetTags: assetTags,
+              templates: templates,
+              attachmentStore: attachmentStore,
+              onOpenProject: (_) {},
+              onEditAsset: (_) async => null,
+            ),
           ),
         ),
       ),
@@ -318,31 +323,18 @@ void main() {
     // 真实 Shell 用 SingleChildScrollView 承载分区，子项拿到的是**无界高度**。
     // 资产库内部若用 Expanded（FlexFit.tight）撑满剩余空间，会直接抛
     // 「RenderFlex children have non-zero flex but incoming height constraints
-    // are unbounded」导致整页失效。其余用例用固定高度 SizedBox 包裹，
-    // 恰好给到有界高度而掩盖该问题，故此处单独复刻真实约束。
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: SizedBox(
-              width: 900,
-              child: AssetsLibraryPage(
-                projects: [_project('project-1', 'Cardory 桌面端')],
-                assets: [
-                  _asset('a-overdue', expireDate: _dateOffset(-3)),
-                  _asset('a-soon', expireDate: _dateOffset(5)),
-                  _asset('a-none'),
-                ],
-                templates: [_template()],
-                onOpenProject: (_) {},
-                onEditAsset: (_) async => null,
-              ),
-            ),
-          ),
-        ),
-      ),
+    // are unbounded」导致整页失效。pumpPage 已按该真实约束搭建，
+    // 本用例显式断言无异常，并覆盖逾期/临近/无提醒三个分组同时在场。
+    await pumpPage(
+      tester,
+      projects: [_project('project-1', 'Cardory 桌面端')],
+      assets: [
+        _asset('a-overdue', expireDate: _dateOffset(-3)),
+        _asset('a-soon', expireDate: _dateOffset(5)),
+        _asset('a-none'),
+      ],
+      templates: [_template()],
     );
-    await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
     expect(find.text('已逾期到期'), findsOneWidget);

@@ -177,8 +177,11 @@ class _SidebarItemState extends State<SidebarItem>
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) => Container(
-          // 水平内边距 12 使折叠态触控宽度达到 44（侧栏 64 - 左右各 10）。
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          // 水平内边距 10：侧栏宽度动画区间为 208↔64，任何时刻
+          // 内容区可用宽度都 ≥44，图标 20px 不会溢出（曾取 12，
+          // 折叠动画中途侧栏宽 43 时可用宽度仅 19，瞬态溢出 1px，
+          // 被 widget 测试的布局断言捕获）。
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
             color: _background.value,
             borderRadius: BorderRadius.circular(12),
