@@ -169,7 +169,7 @@ void main() {
       title: '待办',
       projectId: '',
       projectTitle: '未关联项目',
-      priority: ProjectPriority.p1,
+      priority: ProjectPriority.p2,
       done: false,
       subTodos: [
         SubTodoData(
@@ -236,7 +236,7 @@ void main() {
   for (final layout in <(String, Size, int)>[
     ('窄屏单列', const Size(400, 1600), 1),
     ('中屏双列', const Size(700, 1600), 2),
-    ('宽屏四列', const Size(1000, 1600), 4),
+    ('宽屏三列', const Size(1000, 1600), 3),
   ]) {
     testWidgets('项目看板${layout.$1}自适应容器', (tester) async {
       tester.view.devicePixelRatio = 1;
@@ -634,7 +634,7 @@ void main() {
       id: 'project-with-file',
       title: '带附件项目',
       description: '',
-      priority: ProjectPriority.p1,
+      priority: ProjectPriority.p2,
       stage: ProjectStage.doing,
       progressEntries: const [],
       attachments: [
@@ -685,7 +685,7 @@ void main() {
             id: 'project-failed-attachment',
             title: '附件保存失败项目',
             description: '',
-            priority: ProjectPriority.p1,
+            priority: ProjectPriority.p2,
             stage: ProjectStage.doing,
             progressEntries: const [],
             attachments: [
@@ -940,7 +940,7 @@ void main() {
     await tester.ensureVisible(priorityField);
     await tester.tap(priorityField);
     await pumpUiFrames(tester);
-    await tester.tap(find.text('中优先级及以上').last);
+    await tester.tap(find.text('普通优先级及以上').last);
     await pumpUiFrames(tester);
     await tester.tap(find.byKey(const Key('record-subtodo-created-at')));
     await tester.pump();
@@ -953,7 +953,7 @@ void main() {
     expect(result, isNotNull);
     expect(result!.settings.syncRevision, isNull);
     expect(result!.settings.syncLocalHash, isNull);
-    expect(result!.settings.homeReminderPriorityThreshold, ProjectPriority.p1);
+    expect(result!.settings.homeReminderPriorityThreshold, ProjectPriority.p2);
     expect(result!.settings.recordSubTodoCreatedAt, isTrue);
     expect(result!.credentials.password, isEmpty);
   });
@@ -1023,8 +1023,7 @@ void main() {
         ),
       );
 
-      expect(find.text('高优先级 待办'), findsOneWidget);
-      expect(find.text('中 待办'), findsOneWidget);
+      expect(find.text('高 待办'), findsOneWidget);
       expect(find.text('普通 待办'), findsOneWidget);
       expect(find.text('P2 追加待办 7'), findsOneWidget);
       expect(find.text('低 待办'), findsNothing);

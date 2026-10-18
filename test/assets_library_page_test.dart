@@ -91,7 +91,7 @@ ProjectData _project(
   id: id,
   title: title,
   description: '',
-  priority: ProjectPriority.p1,
+  priority: ProjectPriority.p2,
   stage: ProjectStage.doing,
   progressEntries: const [],
   attachments: attachments,

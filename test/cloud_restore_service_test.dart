@@ -105,7 +105,7 @@ CardoryLoadResult _resultWithAttachment() => CardoryLoadResult(
         id: 'project-1',
         title: '项目',
         description: '',
-        priority: ProjectPriority.p1,
+        priority: ProjectPriority.p2,
         stage: ProjectStage.doing,
         progressEntries: const [],
         attachments: [_attachment()],

@@ -14,7 +14,7 @@ TodoData _todo(String id, String title, DateTime endDate) => TodoData(
   endDate: endDate,
   projectId: 'project-1',
   projectTitle: '项目',
-  priority: ProjectPriority.p1,
+  priority: ProjectPriority.p2,
   done: false,
 );
 
@@ -88,7 +88,7 @@ void main() {
         title: '无截止任务',
         projectId: 'project-1',
         projectTitle: '项目',
-        priority: ProjectPriority.p1,
+        priority: ProjectPriority.p2,
         done: false,
       ),
       _todo('todo-c', '另一条截止', DateTime(2026, 9, 8, 12, 0)),

@@ -30,7 +30,7 @@ void main() {
     id: id,
     title: title,
     description: '说明-$title',
-    priority: ProjectPriority.p1,
+    priority: ProjectPriority.p2,
     stage: stage,
     progressEntries: progressEntries,
   );

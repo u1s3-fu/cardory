@@ -52,7 +52,7 @@ class CardoryData {
         id: 'project-sync',
         title: '同步目录方案',
         description: '配置数据同步位置、本地存储路径和同步策略。',
-        priority: ProjectPriority.p1,
+        priority: ProjectPriority.p2,
         stage: ProjectStage.planned,
         progressEntries: [
           ProjectProgressEntry(
@@ -88,7 +88,7 @@ class CardoryData {
         endDate: DateTime(2026, 8, 8),
         projectId: 'project-sync',
         projectTitle: '同步目录方案',
-        priority: ProjectPriority.p1,
+        priority: ProjectPriority.p2,
         done: false,
         subTodos: const [
           SubTodoData(id: 'subtodo-sync-1', content: '选择本地数据目录', done: false),

@@ -73,14 +73,6 @@ class HomeWidgetDataService implements WidgetDataService {
 
   // ----  helper  -------------------------------------------------------
 
-  /// 优先级名称到中文标签的映射（与 iOS WidgetTodo.priorityLabel 结构一致）。
-  static const Map<String, String> _priorityLabels = {
-    'p0': '高',
-    'p1': '中',
-    'p2': '普通',
-    'p3': '低',
-  };
-
   /// 将 [CardoryData] 序列化为 JSON 字符串，仅包含小组件需要的前 [maxItems] 条未完成待办。
   ///
   /// 载荷结构与 Android (`CardoryWidgetProvider.kt`) 和 iOS (`CardoryWidget.swift`)
@@ -123,7 +115,7 @@ class HomeWidgetDataService implements WidgetDataService {
         'id': t.id,
         'title': t.title,
         'priority': priorityKey,
-        'priorityLabel': _priorityLabels[priorityKey] ?? '普通',
+        'priorityLabel': ProjectPriority.fromName(priorityKey).label,
         'projectTitle': t.projectTitle,
         'endDate': endDateStr,
         'subTodoCount': t.subTodos.length,

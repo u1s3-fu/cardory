@@ -263,7 +263,7 @@ void main() {
       endDate: DateTime(2026, 10, 15, 10, 0),
       projectId: 'project-1',
       projectTitle: '项目',
-      priority: ProjectPriority.p1,
+      priority: ProjectPriority.p2,
       done: false,
     );
     TodoData? openedTodo;

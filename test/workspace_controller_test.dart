@@ -90,7 +90,7 @@ void main() {
         id: 'new-project',
         title: '新项目',
         description: '',
-        priority: ProjectPriority.p1,
+        priority: ProjectPriority.p2,
         stage: ProjectStage.planned,
         progressEntries: const [],
         attachments: [attachment],
@@ -474,7 +474,7 @@ CardoryData _workspaceData() {
     id: 'project-1',
     title: '项目',
     description: '',
-    priority: ProjectPriority.p1,
+    priority: ProjectPriority.p2,
     stage: ProjectStage.doing,
     progressEntries: const [],
     attachments: [_attachment('attachment-1')],
@@ -484,7 +484,7 @@ CardoryData _workspaceData() {
     title: '待办',
     projectId: 'project-1',
     projectTitle: '项目',
-    priority: ProjectPriority.p1,
+    priority: ProjectPriority.p2,
     done: false,
   );
   final asset = AssetData(

@@ -1,7 +1,7 @@
 // 项目阶段与优先级的颜色映射，以及主题色提取扩展。
 //
-// [ProjectStage.color] 为 planned/doing/review/done 四个阶段提供视觉标识，
-// [ProjectPriority.color] 为 P0-P3 四级优先级着色，
+// [ProjectStage.color] 为 planned/doing/done 三个阶段提供视觉标识，
+// [ProjectPriority.color] 为 高/普通/低 三级优先级着色，
 // [AppSettings.themeColor] 从整型值恢复 [Color] 供主题系统使用。
 
 import 'package:flutter/material.dart';
@@ -20,13 +20,12 @@ extension AppSettingsColors on AppSettings {
 /// 暗色模式下语义色也不跟着提亮。这是全应用 token 化之后唯一残留的
 /// 硬编码口子，而它出现在每张项目卡、每个待办与甘特色条上。
 ///
-/// 语义映射：未开始=中性灰、进行中=强调色、待验收=警示、已完成=成功；
-/// 优先级 P0=错误红、P1=警示橙、P2=强调色、P3=中性灰。
+/// 语义映射：计划中=中性灰、进行中=强调色、已结束=成功；
+/// 优先级 高=错误红、普通=警示橙、低=中性灰。
 extension ProjectStageColors on ProjectStage {
   Color get color => switch (this) {
     ProjectStage.planned => CardoryColors.gray400,
     ProjectStage.doing => CardoryColors.primary,
-    ProjectStage.review => CardoryColors.warning,
     ProjectStage.done => CardoryColors.success,
   };
 }
@@ -34,8 +33,7 @@ extension ProjectStageColors on ProjectStage {
 extension ProjectPriorityColors on ProjectPriority {
   Color get color => switch (this) {
     ProjectPriority.p0 => CardoryColors.error,
-    ProjectPriority.p1 => CardoryColors.warning,
-    ProjectPriority.p2 => CardoryColors.primary,
+    ProjectPriority.p2 => CardoryColors.warning,
     ProjectPriority.p3 => CardoryColors.gray400,
   };
 }

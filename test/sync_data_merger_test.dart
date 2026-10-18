@@ -12,7 +12,7 @@ ProjectData _project(String id, String title) => ProjectData(
   id: id,
   title: title,
   description: '',
-  priority: ProjectPriority.p1,
+  priority: ProjectPriority.p2,
   stage: ProjectStage.doing,
   progressEntries: const [],
 );
@@ -22,7 +22,7 @@ TodoData _todo(String id, String title) => TodoData(
   title: title,
   projectId: '',
   projectTitle: '',
-  priority: ProjectPriority.p1,
+  priority: ProjectPriority.p2,
   done: false,
 );
 

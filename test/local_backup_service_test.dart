@@ -91,7 +91,7 @@ void main() {
           id: 'p1',
           title: '项目一',
           description: '',
-          priority: ProjectPriority.p1,
+          priority: ProjectPriority.p2,
           stage: ProjectStage.planned,
           progressEntries: const [],
           attachments: [attachment],

@@ -11,7 +11,7 @@ void main() {
 
     test('round-trips the home reminder priority threshold', () {
       const settings = AppSettings(
-        homeReminderPriorityThreshold: ProjectPriority.p1,
+        homeReminderPriorityThreshold: ProjectPriority.p2,
         recordSubTodoCreatedAt: true,
       );
 
