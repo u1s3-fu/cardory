@@ -2,6 +2,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -292,7 +293,7 @@ class _CardoryAppState extends State<CardoryApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
+    final app = MaterialApp.router(
       title: '板记 Cardory',
       debugShowCheckedModeBanner: false,
       theme: buildCardoryTheme(
@@ -303,6 +304,35 @@ class _CardoryAppState extends State<CardoryApp> {
       scrollBehavior: const CardoryScrollBehavior(),
       routerConfig: _router,
     );
+    // Windows 专用：摘除整棵语义树，消除控制台 AXTree 刷屏。
+    //
+    // 背景（Flutter 引擎已知缺陷，非本项目代码问题）：
+    //  - #98099：Windows 无障碍桥接 AXTree 更新失败的通用形态，
+    //    2022 年至今未修；
+    //  - #182444：精确机理——Tooltip 用 OverlayPortal 把浮层语义节点
+    //    「嫁接」到目标节点下，而 ListView/GridView 的 two-pane 语义
+    //    合成 _innerNode 间接层，使嫁接子节点被摘除时其语义父节点
+    //    收不到通知；悬停切换时发出的语义更新引用了一个不在树里的
+    //    节点 ID，Windows 的 AXTree::Unserialize 拒绝该更新并逐次打印
+    //    「Failed to update ui::AXTree, error: N will not be in the
+    //    tree and is not the new root」——鼠标悬停/滚轮滚动时持续刷屏；
+    //  - #193588：同一形态在 macOS 上会在下一次 AX 查询时崩溃
+    //    （EXC_BAD_ACCESS），需 VoiceOver 等辅助技术激活才触发。
+    // framework 侧修复（#190344）已关闭未合入；截至 Flutter 3.47.4，
+    // 应用侧没有任何「半修」手段：Tooltip(excludeFromSemantics: true)
+    // 只移除浮层文字注解，OverlayPortal 照常创建、嫁接照常发生。
+    //
+    // 代价：Windows 上读屏软件完全失效（语义树为空）。
+    // 取舍依据：单用户本地优先应用，产品定位不以无障碍为卖点；且
+    // Windows 读屏本就受该缺陷破坏（悬停即产生不一致的语义树）。
+    // 恢复读屏：删掉本包裹即可（报错会回来，属引擎缺陷）。
+    //
+    // 为何用 defaultTargetPlatform 而非 dart:io Platform：widget 测试
+    // 默认模拟 android 平台，不会被误伤（byTooltip 等语义断言照常工作）。
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      return ExcludeSemantics(child: app);
+    }
+    return app;
   }
 
   Widget _buildVaultGate(BuildContext context) => CardoryVaultGate(
