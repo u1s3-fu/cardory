@@ -313,4 +313,40 @@ void main() {
     expect(find.text('report.pdf'), findsOneWidget);
     expect(find.text('photo.png'), findsNothing);
   });
+
+  testWidgets('回归：Shell 无界高度约束下不抛布局异常', (tester) async {
+    // 真实 Shell 用 SingleChildScrollView 承载分区，子项拿到的是**无界高度**。
+    // 资产库内部若用 Expanded（FlexFit.tight）撑满剩余空间，会直接抛
+    // 「RenderFlex children have non-zero flex but incoming height constraints
+    // are unbounded」导致整页失效。其余用例用固定高度 SizedBox 包裹，
+    // 恰好给到有界高度而掩盖该问题，故此处单独复刻真实约束。
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: 900,
+              child: AssetsLibraryPage(
+                projects: [_project('project-1', 'Cardory 桌面端')],
+                assets: [
+                  _asset('a-overdue', expireDate: _dateOffset(-3)),
+                  _asset('a-soon', expireDate: _dateOffset(5)),
+                  _asset('a-none'),
+                ],
+                templates: [_template()],
+                onOpenProject: (_) {},
+                onEditAsset: (_) async => null,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('已逾期到期'), findsOneWidget);
+    expect(find.text('资产-a-overdue'), findsOneWidget);
+    expect(find.text('资产-a-none'), findsOneWidget);
+  });
 }

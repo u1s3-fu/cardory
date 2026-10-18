@@ -142,12 +142,17 @@ class _AssetsLibraryPageState extends State<AssetsLibraryPage> {
           ),
         ),
         const SizedBox(height: 14),
+        // 本页挂在 Shell 的 _SectionScrollArea（SingleChildScrollView）下，
+        // 拿到的是**无界高度**。此处若用 Expanded（FlexFit.tight），
+        // Column 会因「高度无界 + 非零 flex」直接抛布局异常导致整页失效。
+        // 滚动交给外层承担，列表改为 shrinkWrap + 禁止自身滚动，
+        // 与看板/待办等其它分区面板的既有约定保持一致。
         if (_tabIndex == 0) ...[
           _buildTagFilter(),
           const SizedBox(height: 6),
-          Expanded(child: _buildAssetsTab()),
+          _buildAssetsTab(),
         ] else
-          Expanded(child: _buildAttachmentsTab()),
+          _buildAttachmentsTab(),
       ],
     );
   }
@@ -220,6 +225,8 @@ class _AssetsLibraryPageState extends State<AssetsLibraryPage> {
       for (final project in widget.projects) project.id: project.title,
     };
     return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         for (final bucket in buckets.groups)
           _AssetSection(
@@ -272,6 +279,8 @@ class _AssetsLibraryPageState extends State<AssetsLibraryPage> {
       return const EmptyCard(text: '没有符合筛选条件的附件。');
     }
     return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         for (final group in groups)
           if (group.attachments.isNotEmpty)
@@ -392,13 +401,13 @@ class _AssetSection extends StatelessWidget {
                 header,
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontSize: 13.5,
+                  fontSize: 14,
                 ),
               ),
               const SizedBox(width: 6),
               Text(
                 '${assets.length}',
-                style: TextStyle(fontSize: 12.5, color: CardoryColors.gray500),
+                style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
               ),
             ],
           ),
@@ -507,7 +516,7 @@ class _DueBadge extends StatelessWidget {
       ),
       child: Text(
         overdue ? '$label 已逾期' : '$label（$days 天）',
-        style: TextStyle(fontSize: 11.5, color: color),
+        style: TextStyle(fontSize: 12, color: color),
       ),
     );
   }
@@ -543,16 +552,13 @@ class _AttachmentSection extends StatelessWidget {
                   project.title,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 13.5,
+                    fontSize: 14,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   '${attachments.length}',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: CardoryColors.gray500,
-                  ),
+                  style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
                 ),
                 const Icon(Icons.chevron_right_outlined, size: 16),
               ],
