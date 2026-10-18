@@ -105,7 +105,7 @@ class ReminderPanel extends StatelessWidget {
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       color: todo.done
-                                          ? CardoryColors.gray400
+                                          ? CardoryColors.gray600
                                           : CardoryColors.gray800,
                                       decoration: todo.done
                                           ? TextDecoration.lineThrough
@@ -129,7 +129,7 @@ class ReminderPanel extends StatelessWidget {
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             color: todo.done
-                                                ? CardoryColors.gray400
+                                                ? CardoryColors.gray600
                                                 : CardoryColors.gray500,
                                             fontSize: 12,
                                           ),

@@ -103,7 +103,7 @@ Future<void> showAboutCardoryDialog(
               const SizedBox(height: 14),
               Text(
                 'Copyright © 2026 u1s3-fu · 基于 GPL-3.0 许可证发布',
-                style: TextStyle(fontSize: 12, color: CardoryColors.gray400),
+                style: TextStyle(fontSize: 12, color: CardoryColors.gray600),
               ),
             ],
           ),

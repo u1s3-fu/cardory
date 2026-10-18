@@ -140,7 +140,7 @@ class _TodayTile extends StatelessWidget {
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: todo.done
-                            ? CardoryColors.gray400
+                            ? CardoryColors.gray600
                             : CardoryColors.gray900,
                         decoration: todo.done
                             ? TextDecoration.lineThrough

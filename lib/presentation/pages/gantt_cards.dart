@@ -93,7 +93,7 @@ class MilestonesCard extends StatelessWidget {
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: milestone.completed
-                                    ? CardoryColors.gray400
+                                    ? CardoryColors.gray600
                                     : CardoryColors.gray900,
                                 decoration: milestone.completed
                                     ? TextDecoration.lineThrough
@@ -240,7 +240,7 @@ class HealthCard extends StatelessWidget {
     _Health.good: ('良好', CardoryColors.success),
     _Health.atRisk: ('风险', CardoryColors.warning),
     _Health.lagging: ('滞后', CardoryColors.error),
-    _Health.none: ('无任务', CardoryColors.gray400),
+    _Health.none: ('无任务', CardoryColors.gray600),
   };
 
   @override

@@ -141,7 +141,7 @@ class TodoTile extends StatelessWidget {
                               CardoryColors.success,
                               minRatio: 3,
                             )
-                          : CardoryColors.gray400,
+                          : CardoryColors.gray500,
                     ),
                     onPressed: () => onToggle(todo),
                     padding: EdgeInsets.zero,
@@ -164,7 +164,7 @@ class TodoTile extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: todo.done
-                                      ? CardoryColors.gray400
+                                      ? CardoryColors.gray600
                                       : CardoryColors.gray900,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
@@ -424,7 +424,7 @@ class SubTodoTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     color: subTodo.done
-                        ? CardoryColors.gray400
+                        ? CardoryColors.gray600
                         : CardoryColors.gray700,
                     decoration: subTodo.done
                         ? TextDecoration.lineThrough

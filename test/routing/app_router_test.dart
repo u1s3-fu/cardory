@@ -159,4 +159,116 @@ void main() {
     expect(router.routeInformationProvider.value.uri.path, workbenchRoutePath);
     expect(find.text('工作台'), findsOneWidget);
   });
+
+  /// 内容区当前生效的滑入位移。新路由的 Overlay 入口要在推入后的第二帧才
+  /// 构建，所以调用方需先 pump 一帧再推进时间（见各测试内的注释）。
+  double slideDxOf(WidgetTester tester, String text) => tester
+      .widget<SlideTransition>(
+        find.ancestor(
+          of: find.text(text),
+          matching: find.byType(SlideTransition),
+        ),
+      )
+      .position
+      .value
+      .dx;
+
+  testWidgets('分区切换带方向性滑入转场，而非瞬时替换', (tester) async {
+    final (router, session) = buildRouter(unlocked: true);
+    addTearDown(session.dispose);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    router.go(workbenchRoutePath);
+    await tester.pumpAndSettle();
+    expect(find.text('工作台'), findsOneWidget);
+
+    // 前进（今日 → 待办）：新内容从右侧进入，过渡中位移为正。
+    router.go(todosRoutePath);
+    await tester.pump(); // 第一帧：路由入栈，Overlay 入口尚未构建。
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(find.text('待办区'), findsOneWidget);
+    final forwardDx = slideDxOf(tester, '待办区');
+    expect(forwardDx, greaterThan(0));
+    expect(forwardDx, lessThan(0.06));
+
+    // 过渡结束后位移归零，内容落定。
+    await tester.pumpAndSettle();
+    expect(slideDxOf(tester, '待办区'), 0);
+
+    // 后退（待办 → 今日）：新内容从左侧进入，位移为负——方向可感知。
+    router.go(workbenchRoutePath);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(find.text('工作台'), findsOneWidget);
+    final backwardDx = slideDxOf(tester, '工作台');
+    expect(backwardDx, lessThan(0));
+    expect(backwardDx, greaterThan(-0.06));
+
+    await tester.pumpAndSettle();
+    expect(slideDxOf(tester, '工作台'), 0);
+  });
+
+  testWidgets('分区切换在同层目标间只淡入，不横移', (tester) async {
+    final (router, session) = buildRouter(unlocked: true);
+    addTearDown(session.dispose);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    // 详情 A → 详情 B 是同层（序号同为 5.5）：横向位移始终为 0，
+    // 存在感由淡入补足——过渡进行中淡入值介于 0 与 1 之间。
+    router.go('$projectsRoutePath/project-1');
+    await tester.pumpAndSettle();
+    router.go('$projectsRoutePath/project-2');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(find.text('项目详情:project-2'), findsOneWidget);
+    expect(slideDxOf(tester, '项目详情:project-2'), 0);
+
+    final fade = tester.widget<FadeTransition>(
+      find.ancestor(
+        of: find.text('项目详情:project-2'),
+        matching: find.byType(FadeTransition),
+      ),
+    );
+    expect(fade.opacity.value, greaterThan(0));
+    expect(fade.opacity.value, lessThan(1));
+
+    await tester.pumpAndSettle();
+    expect(fade.opacity.value, 1);
+  });
+
+  testWidgets('系统减弱动态效果时分区切换立即完成', (tester) async {
+    final (router, session) = buildRouter(unlocked: true);
+    addTearDown(session.dispose);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    router.go(workbenchRoutePath);
+    await tester.pumpAndSettle();
+    expect(find.text('工作台'), findsOneWidget);
+
+    // 两帧内即完成切换，且内容区没有任何过渡包装：转场被整体短路，
+    // 与 cardoryAnimDuration 的判据一致。
+    router.go(todosRoutePath);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('待办区'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('待办区'),
+        matching: find.byType(SlideTransition),
+      ),
+      findsNothing,
+    );
+  });
 }

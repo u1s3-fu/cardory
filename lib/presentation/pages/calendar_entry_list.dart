@@ -90,7 +90,7 @@ class DayEntryList extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     color: entry.isDone
-                        ? CardoryColors.gray400
+                        ? CardoryColors.gray600
                         : CardoryColors.gray900,
                     decoration: entry.isDone
                         ? TextDecoration.lineThrough
@@ -222,7 +222,7 @@ class TaskList extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 13,
                             color: todo.done
-                                ? CardoryColors.gray400
+                                ? CardoryColors.gray600
                                 : CardoryColors.gray900,
                             decoration: todo.done
                                 ? TextDecoration.lineThrough

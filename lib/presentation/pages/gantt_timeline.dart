@@ -109,7 +109,11 @@ class GanttTimeline extends StatelessWidget {
             indent: true,
             start: todo.startDate ?? todo.endDate,
             end: todo.endDate ?? todo.startDate,
-            color: todo.done ? CardoryColors.gray300 : const Color(0xFF6B9EDF),
+            // 任务条取项目条同一色相的浅化：既跟随主题强调色，又与上一级
+            // 的项目条保持层级差（此前写死一个蓝色，改强调色时不会跟着变）。
+            color: todo.done
+                ? CardoryColors.gray300
+                : cardoryTint(project.stage.color, 0.3),
             windowStart: start,
             dayWidth: _dayWidth,
             timelineWidth: timelineWidth,

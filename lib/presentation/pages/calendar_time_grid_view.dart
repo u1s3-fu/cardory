@@ -90,7 +90,7 @@ class TimeGridView extends StatelessWidget {
                                 '$hour:00',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: CardoryColors.gray400,
+                                  color: CardoryColors.gray600,
                                 ),
                               ),
                             ),

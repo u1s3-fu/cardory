@@ -490,7 +490,7 @@ class EntriesCard extends StatelessWidget {
                                 _projectTitle(entry.projectId),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: CardoryColors.gray400,
+                                  color: CardoryColors.gray600,
                                 ),
                               ),
                           ],

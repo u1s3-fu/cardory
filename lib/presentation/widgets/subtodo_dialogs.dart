@@ -280,7 +280,7 @@ class _SubTodoManagerDialogState extends State<SubTodoManagerDialog> {
                                         : Icons.radio_button_unchecked_rounded,
                                     color: item.done
                                         ? CardoryColors.success
-                                        : CardoryColors.gray400,
+                                        : CardoryColors.gray500,
                                   ),
                                 ),
                                 title: Text(

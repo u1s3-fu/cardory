@@ -294,13 +294,6 @@ class _ProjectCardState extends State<ProjectCard> {
                 color: _hovered ? CardoryColors.gray300 : CardoryColors.gray200,
               ),
               // 扁平化：hover 时以边框加深替代阴影浮起。
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.transparent,
-                  blurRadius: 0,
-                  offset: Offset(0, 0),
-                ),
-              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -6,18 +6,14 @@ import '../model_colors.dart';
 
 /// 徽章（优先级/阶段）统一样式。
 ///
-/// 浅色背景（卡片、列表）下使用「彩色浅底 + 加深文字」保证 4.5:1 对比度；
-/// [onDark] 为 true 时（深色 hero 等）改用「加深实底 + 白字」保证可读。
+/// 一律使用「彩色浅底 + 加深文字」，由 [cardoryEnsureWhiteContrast] 把文字
+/// 压到与浅底对比度 ≥ 4.5:1；扁平化之后已无深色 hero 场景，早期的 onDark
+/// 分支（实底 + 白字）随之移除。
 class _BadgeContainer extends StatelessWidget {
-  const _BadgeContainer({
-    required this.label,
-    required this.color,
-    required this.onDark,
-  });
+  const _BadgeContainer({required this.label, required this.color});
 
   final String label;
   final Color color;
-  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
@@ -25,15 +21,13 @@ class _BadgeContainer extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
-        color: onDark
-            ? ink.withValues(alpha: 0.95)
-            : color.withValues(alpha: 0.10),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: onDark ? CardoryColors.white : ink,
+          color: ink,
           // 11.5px 的中文标签偏挤，提到 12 是中文可读的下限。
           fontSize: 12,
           height: 1.3,
@@ -45,32 +39,23 @@ class _BadgeContainer extends StatelessWidget {
 }
 
 class PriorityBadge extends StatelessWidget {
-  const PriorityBadge({super.key, required this.priority, this.onDark = false});
+  const PriorityBadge({super.key, required this.priority});
 
   final ProjectPriority priority;
 
-  /// 是否渲染在深色背景（如渐变 hero）上。
-  final bool onDark;
-
   @override
-  Widget build(BuildContext context) => _BadgeContainer(
-    label: priority.label,
-    color: priority.color,
-    onDark: onDark,
-  );
+  Widget build(BuildContext context) =>
+      _BadgeContainer(label: priority.label, color: priority.color);
 }
 
 class StageBadge extends StatelessWidget {
-  const StageBadge({super.key, required this.stage, this.onDark = false});
+  const StageBadge({super.key, required this.stage});
 
   final ProjectStage stage;
 
-  /// 是否渲染在深色背景（如渐变 hero）上。
-  final bool onDark;
-
   @override
   Widget build(BuildContext context) =>
-      _BadgeContainer(label: stage.label, color: stage.color, onDark: onDark);
+      _BadgeContainer(label: stage.label, color: stage.color);
 }
 
 class CountPill extends StatelessWidget {

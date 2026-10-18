@@ -1,3 +1,4 @@
+import 'package:cardory/presentation/cardory_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,6 +22,22 @@ const settingsRoutePath = '/settings';
 /// /time、/gantt、/projects、/projects/:projectId、/assets、/settings
 /// 全部落地为真实页面（工作台分区为 Shell 子路由）。
 const assetsRoutePath = '/assets';
+
+/// 工作台分区在导航序列中的序号：推导分区切换转场方向的依据。
+/// 项目详情挂在 /projects 之下，取比列表深半级的 5.5，于是
+/// 「列表 → 详情」为前进、「详情 → 列表」为后退，
+/// 而「详情 A → 详情 B」同序，只淡入不横移。
+const Map<String, double> _workbenchSectionOrder = <String, double>{
+  workbenchRoutePath: 0,
+  todosRoutePath: 1,
+  calendarRoutePath: 2,
+  timeRoutePath: 3,
+  ganttRoutePath: 4,
+  projectsRoutePath: 5,
+  assetsRoutePath: 6,
+  settingsRoutePath: 7,
+};
+const double _projectDetailSectionOrder = 5.5;
 
 /// 工作台 Shell 内的内容区目标（sealed：穷举安全）。
 sealed class WorkbenchLocation {
@@ -101,15 +118,97 @@ GoRouter createAppRouter({
   String? wildcardRedirect(BuildContext context, GoRouterState state) =>
       (isVaultUnlocked?.call() ?? false) ? workbenchRoutePath : vaultRoutePath;
 
-  // 工作台子路由使用无过渡页：子内容在同一 Shell 内瞬时切换，避免页面
-  // 过渡动画期间旧内容（看板等 shrinkWrap 列表）在新布局约束下继续重排。
+  // 上一次所在分区。pageBuilder 每次导航只执行一次（同 key 的路由会被
+  // Navigator 复用而不重建），所以这里读到的是「来自哪里」，用来决定新内容
+  // 从哪一侧进入。初值为工作台首页：冷启动那次进入同序，只淡入不横移。
+  var lastWorkbenchPath = workbenchRoutePath;
+
+  /// 分区在导航序列中的序号。路径集合固定，兜底分支实际不可达。
+  double sectionOrderOf(String path) => path.startsWith('$projectsRoutePath/')
+      ? _projectDetailSectionOrder
+      : _workbenchSectionOrder[path] ?? _projectDetailSectionOrder;
+
+  /// 分区切换转场：新内容按导航方向横向滑入，只动 transform / opacity。
+  ///
+  /// 这里早期用 NoTransitionPage 让子内容瞬时切换，为的是避开过渡动画期间
+  /// 旧内容（看板等 shrinkWrap 列表）在新布局约束下继续重排。现在的做法从
+  /// 两个方向上解掉那个问题：转场只动 transform / opacity，不触碰任何布局
+  /// 属性，整段过渡里新旧内容的约束恒定；子内容再外包一层 [RepaintBoundary]，
+  /// 让内容的栅格化结果整块复用，转场期间每帧只做一次图层变换。
+  ///
+  /// [direction] 为目标分区与来源分区的序号差：>0 前进（新内容从右侧进入）、
+  /// <0 后退（从左侧进入）、0 同层（不动，只淡入）。配合退出时长短于进入
+  /// 时长，切换有明确的因果感而不是无差别的一刀切。
+  Widget buildWorkbenchTransition(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+    double direction,
+  ) {
+    // 系统「减弱动态效果」：与 cardoryAnimDuration 同一判据，直接短路。
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: CardoryMotion.outCubic,
+      reverseCurve: CardoryMotion.inCubic,
+    );
+    final slide = Tween<Offset>(
+      begin: Offset(0.06 * direction, 0),
+      end: Offset.zero,
+    ).animate(curved);
+    // 曲线与页面级转场保持一致，避免同一套动效里出现两套缓动。
+    final fade = CurvedAnimation(
+      parent: animation,
+      curve: CardoryMotion.outCubic,
+      reverseCurve: CardoryMotion.inCubic,
+    );
+
+    return RepaintBoundary(
+      child: SlideTransition(
+        position: slide,
+        child: FadeTransition(opacity: fade, child: child),
+      ),
+    );
+  }
+
+  /// 工作台分区页：按目标分区与上次所在分区的序号差推导转场方向。
+  ///
+  /// 只在 pageBuilder 内调用，每次导航执行一次。
+  CustomTransitionPage<void> workbenchSectionPage(
+    BuildContext context,
+    String path,
+    WorkbenchLocation location,
+  ) {
+    final direction = sectionOrderOf(path) - sectionOrderOf(lastWorkbenchPath);
+    if (path != lastWorkbenchPath) lastWorkbenchPath = path;
+    return CustomTransitionPage<void>(
+      key: ValueKey('workbench-$path'),
+      // 退场取进场的 75%（动效规范）：退得更快，把空间让给新内容。
+      transitionDuration: cardoryAnimDuration(context, CardoryMotion.base),
+      reverseTransitionDuration: cardoryAnimDuration(
+        context,
+        const Duration(milliseconds: 165),
+      ),
+      child: workbenchContentBuilder(context, location),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          buildWorkbenchTransition(
+            context,
+            animation,
+            secondaryAnimation,
+            child,
+            direction,
+          ),
+    );
+  }
+
+  // 工作台子路由：分区之间带方向感的横向滑入转场，见 buildWorkbenchTransition。
   GoRoute workbenchChildRoute(String path, WorkbenchLocation location) =>
       GoRoute(
         path: path,
-        pageBuilder: (context, state) => NoTransitionPage<void>(
-          key: ValueKey('workbench-$path'),
-          child: workbenchContentBuilder(context, location),
-        ),
+        pageBuilder: (context, state) =>
+            workbenchSectionPage(context, path, location),
         redirect: protectedRedirect,
       );
 
@@ -140,15 +239,14 @@ GoRouter createAppRouter({
           workbenchChildRoute(assetsRoutePath, const WorkbenchAssets()),
           GoRoute(
             path: '$projectsRoutePath/:projectId',
-            pageBuilder: (context, state) => NoTransitionPage<void>(
-              key: ValueKey(
-                'workbench-project-${state.pathParameters['projectId']}',
-              ),
-              child: workbenchContentBuilder(
+            pageBuilder: (context, state) {
+              final projectId = state.pathParameters['projectId'] ?? '';
+              return workbenchSectionPage(
                 context,
-                WorkbenchProjectDetail(state.pathParameters['projectId'] ?? ''),
-              ),
-            ),
+                '$projectsRoutePath/$projectId',
+                WorkbenchProjectDetail(projectId),
+              );
+            },
             redirect: protectedRedirect,
           ),
           workbenchChildRoute(settingsRoutePath, const WorkbenchSettings()),

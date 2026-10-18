@@ -10,28 +10,24 @@ Duration cardoryAnimDuration(BuildContext context, Duration duration) =>
 /// Cardory 全局动效系统：统一节奏（时长）与缓动曲线。
 ///
 /// 时长分层（由快到慢）：
-/// - [micro]：悬停、按压等瞬时反馈
 /// - [fast]：小组件状态显隐（侧栏项高亮、图标/文字淡入淡出）
-/// - [base]：组件状态切换（侧栏展开收起、内容区切换）
-/// - [slow]：面板级过渡
-/// - [page]：页面转场
+/// - [base]：组件状态切换（侧栏展开收起、工作台分区切换）
 ///
 /// 曲线约定：
 /// - 出现/进入用 [outCubic]（先快后慢，干净利落）
 /// - 退出/消失用 [inCubic]（先慢后快，让位给新内容）
 /// - 往返/尺寸/位移用 [inOutCubic]（平滑对称，不拖泥带水）
-/// - 小元素出现用 [pop]（轻微回弹，克制使用，不滥用）
+///
+/// 时长只保留实际在用的一档：宁少勿滥，多出来的档位只会被滥用成
+/// 「随手挑一个时长」。退出时长由调用方取进入的 75%（见分区转场与
+/// 侧栏高亮），不进本表，避免出现「进 220 / 退 300」这类倒挂组合。
 abstract final class CardoryMotion {
-  static const Duration micro = Duration(milliseconds: 120);
   static const Duration fast = Duration(milliseconds: 160);
   static const Duration base = Duration(milliseconds: 220);
-  static const Duration slow = Duration(milliseconds: 300);
-  static const Duration page = Duration(milliseconds: 320);
 
   static const Curve outCubic = Curves.easeOutCubic;
   static const Curve inCubic = Curves.easeInCubic;
   static const Curve inOutCubic = Curves.easeInOutCubic;
-  static const Curve pop = Curves.easeOutBack;
 }
 
 /// 页面转场：淡入 + 轻微横移 + 旧页轻微下沉，形成清晰的进出层级。
@@ -50,6 +46,11 @@ class CardoryPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    // 转场时长由路由的 transitionDuration 决定，PageTransitionsBuilder
+    // 拿不到它，因此这里按 cardoryAnimDuration 的同一判据直接短路：
+    // 系统「减弱动态效果」开启时原样返回子组件，等价于全部时长归零。
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+
     // 新页面：从右 6% 进入。
     final slide = Tween<Offset>(begin: const Offset(0.06, 0), end: Offset.zero)
         .animate(
@@ -68,11 +69,11 @@ class CardoryPageTransitionsBuilder extends PageTransitionsBuilder {
             reverseCurve: CardoryMotion.inCubic,
           ),
         );
-    // 新页面：柔和淡入。
+    // 新页面：柔和淡入。曲线与 slide 保持一致，避免同一动画里出现两套缓动。
     final fade = CurvedAnimation(
       parent: animation,
-      curve: Curves.easeOut,
-      reverseCurve: Curves.easeIn,
+      curve: CardoryMotion.outCubic,
+      reverseCurve: CardoryMotion.inCubic,
     );
 
     return SlideTransition(
