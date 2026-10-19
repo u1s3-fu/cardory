@@ -1,0 +1,79 @@
+{
+  "_doc": "真实平台数据源配置。enabled=true 且设置好凭证环境变量后，用 --source live 生效。字段映射按你自己获批的应用返回结构填写即可（提示：官方接口通常需要签名，请在 params 里按平台文档补齐 sign 相关参数，或将签名逻辑接入 _request）。",
+  "sources": {
+    "京东": {
+      "enabled": false,
+      "mode": "api",
+      "note": "京东开放平台/京东联盟：需 app_key + app_secret 签名",
+      "endpoint": "https://api.jd.com/routerjson",
+      "method": "POST",
+      "api_key_env": "JD_API_KEY",
+      "credential_in": "header",
+      "params": {
+        "method": "jd.union.open.goods.query",
+        "keyword": "{keyword}",
+        "pageSize": "{limit}"
+      },
+      "list_path": "jd_union_open_goods_query_response.result.data",
+      "fields": {
+        "id": "skuId",
+        "title": "skuName",
+        "price": "priceInfo.price",
+        "sales": "inOrderCount30Days",
+        "shop": "shopInfo.shopName",
+        "rating": "shopInfo.shopLevel",
+        "url": "materialUrl"
+      }
+    },
+    "淘宝": {
+      "enabled": false,
+      "mode": "api",
+      "note": "淘宝开放平台：需 AppKey/AppSecret 签名且需商品接口权限",
+      "endpoint": "https://eco.taobao.com/router/rest",
+      "method": "GET",
+      "api_key_env": "TB_APP_KEY",
+      "credential_in": "query",
+      "params": {
+        "method": "taobao.tbk.dg.material.optional",
+        "q": "{keyword}",
+        "page_size": "{limit}",
+        "sign_method": "md5"
+      },
+      "list_path": "tbk_dg_material_optional_response.result_list.map_data",
+      "fields": {
+        "id": "item_id",
+        "title": "title",
+        "price": "zk_final_price",
+        "original_price": "reserve_price",
+        "sales": "volume",
+        "shop": "shop_title",
+        "rating": "seller_rating",
+        "url": "url"
+      }
+    },
+    "拼多多": {
+      "enabled": false,
+      "mode": "api",
+      "note": "拼多多开放平台：需 client_id/client_secret 签名",
+      "endpoint": "https://gw-api.pinduoduo.com/api/router",
+      "method": "POST",
+      "api_key_env": "PDD_CLIENT_ID",
+      "credential_in": "header",
+      "params": {
+        "type": "pdd.ddk.goods.search",
+        "keyword": "{keyword}",
+        "page_size": "{limit}",
+        "data_type": "JSON"
+      },
+      "list_path": "goods_search_response.goods_list",
+      "fields": {
+        "id": "goods_id",
+        "title": "goods_name",
+        "price": "min_group_price",
+        "sales": "sales_tip",
+        "shop": "mall_name",
+        "url": "goods_url"
+      }
+    }
+  }
+}
