@@ -91,10 +91,7 @@ class PomodoroCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         '$label · ${seconds ~/ 60} 分钟',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: CardoryColors.gray700,
-                        ),
+                        style: Theme.of(context).textTheme.bodyMedium!,
                       ),
                     ),
                     FilledButton.tonal(
@@ -115,7 +112,7 @@ class PomodoroCard extends StatelessWidget {
                         : remaining <= 0
                         ? '（已完成）'
                         : ''}',
-                    style: TextStyle(
+                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: CardoryColors.gray600,
@@ -130,7 +127,7 @@ class PomodoroCard extends StatelessWidget {
                           ? 0
                           : remaining,
                     ),
-                    style: TextStyle(
+                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                       fontSize: 46,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -1,
@@ -141,7 +138,7 @@ class PomodoroCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       projectTitle,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                         fontSize: 12,
                         color: CardoryColors.gray500,
                       ),
@@ -205,7 +202,7 @@ class TimerCard extends StatelessWidget {
               children: [
                 Text(
                   formatDuration(total),
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                     fontSize: 46,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -1,
@@ -221,7 +218,10 @@ class TimerCard extends StatelessWidget {
                       : accumulatedSeconds > 0
                       ? '已暂停'
                       : '未开始',
-                  style: TextStyle(fontSize: 12, color: CardoryColors.gray500),
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                    fontSize: 12,
+                    color: CardoryColors.gray500,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -306,16 +306,15 @@ class StatsCard extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                           fontSize: 13,
-                          color: CardoryColors.gray700,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(CardoryRadius.sm),
                         child: LinearProgressIndicator(
                           value: seconds / maxTotal,
                           minHeight: 8,
@@ -329,7 +328,7 @@ class StatsCard extends StatelessWidget {
                       child: Text(
                         '${(seconds / 60).toStringAsFixed(0)} 分',
                         textAlign: TextAlign.right,
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                           fontSize: 12,
                           color: CardoryColors.gray500,
                         ),
@@ -363,12 +362,15 @@ class _StatTile extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(fontSize: 12, color: CardoryColors.gray500),
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+            fontSize: 12,
+            color: CardoryColors.gray500,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           '${(seconds / 60).toStringAsFixed(0)} 分钟',
-          style: TextStyle(
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: CardoryColors.gray900,
@@ -435,7 +437,10 @@ class EntriesCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
               '还没有时间记录，点击右上角新增。',
-              style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: 13,
+                color: CardoryColors.gray500,
+              ),
             ),
           )
         else
@@ -459,13 +464,12 @@ class EntriesCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: CardoryColors.primarySoft,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(CardoryRadius.sm),
                         ),
                         child: Text(
                           _sourceLabel(entry.source),
-                          style: TextStyle(
+                          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                             fontSize: 12,
-                            color: CardoryColors.gray700,
                           ),
                         ),
                       ),
@@ -480,7 +484,8 @@ class EntriesCard extends StatelessWidget {
                                   : entry.note,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: Theme.of(context).textTheme.bodyMedium!
+                                  .copyWith(
                                 fontSize: 13,
                                 color: CardoryColors.gray900,
                               ),
@@ -488,7 +493,8 @@ class EntriesCard extends StatelessWidget {
                             if (_projectTitle(entry.projectId).isNotEmpty)
                               Text(
                                 _projectTitle(entry.projectId),
-                                style: TextStyle(
+                                style: Theme.of(context).textTheme.bodyMedium!
+                                    .copyWith(
                                   fontSize: 12,
                                   color: CardoryColors.gray600,
                                 ),
@@ -501,7 +507,7 @@ class EntriesCard extends StatelessWidget {
                         entry.isRunning
                             ? '计时中'
                             : formatDuration(entry.durationSeconds),
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: CardoryColors.gray600,

@@ -95,7 +95,9 @@ class ReminderPanel extends StatelessWidget {
                             Padding(
                               padding: const EdgeInsets.only(top: 1),
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(5),
+                                borderRadius: BorderRadius.circular(
+                                CardoryRadius.sm,
+                              ),
                                 onTap: () => onToggleTodo(todo),
                                 child: Icon(
                                   todo.done
@@ -115,8 +117,8 @@ class ReminderPanel extends StatelessWidget {
                                 children: [
                                   Text(
                                     todo.title,
-                                    style: TextStyle(
-                                      fontSize: 14,
+                                    style: Theme.of(context).textTheme.bodyMedium!
+                                        .copyWith(
                                       fontWeight: FontWeight.w600,
                                       color: todo.done
                                           ? CardoryColors.gray600
@@ -141,7 +143,9 @@ class ReminderPanel extends StatelessWidget {
                                           todo.projectTitle,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodyMedium!.copyWith(
                                             color: todo.done
                                                 ? CardoryColors.gray600
                                                 : CardoryColors.gray500,
@@ -152,7 +156,9 @@ class ReminderPanel extends StatelessWidget {
                                       PriorityBadge(priority: todo.priority),
                                       Text(
                                         todo.dateRangeText,
-                                        style: TextStyle(
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodyMedium!.copyWith(
                                           color: cardoryEnsureWhiteContrast(
                                             CardoryColors.error,
                                           ),

@@ -26,12 +26,10 @@ class HeroHeader extends StatelessWidget {
         children: [
           Text(
             '把项目推进，落到今天',
-            style: TextStyle(
-              color: CardoryColors.gray900,
+            style: Theme.of(context).textTheme.headlineSmall!.copyWith(
               fontSize: compact ? 28 : 34,
               height: 1.15,
               letterSpacing: -1.0,
-              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 10),
@@ -39,7 +37,7 @@ class HeroHeader extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 620),
             child: Text(
               '集中查看项目阶段、关键待办和最近进度。数据保存在你的本地保险库。',
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 color: CardoryColors.gray600,
                 fontSize: 15,
                 height: 1.6,

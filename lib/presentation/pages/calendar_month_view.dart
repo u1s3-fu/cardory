@@ -81,7 +81,7 @@ class MonthView extends StatelessWidget {
                   child: Center(
                     child: Text(
                       label,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: CardoryColors.gray500,
@@ -150,7 +150,13 @@ class _LegendDot extends StatelessWidget {
         decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
       const SizedBox(width: 4),
-      Text(label, style: TextStyle(fontSize: 12, color: CardoryColors.gray500)),
+      Text(
+        label,
+        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+          fontSize: 12,
+          color: CardoryColors.gray500,
+        ),
+      ),
     ],
   );
 }
@@ -171,7 +177,13 @@ class _LegendAsset extends StatelessWidget {
         color: CardoryColors.gray500,
       ),
       const SizedBox(width: 4),
-      Text(label, style: TextStyle(fontSize: 12, color: CardoryColors.gray500)),
+      Text(
+        label,
+        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+          fontSize: 12,
+          color: CardoryColors.gray500,
+        ),
+      ),
     ],
   );
 }
@@ -211,7 +223,7 @@ class _DayCell extends StatelessWidget {
           color: isSelected
               ? colorScheme.primary.withValues(alpha: 0.14)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(CardoryRadius.sm),
           border: Border.all(
             color: isSelected
                 ? colorScheme.primary
@@ -226,7 +238,7 @@ class _DayCell extends StatelessWidget {
           children: [
             Text(
               '${day.day}',
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 fontSize: 13,
                 fontWeight: isSelected || isToday
                     ? FontWeight.w700

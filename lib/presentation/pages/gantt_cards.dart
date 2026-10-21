@@ -59,7 +59,10 @@ class MilestonesCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               '还没有里程碑，点击右上角新增。',
-              style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: 13,
+                color: CardoryColors.gray500,
+              ),
             ),
           )
         else
@@ -89,7 +92,8 @@ class MilestonesCard extends StatelessWidget {
                               milestone.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: Theme.of(context).textTheme.bodyMedium!
+                                  .copyWith(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: milestone.completed
@@ -102,7 +106,8 @@ class MilestonesCard extends StatelessWidget {
                             ),
                             Text(
                               '${_projectTitle(milestone.projectId)} · ${formatDate(milestone.dueAt)}',
-                              style: TextStyle(
+                              style: Theme.of(context).textTheme.bodyMedium!
+                                  .copyWith(
                                 fontSize: 12,
                                 color: CardoryColors.gray500,
                               ),
@@ -118,7 +123,7 @@ class MilestonesCard extends StatelessWidget {
                       padding: EdgeInsets.only(right: 8),
                       child: Text(
                         '已逾期',
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: CardoryColors.error,
@@ -182,7 +187,10 @@ class DependenciesCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               '还没有任务依赖关系，点击右上角新增。',
-              style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: 13,
+                color: CardoryColors.gray500,
+              ),
             ),
           )
         else
@@ -196,7 +204,7 @@ class DependenciesCard extends StatelessWidget {
                       '${todoTitles[dependency.predecessorTaskId] ?? '未知任务'} → ${todoTitles[dependency.successorTaskId] ?? '未知任务'}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                         fontSize: 13,
                         color: CardoryColors.gray800,
                       ),
@@ -253,7 +261,10 @@ class HealthCard extends StatelessWidget {
         if (projects.isEmpty)
           Text(
             '还没有项目。',
-            style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
+            style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+              fontSize: 13,
+              color: CardoryColors.gray500,
+            ),
           )
         else
           // 窄屏（<640px）五列横排会互相挤压截断，改为两行布局：
@@ -273,7 +284,7 @@ class HealthCard extends StatelessWidget {
                                   '进度 ${(project.progress * 100).toStringAsFixed(0)}%',
                               taskText: _taskSummary(project),
                               milestoneText: _milestoneSummary(project),
-                              badge: _healthBadge(project),
+                              badge: _healthBadge(context, project),
                             )
                           : _WideHealthRow(
                               title: project.title,
@@ -281,7 +292,7 @@ class HealthCard extends StatelessWidget {
                                   '进度 ${(project.progress * 100).toStringAsFixed(0)}%',
                               taskText: _taskSummary(project),
                               milestoneText: _milestoneSummary(project),
-                              badge: _healthBadge(project),
+                              badge: _healthBadge(context, project),
                             ),
                     ),
                 ],
@@ -310,7 +321,7 @@ class HealthCard extends StatelessWidget {
     return '里程碑 $done/${projectMilestones.length}';
   }
 
-  Widget _healthBadge(ProjectData project) {
+  Widget _healthBadge(BuildContext context, ProjectData project) {
     final projectTodos = todos.where((todo) => todo.projectId == project.id);
     final overdue = projectTodos.where((todo) => isOverdue(todo, now)).length;
     final soon = projectTodos.where((todo) {
@@ -335,7 +346,7 @@ class HealthCard extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
           fontSize: 12,
           fontWeight: FontWeight.w700,
           color: color,
@@ -386,7 +397,7 @@ class _WideHealthRow extends StatelessWidget {
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: CardoryColors.gray900,
@@ -397,21 +408,30 @@ class _WideHealthRow extends StatelessWidget {
         flex: 2,
         child: Text(
           progressText,
-          style: TextStyle(fontSize: 13, color: CardoryColors.gray600),
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+            fontSize: 13,
+            color: CardoryColors.gray600,
+          ),
         ),
       ),
       Expanded(
         flex: 2,
         child: Text(
           taskText,
-          style: TextStyle(fontSize: 13, color: CardoryColors.gray600),
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+            fontSize: 13,
+            color: CardoryColors.gray600,
+          ),
         ),
       ),
       Expanded(
         flex: 2,
         child: Text(
           milestoneText,
-          style: TextStyle(fontSize: 13, color: CardoryColors.gray600),
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+            fontSize: 13,
+            color: CardoryColors.gray600,
+          ),
         ),
       ),
       Expanded(flex: 2, child: badge),
@@ -446,7 +466,7 @@ class _NarrowHealthRow extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: CardoryColors.gray900,
@@ -460,7 +480,10 @@ class _NarrowHealthRow extends StatelessWidget {
       const SizedBox(height: 4),
       Text(
         '$progressText · $taskText · $milestoneText',
-        style: TextStyle(fontSize: 12, color: CardoryColors.gray600),
+        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+          fontSize: 12,
+          color: CardoryColors.gray600,
+        ),
       ),
     ],
   );

@@ -35,7 +35,10 @@ class CalendarHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = Text(
       _titleText,
-      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+      ),
     );
     final navButtons = [
       IconButton(

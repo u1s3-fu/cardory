@@ -35,6 +35,13 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # 国际化：flutter_localizations 提供 Material/Cupertino 组件库的
+  # 区域化文案（日期选择器、菜单、按钮等），intl 为 gen_l10n 的
+  # 运行时（README 见 docs.flutter.cn/ui/internationalization）。
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+
   path_provider: ^2.1.5
   cryptography: ^2.9.0
   crypto: ^3.0.7
@@ -92,6 +99,10 @@ flutter_launcher_icons:
 # 以下部分为 Flutter 包专有配置。
 flutter:
 
+  # 启用 gen_l10n：构建时按 l10n.yaml 从 lib/l10n/*.arb 生成本地化类
+  # （app_localizations.dart），详见 docs.flutter.cn/ui/internationalization。
+  generate: true
+
   # 下面这一行确保应用包含 Material Icons 字体，
   # 以便使用 material Icons 类中的图标。
   uses-material-design: true
@@ -125,5 +136,37 @@ flutter:
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
   #
+  # 应用自带字体。
+  #
+  # 背景：Windows 桌面端不再依赖系统字体回退（此前 fontFamily: null 导致
+  # 西文落到 Segoe UI、中文回退到微软雅黑/宋体，同字号同字重的中英文
+  # 粗细观感不一致，且 w600 在中文侧触发伪粗体）。改为随包字体：
+  # - Inter（OFL 1.1，西文/数字）：覆盖 400/500/600/700 四档真实字形
+  # - Noto Sans SC = 思源黑体（OFL 1.1，中文）：静态提供 400/500/700，
+  #   中文 w600 按最近匹配落到真实 Bold 700，不再有描边模拟的伪粗体
+  # 兜底链最后保留系统微软雅黑 UI，防止包外字符（生僻字等）落到宋体。
+  # 授权文件见 assets/fonts/LICENSE-*.txt。
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+    - family: NotoSansSC
+      fonts:
+        - asset: assets/fonts/NotoSansSC-Regular.otf
+          weight: 400
+        - asset: assets/fonts/NotoSansSC-Medium.otf
+          weight: 500
+        - asset: assets/fonts/NotoSansSC-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/NotoSansSC-Bold.otf
+          weight: 700
+
   # 关于从包依赖添加字体的细节，
   # 参见 https://flutter.dev/to/font-from-package

@@ -31,18 +31,17 @@ class SectionTitle extends StatelessWidget {
             height: 17,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primary,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(CardoryRadius.sm),
             ),
           ),
           const SizedBox(width: 9),
           Flexible(
             child: Text(
               title,
-              style: TextStyle(
-                color: CardoryColors.gray900,
-                fontSize: 17,
+              style: Theme.of(context).textTheme.titleMedium!.copyWith(
                 letterSpacing: -0.3,
                 fontWeight: FontWeight.w700,
+                color: CardoryColors.gray900,
               ),
             ),
           ),
@@ -52,7 +51,10 @@ class SectionTitle extends StatelessWidget {
       const SizedBox(height: 5),
       Text(
         subtitle,
-        style: TextStyle(color: CardoryColors.gray600, fontSize: 13),
+        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+          fontSize: 13,
+          color: CardoryColors.gray700,
+        ),
       ),
     ],
   );

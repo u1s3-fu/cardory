@@ -60,7 +60,8 @@ class TimeGridView extends StatelessWidget {
                         child: Center(
                           child: Text(
                             '周${_weekdayName(day.weekday)} ${day.day}',
-                            style: TextStyle(
+                            style: Theme.of(context).textTheme.bodyMedium!
+                                .copyWith(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: localDayKey(now) == day
@@ -88,7 +89,9 @@ class TimeGridView extends StatelessWidget {
                               height: _hourHeight,
                               child: Text(
                                 '$hour:00',
-                                style: TextStyle(
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium!.copyWith(
                                   fontSize: 12,
                                   color: CardoryColors.gray600,
                                 ),
@@ -327,7 +330,7 @@ class _EntryChip extends StatelessWidget {
               : entry.isTask
               ? entry.priority.color.withValues(alpha: 0.18)
               : CardoryColors.primarySoft,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(CardoryRadius.sm),
           border: Border.all(
             color: isAsset
                 ? CardoryColors.gray300
@@ -354,7 +357,7 @@ class _EntryChip extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                     fontSize: 12,
                     decoration: entry.isDone
                         ? TextDecoration.lineThrough

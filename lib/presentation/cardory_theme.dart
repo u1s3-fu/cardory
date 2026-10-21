@@ -22,14 +22,15 @@ const WidgetStateProperty<MouseCursor> _cardoryClickCursor =
 
 /// 圆角阶梯。
 ///
-/// 此前全库散落 4 / 5 / 6 / 8 / 10 / 12 / 14 / 16 / 999 共 9 种圆角，
-/// 同层级元素圆角不一致会让界面显得拼凑。收敛为四级：
-/// 内嵌微件 sm → 控件 md → 卡片 lg → 面板 xl。
+/// 此前全库散落 2/4/5/6/9/10/12/14/16/17/18/999 共 12 种圆角，
+/// 内外嵌套的层级感被数量淹没。收敛为四级 + 一个装饰例外：
+/// 内嵌微件 sm → 控件 md → 卡片 lg → 面板 xl → 胶囊 pill（仅限
+/// 圆形色板、圆点这类「圆润到顶」的装饰形状；普通容器一律走四级）。
 abstract final class CardoryRadius {
   /// 标签、色点、进度条等内嵌微件。
   static const double sm = 8;
 
-  /// 按钮、输入框等控件。
+  /// 按钮、输入框、入口行等控件。
   static const double md = 12;
 
   /// 标准卡片。
@@ -37,6 +38,9 @@ abstract final class CardoryRadius {
 
   /// 大面板、看板列、对话框。
   static const double xl = 16;
+
+  /// 胶囊/圆点装饰例外（999 视觉上等同完全圆润）。
+  static const double pill = 999;
 }
 
 /// 构建 Cardory 全局主题。
@@ -86,11 +90,17 @@ ThemeData buildCardoryTheme(
       : Typography.material2021().white;
   // 字阶：相邻级别至少差 2px，避免 11/12/12.5/13/13.5 挤在一起无法区分。
   // 正文 14 / 次要 14 / 辅助 13 / 微标签 12 —— 四级明度与字号同步拉开。
+  //
+  // 字体随包分发（见 pubspec.yaml fonts 区块）：西文/数字用 Inter，
+  // 中文走 fontFamilyFallback 命中思源黑体（NotoSansSC），最后兜底系统
+  // 微软雅黑。显式声明回退链，避免 Windows 桌面端中西文分落在
+  // Segoe UI / 系统回退字体上，同字号同字重观感粗细不一致。
   final textTheme = textThemeBase
       .apply(
         bodyColor: CardoryColors.gray800,
         displayColor: CardoryColors.gray900,
-        fontFamily: null,
+        fontFamily: 'Inter',
+        fontFamilyFallback: const ['NotoSansSC', 'Microsoft YaHei UI'],
       )
       .copyWith(
         headlineSmall: TextStyle(
@@ -121,15 +131,23 @@ ThemeData buildCardoryTheme(
           height: 1.55,
           color: CardoryColors.gray800,
         ),
+        // 正文级（13/14px）升 Medium(w500)：像素级 A/B 实验结论——
+        // Flutter Windows 两条光栅化路径均不执行 hinting，CFF 小字号
+        // 中文笔画偏细且同串不均；升 Medium 后墨量 +18%，逐字粗细 CV
+        // 全场最低（7.0%）。标题级 w600/w700 与 Inter 同档不受影响。
+        // 13px 再加深两档灰（gray600→gray700）：Medium 之外的备用杠杆，
+        // 提升细笔画与白底的对比度。
         bodyMedium: TextStyle(
           fontSize: 14,
           height: 1.5,
+          fontWeight: FontWeight.w500,
           color: CardoryColors.gray700,
         ),
         bodySmall: TextStyle(
           fontSize: 13,
           height: 1.45,
-          color: CardoryColors.gray600,
+          fontWeight: FontWeight.w500,
+          color: CardoryColors.gray700,
         ),
         labelLarge: TextStyle(
           fontSize: 14,
@@ -146,7 +164,9 @@ ThemeData buildCardoryTheme(
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
-    fontFamily: null,
+    // 与 textTheme 的随包字体保持一致：为未经 textTheme 覆盖的组件
+    // 默认样式兜底；fallback 链已在 textTheme.apply 中声明。
+    fontFamily: 'Inter',
     colorScheme: colorScheme,
     textTheme: textTheme,
     scaffoldBackgroundColor: CardoryColors.gray50,
@@ -264,7 +284,7 @@ ThemeData buildCardoryTheme(
       menuStyle: MenuStyle(
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(10)),
+            borderRadius: BorderRadius.all(Radius.circular(CardoryRadius.md)),
           ),
         ),
       ),
@@ -277,7 +297,7 @@ ThemeData buildCardoryTheme(
         borderRadius: BorderRadius.all(Radius.circular(CardoryRadius.xl)),
       ),
       titleTextStyle: TextStyle(
-        fontSize: 17,
+        fontSize: 16,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.2,
         color: CardoryColors.gray900,
@@ -300,7 +320,7 @@ ThemeData buildCardoryTheme(
       headerBackgroundColor: CardoryColors.gray50,
       headerForegroundColor: CardoryColors.gray900,
       headerHeadlineStyle: TextStyle(
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.4,
         color: CardoryColors.gray900,
@@ -478,7 +498,7 @@ ThemeData buildCardoryTheme(
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
         color: CardoryColors.gray900,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(CardoryRadius.sm),
       ),
       textStyle: TextStyle(fontSize: 12, color: CardoryColors.white),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -492,7 +512,9 @@ ThemeData buildCardoryTheme(
             : CardoryColors.white,
       ),
       side: BorderSide(color: CardoryColors.gray300, width: 1.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(CardoryRadius.sm),
+      ),
       overlayColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.hovered)
             ? primary.withValues(alpha: 0.08)
@@ -554,7 +576,10 @@ BoxDecoration cardoryRecessed({double radius = CardoryRadius.xl}) =>
     );
 
 /// 品牌深色头图（项目详情页顶部）：纯色 + 极浅阴影（扁平化，不使用渐变）。
-BoxDecoration cardoryDarkHero({double radius = 18}) => BoxDecoration(
+///
+/// 圆角走 xl 档（此前默认 18 不在档位表内）。
+BoxDecoration cardoryDarkHero({double radius = CardoryRadius.xl}) =>
+    BoxDecoration(
   color: cardoryShade(CardoryColors.primary, 0.18),
   borderRadius: BorderRadius.circular(radius),
   boxShadow: [

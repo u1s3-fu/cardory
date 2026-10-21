@@ -61,7 +61,9 @@ class TodayTasksPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   '暂无逾期、今日提醒与当日待办',
-                  style: TextStyle(color: CardoryColors.gray600, fontSize: 14),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium!.copyWith(color: CardoryColors.gray600),
                 ),
               ],
             )
@@ -88,7 +90,7 @@ class TodayTasksPanel extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 '当日待办 · 每日显示直到完成',
-                style: TextStyle(
+                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                   color: CardoryColors.gray600,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -153,7 +155,7 @@ class _TodayTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(CardoryRadius.sm),
         onTap: () => onOpenTodo(todo),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -175,8 +177,7 @@ class _TodayTile extends StatelessWidget {
                       todo.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                         fontWeight: FontWeight.w600,
                         color: todo.done
                             ? CardoryColors.gray600
@@ -220,7 +221,8 @@ class _TodayTile extends StatelessWidget {
                             dueLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: Theme.of(context).textTheme.bodyMedium!
+                                .copyWith(
                               fontSize: 13,
                               color: overdue
                                   ? cardoryEnsureWhiteContrast(
@@ -247,7 +249,7 @@ class _TodayTile extends StatelessWidget {
                       todo.projectTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                         fontSize: 13,
                         color: CardoryColors.gray500,
                       ),
