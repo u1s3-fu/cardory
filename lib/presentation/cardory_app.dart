@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../application/workspace_controller_factory.dart';
 import '../application/row_level_workspace_store.dart';
 import '../application/time_tracking_store.dart';
@@ -294,8 +296,28 @@ class _CardoryAppState extends State<CardoryApp> {
   @override
   Widget build(BuildContext context) {
     final app = MaterialApp.router(
-      title: '板记 Cardory',
+      // onGenerateTitle 与 title 的区别：前者在 Localizations 装载后调用，
+      // 拿得到 AppLocalizations，标题可跟随系统语言（任务栏/任务切换器）。
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       debugShowCheckedModeBanner: false,
+      // gen_l10n 生成的 delegates 已包含 Material / Cupertino / Widgets
+      // 三个全局 delegate，Material 组件（日期选择器、菜单、SnackBar 等）
+      // 会根据系统语言本地化；未命中 zh/en 的系统回落 en（模板语言）。
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      // 钉死简中：存量界面文案仍是硬编码中文，若跟随系统，英文系统的
+      // 用户会看到「Material 组件英文 + 界面中文」的混搭，且 locale 为
+      // en 时 Windows 字体 fallback 有偏离 zh 字形的风险。待 wave 2
+      // 字符串抽取（arb 全量迁移）完成后，删除本行改回跟随系统。
+      locale: const Locale('zh', 'CN'),
+      // 全局文字缩放钳制：界面按桌面端固定布局设计，Windows「缩放文本」
+      // 或移动端系统字号拉大后逐字换行会破版；钳到 1.0~1.3，挡极端值、
+      // 保留适度无障碍放大空间。Router 场景 child 恒不为空。
+      builder: (context, child) => MediaQuery.withClampedTextScaling(
+        minScaleFactor: 1.0,
+        maxScaleFactor: 1.3,
+        child: child!,
+      ),
       theme: buildCardoryTheme(
         _settings.themeColor,
         background: Color(_settings.backgroundColorValue),
