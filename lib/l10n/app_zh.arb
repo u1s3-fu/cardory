@@ -1,0 +1,7 @@
+{
+  "@@locale": "zh",
+  "appTitle": "板记 Cardory",
+  "@appTitle": {
+    "description": "Application title: window title, task switcher, app switcher."
+  }
+}

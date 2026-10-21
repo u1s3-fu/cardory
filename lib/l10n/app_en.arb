@@ -1,0 +1,7 @@
+{
+  "@@locale": "en",
+  "appTitle": "Cardory",
+  "@appTitle": {
+    "description": "Application title: window title, task switcher, app switcher."
+  }
+}
