@@ -45,7 +45,7 @@ class AppTopBar extends StatelessWidget {
           if (!compact) ...[
             Text(
               '板记 Cardory',
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.2,
@@ -60,8 +60,7 @@ class AppTopBar extends StatelessWidget {
             child: Text(
               title,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 14,
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 color: compact ? CardoryColors.gray900 : CardoryColors.gray500,
                 fontWeight: FontWeight.w600,
               ),

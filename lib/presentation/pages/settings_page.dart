@@ -8,6 +8,7 @@ import '../../domain/asset_template.dart';
 import '../../domain/cardory_models.dart';
 import '../../domain/sync_credentials.dart';
 import '../model_labels.dart';
+import '../cardory_theme.dart';
 import '../settings_models.dart';
 import '../widgets/color_picker_section.dart';
 import '../widgets/sync_settings_section.dart';
@@ -100,7 +101,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     mainAxisSize: MainAxisSize.min,
     children: [
       if (_shows(SettingsCategoryType.workspace)) ...[
-        const Text('外观', style: TextStyle(fontWeight: FontWeight.w600)),
+        Text('外观', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 12),
         ColorPickerSection(
           initialBackgroundColor: _backgroundColorValue,
@@ -111,7 +112,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
           },
         ),
         const SizedBox(height: 22),
-        const Text('工作台', style: TextStyle(fontWeight: FontWeight.w600)),
+        Text('工作台', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         DropdownButtonFormField<ProjectPriority>(
           key: const Key('home-reminder-priority-field'),
@@ -163,7 +164,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
               setState(() => _keepAttachmentExtensionOnRename = value),
         ),
         const SizedBox(height: 22),
-        const Text('资产模板', style: TextStyle(fontWeight: FontWeight.w600)),
+        Text('资产模板', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         const Text('控制登记资产时可用的类型模板；可禁用内置模板，或新增自定义模板。'),
         const SizedBox(height: 10),
@@ -280,7 +281,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       ],
       if (_shows(SettingsCategoryType.security)) ...[
         const SizedBox(height: 22),
-        const Text('安全', style: TextStyle(fontWeight: FontWeight.w600)),
+        Text('安全', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         SwitchListTile.adaptive(
           key: const Key('auto-lock-enabled'),
@@ -293,12 +294,12 @@ class _SettingsDialogState extends State<SettingsDialog> {
       ],
       if (_shows(SettingsCategoryType.dataSafety)) ...[
         const SizedBox(height: 22),
-        const Text('数据安全', style: TextStyle(fontWeight: FontWeight.w600)),
+        Text('数据安全', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
-        const Text(
+        Text(
           '备份为单个加密文件（.cardorybackup）：整库快照由保险库密码加密，'
           '附件以各自的密文原样打包。请妥善保管密码——忘记备份密码将无法恢复。',
-          style: TextStyle(fontSize: 13, height: 1.45),
+          style: Theme.of(context).textTheme.bodySmall!.copyWith(color: CardoryColors.gray700),
         ),
         const SizedBox(height: 12),
         if (widget.onExportBackup != null)
@@ -325,7 +326,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       ],
       if (_shows(SettingsCategoryType.sync)) ...[
         const SizedBox(height: 22),
-        const Text('数据与同步', style: TextStyle(fontWeight: FontWeight.w600)),
+        Text('数据与同步', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         SyncSettingsSection(
           key: _syncSectionKey,
@@ -337,7 +338,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
             !Platform.isIOS &&
             !isCloudSync(widget.settings.syncProvider)) ...[
           const SizedBox(height: 22),
-          const Text('本地数据', style: TextStyle(fontWeight: FontWeight.w600)),
+          Text('本地数据', style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           TextField(
             controller: _localDataPath,

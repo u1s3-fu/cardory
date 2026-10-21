@@ -82,7 +82,7 @@ class Sidebar extends StatelessWidget {
                       'Cardory',
                       softWrap: false,
                       overflow: TextOverflow.clip,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: Theme.of(context).colorScheme.primary,
@@ -224,8 +224,7 @@ class _SidebarItemState extends State<SidebarItem>
                       widget.label,
                       softWrap: false,
                       overflow: TextOverflow.clip,
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                         color: widget.selected
                             ? CardoryColors.gray900
                             : CardoryColors.gray600,

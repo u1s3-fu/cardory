@@ -171,9 +171,9 @@ class TodoTile extends StatelessWidget {
           ),
           title: Text(
             '删除',
-            style: TextStyle(
-              color: cardoryEnsureWhiteContrast(CardoryColors.error),
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium!.copyWith(color: cardoryEnsureWhiteContrast(CardoryColors.error)),
           ),
           contentPadding: EdgeInsets.zero,
         ),
@@ -256,7 +256,8 @@ class TodoTile extends StatelessWidget {
                                 todo.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
+                                style: Theme.of(context).textTheme.bodyMedium!
+                                    .copyWith(
                                   color: todo.done
                                       ? CardoryColors.gray600
                                       : CardoryColors.gray900,
@@ -281,7 +282,7 @@ class TodoTile extends StatelessWidget {
                                     color: CardoryColors.warning.withValues(
                                       alpha: 0.14,
                                     ),
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: BorderRadius.circular(CardoryRadius.sm),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -296,7 +297,9 @@ class TodoTile extends StatelessWidget {
                                       const SizedBox(width: 3),
                                       Text(
                                         '被阻塞',
-                                        style: TextStyle(
+                                        style: Theme.of(context).textTheme
+                                            .bodyMedium!
+                                            .copyWith(
                                           color: cardoryEnsureWhiteContrast(
                                             CardoryColors.warning,
                                           ),
@@ -321,11 +324,12 @@ class TodoTile extends StatelessWidget {
                                   color: Theme.of(
                                     context,
                                   ).colorScheme.primary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(CardoryRadius.sm),
                                 ),
                                 child: Text(
                                   '进行中',
-                                  style: TextStyle(
+                                  style: Theme.of(context).textTheme.bodyMedium!
+                                      .copyWith(
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.primary,
@@ -347,11 +351,12 @@ class TodoTile extends StatelessWidget {
                                   color: CardoryColors.success.withValues(
                                     alpha: 0.12,
                                   ),
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(CardoryRadius.sm),
                                 ),
                                 child: Text(
                                   '已完成',
-                                  style: TextStyle(
+                                  style: Theme.of(context).textTheme.bodyMedium!
+                                      .copyWith(
                                     color: cardoryEnsureWhiteContrast(
                                       CardoryColors.success,
                                     ),
@@ -370,7 +375,8 @@ class TodoTile extends StatelessWidget {
                             todo.description,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: Theme.of(context).textTheme.bodyMedium!
+                                .copyWith(
                               color: CardoryColors.gray600,
                               fontSize: 13,
                               height: 1.5,
@@ -382,7 +388,8 @@ class TodoTile extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 '${todo.projectTitle} · ${todo.dateRangeText}',
-                                style: TextStyle(
+                                style: Theme.of(context).textTheme.bodyMedium!
+                                    .copyWith(
                                   color: CardoryColors.gray600,
                                   fontSize: 13,
                                 ),
@@ -417,11 +424,13 @@ class TodoTile extends StatelessWidget {
                                   ),
                                   decoration: BoxDecoration(
                                     color: CardoryColors.gray100,
-                                    borderRadius: BorderRadius.circular(5),
+                                    borderRadius: BorderRadius.circular(CardoryRadius.sm),
                                   ),
                                   child: Text(
                                     tag,
-                                    style: TextStyle(
+                                    style: Theme.of(context).textTheme
+                                        .bodyMedium!
+                                        .copyWith(
                                       color: CardoryColors.gray600,
                                       fontSize: 12,
                                     ),
@@ -437,7 +446,7 @@ class TodoTile extends StatelessWidget {
                   IconButton(
                     tooltip: '删除待办',
                     onPressed: () => onDeleteTodo(todo),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 19),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
                     color: cardoryEnsureWhiteContrast(CardoryColors.error),
                     constraints: const BoxConstraints(
                       minWidth: 44,
@@ -452,7 +461,7 @@ class TodoTile extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 '子待办 $_doneCount/${todo.subTodos.length}',
-                style: TextStyle(
+                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                   color: CardoryColors.gray600,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -503,7 +512,7 @@ class _SubTodoQuickAddRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(CardoryRadius.sm),
     hoverColor: CardoryColors.primarySoft.withValues(alpha: 0.72),
     onTap: onTap,
     child: Padding(
@@ -514,7 +523,7 @@ class _SubTodoQuickAddRow extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             '添加子待办',
-            style: TextStyle(
+            style: Theme.of(context).textTheme.bodyMedium!.copyWith(
               color: CardoryColors.gray500,
               fontSize: 13,
               fontWeight: FontWeight.w500,
@@ -586,9 +595,9 @@ class SubTodoTile extends StatelessWidget {
           ),
           title: Text(
             '删除',
-            style: TextStyle(
-              color: cardoryEnsureWhiteContrast(CardoryColors.error),
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium!.copyWith(color: cardoryEnsureWhiteContrast(CardoryColors.error)),
           ),
           contentPadding: EdgeInsets.zero,
         ),
@@ -637,14 +646,14 @@ class SubTodoTile extends StatelessWidget {
           // 内容区：点击进入详情。
           Expanded(
             child: InkWell(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(CardoryRadius.sm),
               onTap: () => onOpenDetail(todo, subTodo),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     subTodo.content,
-                    style: TextStyle(
+                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                       fontSize: 13,
                       color: subTodo.done
                           ? CardoryColors.gray600
@@ -722,7 +731,7 @@ class _SubTodoTimeLabel extends StatelessWidget {
             child: Text(
               '$label ${formatDateTime(value)}',
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 color: foreground,
                 fontSize: 12,
                 fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,

@@ -42,8 +42,7 @@ class DayEntryList extends StatelessWidget {
       children: [
         Text(
           '${formatDate(day)} 的日程与任务（${entries.length}）',
-          style: TextStyle(
-            fontSize: 14,
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
             fontWeight: FontWeight.w700,
             color: CardoryColors.gray900,
           ),
@@ -54,7 +53,10 @@ class DayEntryList extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               '该日没有任务或日程。',
-              style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: 13,
+                color: CardoryColors.gray500,
+              ),
             ),
           )
         else
@@ -87,7 +89,7 @@ class DayEntryList extends StatelessWidget {
                   entry.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.titleMedium!.copyWith(
                     fontSize: 13,
                     color: entry.isDone
                         ? CardoryColors.gray600
@@ -101,7 +103,12 @@ class DayEntryList extends StatelessWidget {
                   entry.isAllDay
                       ? '全天'
                       : '${entry.start.hour.toString().padLeft(2, '0')}:${entry.start.minute.toString().padLeft(2, '0')}',
-                  style: TextStyle(fontSize: 12, color: CardoryColors.gray500),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium!.copyWith(
+                    fontSize: 12,
+                    color: CardoryColors.gray500,
+                  ),
                 ),
               ),
             ),
@@ -170,8 +177,7 @@ class TaskList extends StatelessWidget {
           children: [
             Text(
               '提醒任务',
-              style: TextStyle(
-                fontSize: 14,
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 fontWeight: FontWeight.w700,
                 color: CardoryColors.gray900,
               ),
@@ -179,7 +185,10 @@ class TaskList extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               '${tasks.length} 项',
-              style: TextStyle(fontSize: 12, color: CardoryColors.gray500),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: 12,
+                color: CardoryColors.gray500,
+              ),
             ),
           ],
         ),
@@ -189,7 +198,10 @@ class TaskList extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
               emptyLabel,
-              style: TextStyle(fontSize: 13, color: CardoryColors.gray500),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: 13,
+                color: CardoryColors.gray500,
+              ),
             ),
           )
         else
@@ -219,7 +231,8 @@ class TaskList extends StatelessWidget {
                           todo.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: Theme.of(context).textTheme.bodyMedium!
+                              .copyWith(
                             fontSize: 13,
                             color: todo.done
                                 ? CardoryColors.gray600
@@ -235,7 +248,7 @@ class TaskList extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         formatDate(todo.endDate!),
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                           fontSize: 12,
                           color: isOverdue(todo, now)
                               ? CardoryColors.error

@@ -396,7 +396,10 @@ class _CalendarPageState extends State<CalendarPage> {
             padding: const EdgeInsets.only(top: 6),
             child: Text(
               _systemCalendarError!,
-              style: TextStyle(fontSize: 12, color: CardoryColors.error),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: 12,
+                color: CardoryColors.error,
+              ),
             ),
           ),
         const SizedBox(height: 12),

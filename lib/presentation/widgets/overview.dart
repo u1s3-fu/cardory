@@ -92,7 +92,7 @@ class OverviewCard extends StatelessWidget {
               height: 30,
               decoration: BoxDecoration(
                 color: CardoryColors.primarySoft,
-                borderRadius: BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(CardoryRadius.sm),
               ),
               child: Icon(
                 icon,
@@ -103,10 +103,9 @@ class OverviewCard extends StatelessWidget {
             const SizedBox(width: 10),
             Text(
               label,
-              style: TextStyle(
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 color: CardoryColors.gray600,
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -114,7 +113,7 @@ class OverviewCard extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           value,
-          style: TextStyle(
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
             color: CardoryColors.gray900,
             fontSize: 32,
             height: 1,
