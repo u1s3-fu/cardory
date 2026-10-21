@@ -18,7 +18,7 @@ class BatchActionBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: CardoryColors.primarySoft,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(CardoryRadius.sm),
       ),
       child: Wrap(
         spacing: 8,

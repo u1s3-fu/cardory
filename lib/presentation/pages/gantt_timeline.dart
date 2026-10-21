@@ -336,7 +336,7 @@ class _GanttBar extends StatelessWidget {
                           height: 16,
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(5),
+                            borderRadius: BorderRadius.circular(CardoryRadius.sm),
                           ),
                         ),
                       ),

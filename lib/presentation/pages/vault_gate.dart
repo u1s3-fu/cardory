@@ -258,7 +258,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                     const Text(
                       '无法加载本地数据',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         letterSpacing: -0.2,
                         fontWeight: FontWeight.w700,
                       ),
@@ -316,7 +316,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.amber.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(CardoryRadius.sm),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,7 +363,7 @@ class _CardoryVaultGateState extends State<CardoryVaultGate> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.amber.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(CardoryRadius.sm),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,

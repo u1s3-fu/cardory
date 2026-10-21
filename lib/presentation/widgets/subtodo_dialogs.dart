@@ -491,7 +491,9 @@ class _SubTodoManagerDialogState extends State<SubTodoManagerDialog> {
                                           else
                                             InkWell(
                                               borderRadius:
-                                                  BorderRadius.circular(6),
+                                                  BorderRadius.circular(
+                                                    CardoryRadius.sm,
+                                                  ),
                                               onTap: () => _changeDueAt(index),
                                               child: Padding(
                                                 padding:

@@ -60,7 +60,7 @@ Future<bool> showUpdateDialog(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: CardoryColors.gray50,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(CardoryRadius.sm),
                   ),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 180),

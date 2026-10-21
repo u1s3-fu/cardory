@@ -119,7 +119,7 @@ class _DraggablePanel extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(17),
+            borderRadius: BorderRadius.circular(CardoryRadius.xl),
             border: hovering
                 ? Border.all(
                     color: Theme.of(context).colorScheme.primary,

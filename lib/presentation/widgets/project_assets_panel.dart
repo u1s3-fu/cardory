@@ -343,14 +343,14 @@ class _ProjectAssetsPanelState extends State<ProjectAssetsPanel> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: cardoryTint(accent, 0.88),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(CardoryRadius.sm),
                   ),
                   child: Icon(
                     asset.type == AssetType.software
                         ? Icons.apps_outlined
                         : Icons.dns_outlined,
                     color: accent,
-                    size: 19,
+                    size: 18,
                   ),
                 ),
                 title: Text(asset.name),

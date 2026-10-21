@@ -277,7 +277,7 @@ class _CloudRestoreDialogState extends State<CloudRestoreDialog> {
         const Expanded(
           child: Text(
             '从云端恢复数据',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ),
         IconButton(

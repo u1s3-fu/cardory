@@ -56,7 +56,7 @@ Future<void> showAboutCardoryDialog(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: CardoryColors.gray50,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(CardoryRadius.sm),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,7 +73,7 @@ Future<void> showAboutCardoryDialog(
                     InkWell(
                       onTap: () =>
                           _launchUrl(dialogContext, kCardoryRepositoryUrl),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(CardoryRadius.sm),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Row(

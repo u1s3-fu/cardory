@@ -22,7 +22,7 @@ class _BadgeContainer extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(CardoryRadius.sm),
       ),
       child: Text(
         label,
@@ -72,7 +72,7 @@ class CountPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
         color: CardoryColors.gray100,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(CardoryRadius.sm),
       ),
       child: Text(
         '$count',
@@ -108,7 +108,7 @@ class EmptyCard extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
     decoration: BoxDecoration(
       color: CardoryColors.gray50,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(CardoryRadius.md),
       border: Border.all(color: CardoryColors.gray200),
     ),
     child: Column(
