@@ -464,7 +464,7 @@ class _AssetCard extends StatelessWidget {
       elevation: 0,
       color: CardoryColors.gray50,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(CardoryRadius.md),
         side: BorderSide(color: CardoryColors.gray200),
       ),
       child: ListTile(
@@ -512,7 +512,7 @@ class _DueBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(CardoryRadius.pill),
       ),
       child: Text(
         overdue ? '$label 已逾期' : '$label（$days 天）',
@@ -603,7 +603,7 @@ class _AttachmentCard extends StatelessWidget {
       elevation: 0,
       color: CardoryColors.gray50,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(CardoryRadius.md),
         side: BorderSide(color: CardoryColors.gray200),
       ),
       child: ListTile(

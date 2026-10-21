@@ -225,7 +225,7 @@ class _AssetActivityRow extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 1),
-            child: Icon(icon, size: 17, color: color),
+            child: Icon(icon, size: 18, color: color),
           ),
           const SizedBox(width: 10),
           Expanded(

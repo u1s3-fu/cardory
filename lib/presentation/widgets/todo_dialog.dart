@@ -225,7 +225,7 @@ class _TodoDialogState extends State<TodoDialog> {
                       ? '未添加，点击打开弹窗管理'
                       : '共 ${_subTodos.length} 项，已完成 ${_subTodos.where((item) => item.done).length} 项',
                 ),
-                trailing: const Icon(Icons.open_in_new_rounded, size: 19),
+                trailing: const Icon(Icons.open_in_new_rounded, size: 18),
                 onTap: _manageSubTodos,
               ),
               if (_error != null) ...[

@@ -159,10 +159,10 @@ class _SettingsCategory extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: CardoryColors.gray50,
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(CardoryRadius.md),
     child: InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(CardoryRadius.md),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(

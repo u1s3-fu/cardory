@@ -281,7 +281,7 @@ class _ColorDot extends StatelessWidget {
       child: Tooltip(
         message: '选择 $colorHex',
         child: InkWell(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(CardoryRadius.pill),
           onTap: onTap,
           child: SizedBox(
             width: 48,

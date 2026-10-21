@@ -119,7 +119,7 @@ class SectionNavigation extends StatelessWidget {
                   onPressed: selected == item.$1
                       ? null
                       : () => onSelected(item.$1),
-                  icon: Icon(item.$2, size: 17),
+                  icon: Icon(item.$2, size: 18),
                   label: Text(item.$3),
                   style: TextButton.styleFrom(
                     foregroundColor: selected == item.$1

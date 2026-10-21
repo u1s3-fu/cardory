@@ -248,7 +248,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 22,
+                          fontSize: 20,
                           fontWeight: FontWeight.w700,
                         ),
                       ),

@@ -128,7 +128,7 @@ class AttachmentRow extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: CardoryColors.primarySoft,
-                          borderRadius: BorderRadius.circular(5),
+                          borderRadius: BorderRadius.circular(CardoryRadius.sm),
                         ),
                         child: Text(
                           name,

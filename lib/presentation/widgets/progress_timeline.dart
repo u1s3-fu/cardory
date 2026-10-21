@@ -46,7 +46,7 @@ class ProgressTimeline extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.schedule_rounded,
-                          size: 17,
+                          size: 18,
                           color: CardoryColors.primary,
                         ),
                         const SizedBox(width: 7),
