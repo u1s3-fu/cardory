@@ -162,7 +162,7 @@ class _PanelDragFeedback extends StatelessWidget {
               style: TextStyle(
                 color: CardoryColors.gray900,
                 fontSize: 14,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

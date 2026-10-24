@@ -47,7 +47,7 @@ class AppTopBar extends StatelessWidget {
               '板记 Cardory',
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 fontSize: 15,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.2,
                 color: CardoryColors.gray900,
               ),
