@@ -75,7 +75,7 @@ class GanttTimeline extends StatelessWidget {
       rows.add(
         _GanttBar(
           label: project.title,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+          labelStyle: const TextStyle(fontWeight: FontWeight.w600),
           start: project.startDate,
           end: project.endDate,
           color: project.stage.color,
@@ -336,7 +336,9 @@ class _GanttBar extends StatelessWidget {
                           height: 16,
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(CardoryRadius.sm),
+                            borderRadius: BorderRadius.circular(
+                              CardoryRadius.sm,
+                            ),
                           ),
                         ),
                       ),

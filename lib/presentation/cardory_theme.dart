@@ -20,6 +20,18 @@ export 'cardory_palette.dart';
 const WidgetStateProperty<MouseCursor> _cardoryClickCursor =
     WidgetStatePropertyAll(SystemMouseCursors.click);
 
+/// 随包字体链：西文/数字 Inter，中文思源黑体，兜底系统微软雅黑。
+///
+/// 组件级 textStyle（按钮/弹窗/SnackBar/Tooltip/Chip/菜单等）必须显式携带
+/// 这条链：这些组件在 SDK 内部用样式**替换**环境 DefaultTextStyle 而非
+/// 合并，样式里不写 fontFamily 时西文直接落到引擎默认字体
+/// （Windows = Segoe UI），与页面正文的 Inter 字形不一致。
+/// ThemeData 的 fontFamilyFallback 只能补进 textTheme，够不到组件样式。
+const TextStyle _cardoryFontChain = TextStyle(
+  fontFamily: 'Inter',
+  fontFamilyFallback: ['NotoSansSC', 'Microsoft YaHei UI'],
+);
+
 /// 圆角阶梯。
 ///
 /// 此前全库散落 2/4/5/6/9/10/12/14/16/17/18/999 共 12 种圆角，
@@ -83,7 +95,10 @@ ThemeData buildCardoryTheme(
   const buttonShape = RoundedRectangleBorder(
     borderRadius: BorderRadius.all(Radius.circular(12)),
   );
-  const buttonTextStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w600);
+  final buttonTextStyle = _cardoryFontChain.copyWith(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+  );
 
   final textThemeBase = brightness == Brightness.light
       ? Typography.material2021().black
@@ -95,6 +110,15 @@ ThemeData buildCardoryTheme(
   // 中文走 fontFamilyFallback 命中思源黑体（NotoSansSC），最后兜底系统
   // 微软雅黑。显式声明回退链，避免 Windows 桌面端中西文分落在
   // Segoe UI / 系统回退字体上，同字号同字重观感粗细不一致。
+  // 字重三档规则（全库统一，只允许 w500/w600/w700，禁止其它档位）：
+  //   w700 —— 区块/页面标题、看板列头、大数字、选中态导航与日期、
+  //           彩色状态徽章、逾期警示、品牌字标；
+  //   w600 —— 条目标题（任务/文件/项目名）、按钮文本、设置分组头、
+  //           链接/计数/彩色 meta 等次强调；
+  //   w500 —— 正文、次要 meta、未选中态。
+  //
+  // 组件级 textStyle（按钮/弹窗/SnackBar 等）不走 textTheme：SDK 内部用
+  // 样式替换环境 DefaultTextStyle，必须显式带字体链（见 _cardoryFontChain）。
   final textTheme = textThemeBase
       .apply(
         bodyColor: CardoryColors.gray800,
@@ -129,6 +153,7 @@ ThemeData buildCardoryTheme(
         bodyLarge: TextStyle(
           fontSize: 15,
           height: 1.55,
+          fontWeight: FontWeight.w500,
           color: CardoryColors.gray800,
         ),
         // 正文级（13/14px）升 Medium(w500)：像素级 A/B 实验结论——
@@ -165,8 +190,11 @@ ThemeData buildCardoryTheme(
     useMaterial3: true,
     brightness: brightness,
     // 与 textTheme 的随包字体保持一致：为未经 textTheme 覆盖的组件
-    // 默认样式兜底；fallback 链已在 textTheme.apply 中声明。
+    // 默认样式兜底。fallback 必须在这里再传一次：ThemeData 只把 fontFamily
+    // 应用到默认字阶再与自定义 textTheme 逐字段合并，下方 copyWith 新建的
+    // 9 个字阶自身没有 fallback，不传这个参数回退链会在合并后丢失。
     fontFamily: 'Inter',
+    fontFamilyFallback: const ['NotoSansSC', 'Microsoft YaHei UI'],
     colorScheme: colorScheme,
     textTheme: textTheme,
     scaffoldBackgroundColor: CardoryColors.gray50,
@@ -216,7 +244,7 @@ ThemeData buildCardoryTheme(
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       foregroundColor: CardoryColors.gray900,
-      titleTextStyle: TextStyle(
+      titleTextStyle: _cardoryFontChain.copyWith(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.2,
@@ -296,13 +324,13 @@ ThemeData buildCardoryTheme(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(CardoryRadius.xl)),
       ),
-      titleTextStyle: TextStyle(
+      titleTextStyle: _cardoryFontChain.copyWith(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.2,
         color: CardoryColors.gray900,
       ),
-      contentTextStyle: TextStyle(
+      contentTextStyle: _cardoryFontChain.copyWith(
         fontSize: 14,
         height: 1.55,
         color: CardoryColors.gray600,
@@ -319,23 +347,26 @@ ThemeData buildCardoryTheme(
       ),
       headerBackgroundColor: CardoryColors.gray50,
       headerForegroundColor: CardoryColors.gray900,
-      headerHeadlineStyle: TextStyle(
+      headerHeadlineStyle: _cardoryFontChain.copyWith(
         fontSize: 20,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.4,
         color: CardoryColors.gray900,
       ),
-      headerHelpStyle: TextStyle(
+      headerHelpStyle: _cardoryFontChain.copyWith(
         fontSize: 12,
         fontWeight: FontWeight.w600,
         color: CardoryColors.gray500,
       ),
-      weekdayStyle: TextStyle(
+      weekdayStyle: _cardoryFontChain.copyWith(
         fontSize: 12,
         fontWeight: FontWeight.w600,
         color: CardoryColors.gray500,
       ),
-      dayStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      dayStyle: _cardoryFontChain.copyWith(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+      ),
       dayForegroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) return CardoryColors.gray300;
         if (states.contains(WidgetState.selected)) return CardoryColors.white;
@@ -352,7 +383,10 @@ ThemeData buildCardoryTheme(
       }),
       todayBackgroundColor: const WidgetStatePropertyAll(Colors.transparent),
       todayBorder: BorderSide(color: primary),
-      yearStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      yearStyle: _cardoryFontChain.copyWith(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+      ),
       yearForegroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) return CardoryColors.white;
         return CardoryColors.gray700;
@@ -392,7 +426,7 @@ ThemeData buildCardoryTheme(
         side: BorderSide(color: CardoryColors.gray200),
       ),
       labelTextStyle: WidgetStatePropertyAll(
-        TextStyle(fontSize: 14, color: CardoryColors.gray700),
+        _cardoryFontChain.copyWith(fontSize: 14, color: CardoryColors.gray700),
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
@@ -410,7 +444,7 @@ ThemeData buildCardoryTheme(
         ),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
-        (states) => TextStyle(
+        (states) => _cardoryFontChain.copyWith(
           fontSize: 12,
           fontWeight: states.contains(WidgetState.selected)
               ? FontWeight.w700
@@ -454,8 +488,8 @@ ThemeData buildCardoryTheme(
               ? primary.withValues(alpha: 0.10)
               : Colors.transparent,
         ),
-        textStyle: const WidgetStatePropertyAll(
-          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        textStyle: WidgetStatePropertyAll(
+          _cardoryFontChain.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
     ),
@@ -483,8 +517,14 @@ ThemeData buildCardoryTheme(
       selectedColor: CardoryColors.primarySoft,
       side: BorderSide(color: CardoryColors.gray300),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      labelStyle: TextStyle(fontSize: 13, color: CardoryColors.gray700),
-      secondaryLabelStyle: TextStyle(fontSize: 13, color: primary),
+      labelStyle: _cardoryFontChain.copyWith(
+        fontSize: 13,
+        color: CardoryColors.gray700,
+      ),
+      secondaryLabelStyle: _cardoryFontChain.copyWith(
+        fontSize: 13,
+        color: primary,
+      ),
       checkmarkColor: primary,
       deleteIconColor: CardoryColors.gray400,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -492,7 +532,10 @@ ThemeData buildCardoryTheme(
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: CardoryColors.gray900,
-      contentTextStyle: TextStyle(fontSize: 14, color: CardoryColors.white),
+      contentTextStyle: _cardoryFontChain.copyWith(
+        fontSize: 14,
+        color: CardoryColors.white,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     ),
     tooltipTheme: TooltipThemeData(
@@ -500,7 +543,10 @@ ThemeData buildCardoryTheme(
         color: CardoryColors.gray900,
         borderRadius: BorderRadius.circular(CardoryRadius.sm),
       ),
-      textStyle: TextStyle(fontSize: 12, color: CardoryColors.white),
+      textStyle: _cardoryFontChain.copyWith(
+        fontSize: 12,
+        color: CardoryColors.white,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
     ),
     checkboxTheme: CheckboxThemeData(
@@ -580,16 +626,16 @@ BoxDecoration cardoryRecessed({double radius = CardoryRadius.xl}) =>
 /// 圆角走 xl 档（此前默认 18 不在档位表内）。
 BoxDecoration cardoryDarkHero({double radius = CardoryRadius.xl}) =>
     BoxDecoration(
-  color: cardoryShade(CardoryColors.primary, 0.18),
-  borderRadius: BorderRadius.circular(radius),
-  boxShadow: [
-    BoxShadow(
-      color: Colors.black.withValues(alpha: 0.06),
-      blurRadius: 12,
-      offset: const Offset(0, 4),
-    ),
-  ],
-);
+      color: cardoryShade(CardoryColors.primary, 0.18),
+      borderRadius: BorderRadius.circular(radius),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.06),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
 
 /// 各表现页面通用的标准内容卡片装饰。
 BoxDecoration cardDecoration() => cardoryCard();

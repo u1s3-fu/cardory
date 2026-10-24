@@ -2,6 +2,26 @@
 
 Cardory 版本更新日志。遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式。
 
+## [0.4.13] - 2026-10-24
+
+### 修复（Fixed）
+
+- 修复全局字体不统一，两层成因一并处理：其一，按钮/弹窗/SnackBar/Tooltip/Chip/弹出菜单/分段控件/导航栏/日期选择器的组件级 textStyle 此前只声明字号字重颜色，而这类组件在 SDK 内部用样式**替换**环境 DefaultTextStyle（不是合并），缺 fontFamily 时西文直接落到引擎默认字体（Windows = Segoe UI），与页面正文的 Inter 混排；其二，textTheme 的 9 个常用字阶由 copyWith 整样式重建，把 apply() 声明的中文回退链一并丢弃，中文是否命中思源黑体处于失控状态。现在 ThemeData 显式传入 `fontFamilyFallback`（SDK 合并默认字阶时自动补齐），并新增 `_cardoryFontChain` 常量把完整字体链带进全部 12 处组件样式。修复后全应用西文统一 Inter、中文统一命中随包思源黑体。
+
+### 变更（Changed）
+
+- 字重三档规则收口（全库只允许 w500/w600/w700，档位语义见主题注释）：品牌字标与选中态导航项提升为 w700，甘特条目标题与首页拖拽反馈对齐为 w600，关于弹窗小标签改走 `textTheme.labelMedium`；正文级三字阶（bodyLarge/bodyMedium/bodySmall）统一 w500——像素级 A/B 依据：Flutter Windows 两条光栅化路径均不执行 hinting，CFF 小字号中文笔画偏细且同串不均，升 Medium 后墨量 +18%、逐字粗细 CV 7.0% 全场最低，13px 辅助文字同步加深 gray600→gray700。
+
+### 新增（Added）
+
+- 接入 gen_l10n 本地化基础设施：`flutter_localizations` + ARB（en/zh）+ 生成物，应用标题经 `onGenerateTitle` 本地化，Material 组件文案跟随 locale；存量界面文案仍为硬编码中文，locale 暂钉死 zh-CN（wave-2 抽取完成后再放开跟随系统）。全局文字缩放钳制在 1.0–1.3 倍，防止极端系统字号设置破坏版式。
+- 随包字体链补齐 CJK SemiBold：注册 `NotoSansSC-SemiBold.ttf`（w600），此前 57 处中文 w600 由引擎就近匹配（伪粗）改为真实 SemiBold 字形；theme 外散装 TextStyle 由 185 处收敛到 82 处，差异走 `copyWith`、基座统一取自 textTheme。
+- 圆角与尺寸收敛到 `CardoryRadius` 四级 token（sm 8 / md 12 / lg 14 / xl 16，胶囊 pill 仅限装饰形状），弹窗标题字号归一。
+
+### 测试（Tests）
+
+- 全量 375 用例回归通过；字体链以一次性诊断用例实证——各字阶与组件环境 DefaultTextStyle 均携带 Inter + [NotoSansSC, 微软雅黑] 回退链（修复前按钮/弹窗 ambient 为 family=null）。
+
 ## [0.4.12] - 2026-10-19
 
 ### 新增（Added）

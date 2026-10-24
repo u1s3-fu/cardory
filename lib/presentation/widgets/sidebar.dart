@@ -229,7 +229,7 @@ class _SidebarItemState extends State<SidebarItem>
                             ? CardoryColors.gray900
                             : CardoryColors.gray600,
                         fontWeight: widget.selected
-                            ? FontWeight.w600
+                            ? FontWeight.w700
                             : FontWeight.w500,
                       ),
                     ),

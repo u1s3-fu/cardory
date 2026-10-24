@@ -63,11 +63,7 @@ Future<void> showAboutCardoryDialog(
                   children: [
                     Text(
                       '开源地址',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: CardoryColors.gray500,
-                      ),
+                      style: Theme.of(dialogContext).textTheme.labelMedium,
                     ),
                     const SizedBox(height: 4),
                     InkWell(
