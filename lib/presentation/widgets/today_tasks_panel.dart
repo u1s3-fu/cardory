@@ -61,9 +61,9 @@ class TodayTasksPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   '暂无逾期、今日提醒与当日待办',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium!.copyWith(color: CardoryColors.gray600),
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                    color: CardoryColors.gray600,
+                  ),
                 ),
               ],
             )
@@ -223,17 +223,17 @@ class _TodayTile extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodyMedium!
                                 .copyWith(
-                              fontSize: 13,
-                              color: overdue
-                                  ? cardoryEnsureWhiteContrast(
-                                      CardoryColors.error,
-                                      minRatio: 3,
-                                    )
-                                  : CardoryColors.gray600,
-                              fontWeight: overdue
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
+                                  fontSize: 13,
+                                  color: overdue
+                                      ? cardoryEnsureWhiteContrast(
+                                          CardoryColors.error,
+                                          minRatio: 3,
+                                        )
+                                      : CardoryColors.gray600,
+                                  fontWeight: overdue
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
                           ),
                         ),
                       ],
