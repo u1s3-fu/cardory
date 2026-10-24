@@ -103,9 +103,7 @@ class DayEntryList extends StatelessWidget {
                   entry.isAllDay
                       ? '全天'
                       : '${entry.start.hour.toString().padLeft(2, '0')}:${entry.start.minute.toString().padLeft(2, '0')}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium!.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                     fontSize: 12,
                     color: CardoryColors.gray500,
                   ),
@@ -233,14 +231,14 @@ class TaskList extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodyMedium!
                               .copyWith(
-                            fontSize: 13,
-                            color: todo.done
-                                ? CardoryColors.gray600
-                                : CardoryColors.gray900,
-                            decoration: todo.done
-                                ? TextDecoration.lineThrough
-                                : null,
-                          ),
+                                fontSize: 13,
+                                color: todo.done
+                                    ? CardoryColors.gray600
+                                    : CardoryColors.gray900,
+                                decoration: todo.done
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                              ),
                         ),
                       ),
                       const SizedBox(width: 6),

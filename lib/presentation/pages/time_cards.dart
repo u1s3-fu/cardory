@@ -306,9 +306,9 @@ class StatsCard extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                          fontSize: 13,
-                        ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium!.copyWith(fontSize: 13),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -468,9 +468,9 @@ class EntriesCard extends StatelessWidget {
                         ),
                         child: Text(
                           _sourceLabel(entry.source),
-                          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                            fontSize: 12,
-                          ),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium!.copyWith(fontSize: 12),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -486,18 +486,18 @@ class EntriesCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodyMedium!
                                   .copyWith(
-                                fontSize: 13,
-                                color: CardoryColors.gray900,
-                              ),
+                                    fontSize: 13,
+                                    color: CardoryColors.gray900,
+                                  ),
                             ),
                             if (_projectTitle(entry.projectId).isNotEmpty)
                               Text(
                                 _projectTitle(entry.projectId),
                                 style: Theme.of(context).textTheme.bodyMedium!
                                     .copyWith(
-                                  fontSize: 12,
-                                  color: CardoryColors.gray600,
-                                ),
+                                      fontSize: 12,
+                                      color: CardoryColors.gray600,
+                                    ),
                               ),
                           ],
                         ),

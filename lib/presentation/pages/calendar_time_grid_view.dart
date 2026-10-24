@@ -62,12 +62,12 @@ class TimeGridView extends StatelessWidget {
                             '周${_weekdayName(day.weekday)} ${day.day}',
                             style: Theme.of(context).textTheme.bodyMedium!
                                 .copyWith(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: localDayKey(now) == day
-                                  ? Theme.of(context).colorScheme.primary
-                                  : CardoryColors.gray600,
-                            ),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: localDayKey(now) == day
+                                      ? Theme.of(context).colorScheme.primary
+                                      : CardoryColors.gray600,
+                                ),
                           ),
                         ),
                       ),
@@ -89,12 +89,11 @@ class TimeGridView extends StatelessWidget {
                               height: _hourHeight,
                               child: Text(
                                 '$hour:00',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.bodyMedium!.copyWith(
-                                  fontSize: 12,
-                                  color: CardoryColors.gray600,
-                                ),
+                                style: Theme.of(context).textTheme.bodyMedium!
+                                    .copyWith(
+                                      fontSize: 12,
+                                      color: CardoryColors.gray600,
+                                    ),
                               ),
                             ),
                         ],

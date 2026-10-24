@@ -1071,7 +1071,10 @@ class _TimeSectionContent extends StatelessWidget {
       return Center(
         child: Text(
           '时间存储未注入，无法使用时间与番茄钟模块。',
-          style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 13, color: CardoryColors.gray500),
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+            fontSize: 13,
+            color: CardoryColors.gray500,
+          ),
         ),
       );
     }
@@ -1091,7 +1094,10 @@ class _GanttSectionContent extends StatelessWidget {
       return Center(
         child: Text(
           '行级存储未注入，无法使用甘特图模块。',
-          style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 13, color: CardoryColors.gray500),
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+            fontSize: 13,
+            color: CardoryColors.gray500,
+          ),
         ),
       );
     }

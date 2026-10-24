@@ -171,9 +171,9 @@ class TodoTile extends StatelessWidget {
           ),
           title: Text(
             '删除',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium!.copyWith(color: cardoryEnsureWhiteContrast(CardoryColors.error)),
+            style: Theme.of(context).textTheme.titleMedium!.copyWith(
+              color: cardoryEnsureWhiteContrast(CardoryColors.error),
+            ),
           ),
           contentPadding: EdgeInsets.zero,
         ),
@@ -258,15 +258,15 @@ class TodoTile extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context).textTheme.bodyMedium!
                                     .copyWith(
-                                  color: todo.done
-                                      ? CardoryColors.gray600
-                                      : CardoryColors.gray900,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: todo.done
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
+                                      color: todo.done
+                                          ? CardoryColors.gray600
+                                          : CardoryColors.gray900,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      decoration: todo.done
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                    ),
                               ),
                             ),
                             if (blocked && !todo.done) ...[
@@ -282,7 +282,9 @@ class TodoTile extends StatelessWidget {
                                     color: CardoryColors.warning.withValues(
                                       alpha: 0.14,
                                     ),
-                                    borderRadius: BorderRadius.circular(CardoryRadius.sm),
+                                    borderRadius: BorderRadius.circular(
+                                      CardoryRadius.sm,
+                                    ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -297,16 +299,17 @@ class TodoTile extends StatelessWidget {
                                       const SizedBox(width: 3),
                                       Text(
                                         '被阻塞',
-                                        style: Theme.of(context).textTheme
+                                        style: Theme.of(context)
+                                            .textTheme
                                             .bodyMedium!
                                             .copyWith(
-                                          color: cardoryEnsureWhiteContrast(
-                                            CardoryColors.warning,
-                                          ),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          height: 1.3,
-                                        ),
+                                              color: cardoryEnsureWhiteContrast(
+                                                CardoryColors.warning,
+                                              ),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              height: 1.3,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -324,19 +327,21 @@ class TodoTile extends StatelessWidget {
                                   color: Theme.of(
                                     context,
                                   ).colorScheme.primary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(CardoryRadius.sm),
+                                  borderRadius: BorderRadius.circular(
+                                    CardoryRadius.sm,
+                                  ),
                                 ),
                                 child: Text(
                                   '进行中',
                                   style: Theme.of(context).textTheme.bodyMedium!
                                       .copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.3,
-                                  ),
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.3,
+                                      ),
                                 ),
                               ),
                             ],
@@ -351,19 +356,21 @@ class TodoTile extends StatelessWidget {
                                   color: CardoryColors.success.withValues(
                                     alpha: 0.12,
                                   ),
-                                  borderRadius: BorderRadius.circular(CardoryRadius.sm),
+                                  borderRadius: BorderRadius.circular(
+                                    CardoryRadius.sm,
+                                  ),
                                 ),
                                 child: Text(
                                   '已完成',
                                   style: Theme.of(context).textTheme.bodyMedium!
                                       .copyWith(
-                                    color: cardoryEnsureWhiteContrast(
-                                      CardoryColors.success,
-                                    ),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.3,
-                                  ),
+                                        color: cardoryEnsureWhiteContrast(
+                                          CardoryColors.success,
+                                        ),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.3,
+                                      ),
                                 ),
                               ),
                             ],
@@ -377,10 +384,10 @@ class TodoTile extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodyMedium!
                                 .copyWith(
-                              color: CardoryColors.gray600,
-                              fontSize: 13,
-                              height: 1.5,
-                            ),
+                                  color: CardoryColors.gray600,
+                                  fontSize: 13,
+                                  height: 1.5,
+                                ),
                           ),
                         const SizedBox(height: 8),
                         Row(
@@ -390,9 +397,9 @@ class TodoTile extends StatelessWidget {
                                 '${todo.projectTitle} · ${todo.dateRangeText}',
                                 style: Theme.of(context).textTheme.bodyMedium!
                                     .copyWith(
-                                  color: CardoryColors.gray600,
-                                  fontSize: 13,
-                                ),
+                                      color: CardoryColors.gray600,
+                                      fontSize: 13,
+                                    ),
                               ),
                             ),
                             if (todo.repeatFrequency != null) ...[
@@ -424,16 +431,19 @@ class TodoTile extends StatelessWidget {
                                   ),
                                   decoration: BoxDecoration(
                                     color: CardoryColors.gray100,
-                                    borderRadius: BorderRadius.circular(CardoryRadius.sm),
+                                    borderRadius: BorderRadius.circular(
+                                      CardoryRadius.sm,
+                                    ),
                                   ),
                                   child: Text(
                                     tag,
-                                    style: Theme.of(context).textTheme
+                                    style: Theme.of(context)
+                                        .textTheme
                                         .bodyMedium!
                                         .copyWith(
-                                      color: CardoryColors.gray600,
-                                      fontSize: 12,
-                                    ),
+                                          color: CardoryColors.gray600,
+                                          fontSize: 12,
+                                        ),
                                   ),
                                 ),
                             ],
@@ -595,9 +605,9 @@ class SubTodoTile extends StatelessWidget {
           ),
           title: Text(
             '删除',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium!.copyWith(color: cardoryEnsureWhiteContrast(CardoryColors.error)),
+            style: Theme.of(context).textTheme.titleMedium!.copyWith(
+              color: cardoryEnsureWhiteContrast(CardoryColors.error),
+            ),
           ),
           contentPadding: EdgeInsets.zero,
         ),

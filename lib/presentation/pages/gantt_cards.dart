@@ -94,23 +94,23 @@ class MilestonesCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodyMedium!
                                   .copyWith(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: milestone.completed
-                                    ? CardoryColors.gray600
-                                    : CardoryColors.gray900,
-                                decoration: milestone.completed
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                              ),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: milestone.completed
+                                        ? CardoryColors.gray600
+                                        : CardoryColors.gray900,
+                                    decoration: milestone.completed
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                  ),
                             ),
                             Text(
                               '${_projectTitle(milestone.projectId)} · ${formatDate(milestone.dueAt)}',
                               style: Theme.of(context).textTheme.bodyMedium!
                                   .copyWith(
-                                fontSize: 12,
-                                color: CardoryColors.gray500,
-                              ),
+                                    fontSize: 12,
+                                    color: CardoryColors.gray500,
+                                  ),
                             ),
                           ],
                         ),
